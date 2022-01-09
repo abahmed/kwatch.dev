@@ -1,6 +1,6 @@
 import React from 'react';
-
-import styles from './community.module.css';
+import clsx from 'clsx';
+import styles from './community.module.scss';
 import classnames from 'classnames';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
@@ -12,10 +12,12 @@ function Community() {
 
   return (
     <Layout title="Community" description="Where to ask questions and get in touch">
-      <header className="hero hero--primary heroBanner_src-pages-index-module">
-        <div className="container text--center">
+      <header id="hero" className={clsx("hero", styles.banner)}>
+        <div className="container">
           <h1 className="hero__title">Community</h1>
-          <p className="hero__subtitle"> These are places where you can ask questions and get in touch!</p>
+          <p className={clsx("hero__subtitle", styles.subtitle)}>
+            These are places where you can ask questions and get in touch!
+          </p>
         </div>
       </header>
       <main>

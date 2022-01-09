@@ -1,10 +1,8 @@
-// @ts-check
-// Note: type annotations allow type checking and IDEs autocompletion
+const logo = {
+  alt: 'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
+  src: 'img/kwatch-logo.png',
+};
 
-const lightCodeTheme = require('prism-react-renderer/themes/github');
-const darkCodeTheme = require('prism-react-renderer/themes/dracula');
-
-/** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'kwatch',
   tagline: 'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
@@ -14,11 +12,15 @@ const config = {
     description:
     'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
   },
+  trailingSlash: false,
   onBrokenLinks: 'log',
   onBrokenMarkdownLinks: 'warn',
-  //favicon: 'img/favicon.ico',
+  favicon: 'img/kwatch-logo.png',
   organizationName: 'kwatch',
   projectName: 'kwatch',
+  plugins: [
+    'docusaurus-plugin-sass',
+  ],
 
   presets: [
     [
@@ -34,17 +36,35 @@ const config = {
           editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
         },
         theme: {
-          customCss: require.resolve('./src/css/custom.css'),
+          customCss: require.resolve('./src/css/custom.scss'),
+        },
+        sitemap: {
+          changefreq: 'weekly',
+          priority: 0.5,
         },
       }),
     ],
   ],
 
   themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      colorMode: {
+        disableSwitch: true,
+        respectPrefersColorScheme: true,
+        switchConfig: {
+          darkIcon: "🌙",
+          darkIconStyle: {
+            marginLeft: "2px",
+          },
+          lightIcon: "☀️",
+          lightIconStyle: {
+            marginLeft: "1px",
+          },
+        },
+      },
       navbar: {
         title: 'kwatch',
+        logo: logo,
         items: [
           {
             type: 'doc',
@@ -71,8 +91,9 @@ const config = {
       },
       announcementBar: {
         id: 'supportus',
-        backgroundColor: '#65b910',
+        backgroundColor: '#0b8df5',
         textColor: 'white',
+        isCloseable: false,
         content: '⭐️ If you like kwatch, give it a star on <a target="_blank" rel="noopener noreferrer" href="https://github.com/abahmed/kwatch">GitHub</a>! ⭐️',
       },
       footer: {
@@ -109,8 +130,8 @@ const config = {
         copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
       },
       prism: {
-        theme: lightCodeTheme,
-        darkTheme: darkCodeTheme,
+        theme: require("prism-react-renderer/themes/github"),
+        darkTheme: require("prism-react-renderer/themes/dracula"),
       },
     }),
 };

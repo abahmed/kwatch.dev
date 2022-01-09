@@ -1,8 +1,13 @@
 ---
 sidebar_position: 2
+title: Cloning and building
+description: a guide for newcomers to contribute to kwatch
+keywords: [kwatch, github, clone, build, go, debian, ubuntu, windows, osx]
+pagination_next: null
+pagination_prev: null
 ---
 
-# Cloning and installing
+# Cloning and building
 
 ### Build prerequisites
 
@@ -49,4 +54,10 @@ In your terminal
 ``` bash
 # Clone kwatch repository
 git clone https://github.com/abahmed/kwatch
+```
+
+### Build kwatch
+In your terminal
+``` bash
+go build
 ```

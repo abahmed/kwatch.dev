@@ -29,7 +29,7 @@ function Header() {
               "button button--primary button--lg",
               styles.getStarted
             )}
-            to={useBaseUrl("docs/intro")}
+            to={useBaseUrl("docs")}
           >
             Get Started
           </Link>

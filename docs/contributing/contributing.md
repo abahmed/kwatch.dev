@@ -1,6 +1,10 @@
 ---
 sidebar_position: 1
-
+title: Contributing
+description: a guide for newcomers to contribute to kwatch
+keywords: [kwatch, newcomers, contribute, development]
+pagination_next: null
+pagination_prev: null
 ---
 # Contributing
 
@@ -20,16 +24,16 @@ Before making changes, please first discuss the change you want to make through 
 If you wish to work on an issue, please comment on the issue that you want to work on it. This is to prevent duplicated efforts on the same issue.
 
 
-Contributions to kwatch should be made in the form of **pull requests** (PR) to the **master** branch.
+Contributions to kwatch should be made in the form of **pull requests** (PR) to the **main** branch.
 
 Each pull request will be **reviewed by someone with permission to land patches**.
 
-After reviewing the patch, it could be merged to the **master** branch or given feedback for changes. (Seems not clear to you! Don't worry, we have added tutorials for [Github Workflow](./GitHub-workflow)
+After reviewing the patch, it could be merged to the **main** branch or given feedback for changes. (Seems not clear to you! Don't worry, we have added tutorials for [Github Workflow](./contributing/GitHub-workflow)
 
 
 ### Code of Conduct
 
-We expect everyone to follow the [Code Of Conduct](https://github.com/abahmed/kwatch/blob/master/CODE_OF_CONDUCT.md)
+We expect everyone to follow the [Code Of Conduct](https://github.com/abahmed/kwatch/blob/main/CODE_OF_CONDUCT.md)
 
 ### Useful links for collaborators/mantainers
 

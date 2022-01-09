@@ -1,5 +1,10 @@
 ---
 sidebar_position: 3
+title: GitHub workflow
+description: a guide for github workflow used in developing kwatch
+keywords: [kwatch,git, github, contribute, development, workflow, fork]
+pagination_next: null
+pagination_prev: null
 ---
 # GitHub workflow
 
@@ -21,7 +26,7 @@ Firstly, You need to [Fork](https://help.github.com/articles/fork-a-repo/) kwatc
 
     ```
     git fetch upstream
-    git checkout -b LOCAL_BRANCH_NAME upstream/master
+    git checkout -b LOCAL_BRANCH_NAME upstream/main
     ```
 
 2. Do your code changes then commit
@@ -50,5 +55,5 @@ Firstly, You need to [Fork](https://help.github.com/articles/fork-a-repo/) kwatc
 
     ```
     git fetch upstream
-    git rebase upstream/master
+    git rebase upstream/main
     ```

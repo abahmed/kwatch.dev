@@ -29,11 +29,11 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
+          //editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
         },
         blog: {
           showReadingTime: true,
-          editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
+          //editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.scss'),
@@ -66,12 +66,7 @@ const config = {
         title: 'kwatch',
         logo: logo,
         items: [
-          {
-            type: 'doc',
-            docId: 'intro',
-            position: 'left',
-            label: 'Docs',
-          },
+          {to: '/docs', label: 'Docs', position: 'left'},
           {to: '/docs/contributing', label: 'Contributing', position: 'left'},
           {to: '/blog', label: 'Blog', position: 'left'},
           {to: 'community', label: 'Community', position: 'right'},

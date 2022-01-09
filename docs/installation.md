@@ -52,7 +52,10 @@ data:
     namespaces:
       - <optional_namespace>
 ```
-It contains full configurations that kwatch might have. you don't need to use all of them
+
+It contains full configurations that kwatch might have.
+
+**you don't need to use all of them, check [General Configuration](./general-configuration) and [Channels](./channels)**
 
 You need to update, or remove `<...>` this with your configuration and **remove unused configs**
 

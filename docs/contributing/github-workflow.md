@@ -2,7 +2,7 @@
 sidebar_position: 3
 title: GitHub workflow
 description: a guide for github workflow used in developing kwatch
-keywords: [kwatch,git, github, contribute, development, workflow, fork]
+keywords: [kwatch, git, github, contribute, development, workflow, fork]
 pagination_next: null
 pagination_prev: null
 ---

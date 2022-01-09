@@ -50,7 +50,7 @@ const config = {
     ({
       colorMode: {
         disableSwitch: true,
-        respectPrefersColorScheme: true,
+        respectPrefersColorScheme: false,
         switchConfig: {
           darkIcon: "🌙",
           darkIconStyle: {

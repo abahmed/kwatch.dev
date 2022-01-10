@@ -33,6 +33,7 @@ const config = {
         },
         blog: {
           showReadingTime: true,
+          blogSidebarCount: 0,
           //editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/',
         },
         theme: {

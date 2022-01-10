@@ -1,0 +1,112 @@
+---
+slug: detect-crashes-in-your-cluster-using-kwatch-and-slack
+title: Detect crashes in your Kubernetes cluster using kwatch and Slack
+authors: [andrew]
+tags: [kwatch, kubernetes, devops, monitoring, slack, cluster, webhook, crash]
+keywords: [kwatch, kubernetes, devops, monitoring, slack, cluster, webhook, crash]
+pagination_next: null
+pagination_prev: null
+description: monitor all changes in your Kubernetes cluster & detects crashes in your running apps in real time with Slack
+---
+
+## What is kwatch?
+
+kwatch is an open-source project that started late in 2021.
+It aims to help you monitor all changes in your Kubernetes(K8s) cluster,
+detect crashes in your running apps, and publish notifications to your favorite channels (Slack, Discord, etc.) in real-time.
+
+**In this tutorial, I will help you setup and deploy kwatch on your Kubernetes cluster.**
+**Plus, integrate with Slack to get notified on a channel when there is a crash in your apps.**
+
+
+## Configure kwatch with Slack
+
+First of all, we need to get the webhook URL of the channel you want the notification to be received on it.
+
+*If you know how to generate the webhook URL you can escape this part and go to the configuration section.*
+
+**Step 1: create a new slack channel (if you don't have one already)**
+
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/1.png" />
+</p>
+
+**Step 2: Go to https://api.slack.com/apps and create an app from scratch and connect it with your workplace**
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/2.png" />
+</p>
+
+**Step 3: Create an incoming webhook and activate it**
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/3.png" />
+</p>
+
+**Step 4: Connect it to you channel**
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/4.png" />
+</p>
+
+Finally we have the webhook URL for the channel!
+
+
+**Step 5: Get Configuration**
+
+Get the configuration template
+
+```bash
+curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/config.yaml -o config.yaml
+```
+
+**Step 6: Edit config.yaml with the corresponding configs**
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kwatch
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kwatch
+  namespace: kwatch
+data:
+  config.yaml: |
+    alert:
+      slack:
+        webhook: WEBHOOK_URL
+```
+
+**Step 7: Apply Configuration**
+
+```bash
+kubectl apply -f config.yaml
+```
+
+## Deploy kwatch
+
+Deploy kwatch on your cluster with one command
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/deploy.yaml
+```
+
+After deploying you will get notified on the channel that kwatch has started successfully. Now, kwatch is monitoring your apps!
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/5.png" />
+</p>
+
+Here is an example of kwatch messages when a crash is detected.
+
+<p align="center">
+    <img src="./../../img/blog/kwatch-slack/6.png" />
+</p>
+
+*If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)!*
+
+*We are happy to hear feedback from you and if you have any request, or suggestion don't hesitate to ping us on our channels ([Discord](https://discord.gg/kzJszdKmJ7), [GitHub](https://github.com/abahmed/kwatch))*

@@ -14,11 +14,7 @@ pagination_prev: null
 detects crashes in your running apps in realtime,
 and publishes notifications to your channels instantly
 
-
-### Supported Channels
-- [Slack](https://slack.com)
-- [Rocket.Chat](https://rocket.chat)
-- [Microsoft Teams](https://www.microsoft.com/en-us/microsoft-teams)
-- [Discord](https://discord.com)
-- [PagerDuty](https://www.pagerduty.com)
-- [Telegram](https://telegram.org)
+### Check our guide
+- [Installation](./docs/installation)
+- [General Configuration](./docs/general-configuration)
+- [Configure Channels](./docs/channels)

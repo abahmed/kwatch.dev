@@ -101,7 +101,7 @@ const config = {
             items: [
               {
                 label: 'Getting started',
-                to: 'docs/intro',
+                to: 'docs',
               },
               {to: '/docs/contributing', label: 'Contributing'},
               {

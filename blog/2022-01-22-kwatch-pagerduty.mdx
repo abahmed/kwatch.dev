@@ -1,0 +1,51 @@
+# Using kwatch and PagerDuty to monitor your Kubernetes (K8s) cluster.
+
+### **Step 1: Navigate to the Service Directory and create a new service**
+![1](./../static/img/blog/kwatch-pagerduty/1.png)
+### **Step 2: Give your service a Name and a Description**
+![2](./../static/img/blog/kwatch-pagerduty/2.png)
+### **Step 3: Add an [**Escalation Policy**](https://support.pagerduty.com/docs/escalation-policies)**
+![3](./../static/img/blog/kwatch-pagerduty/3.png)
+### **Step 4: Make sure to add the [**Events API V2**](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODI2Nw-send-an-event-to-pager-duty) Integration**
+![4](./../static/img/blog/kwatch-pagerduty/4.png)
+### **Step 5: Navigate to your service and select the Integrations tab and copy the Integration Key**
+![5](./../static/img/blog/kwatch-pagerduty/5.png)
+### **Step 6: Get the configuration template**
+```shell
+curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/config.yaml -o config.yaml
+```
+### **Step 7: Edit `config.yaml` file and add the Integration Key**
+```yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kwatch
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kwatch
+  namespace: kwatch
+data:
+  config.yaml: |
+    alert:
+      pagerduty:
+        integrationKey: <integration_key>
+```
+### **Step 8: Apply the configuration**
+```shell
+kubectl apply -f config.yaml
+```
+### **Step 8: Deploy kwatch**
+```shell
+kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/deploy.yaml
+```
+
+**You will now start receiving PagerDuty alerts whenever there is a pod crash in your Kubernetes (K8s) cluster!**
+
+_If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)_!
+
+
+
+
+

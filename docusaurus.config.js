@@ -44,7 +44,7 @@ const config = {
           priority: 0.5,
         },
         googleAnalytics: {
-          trackingID: 'UA-162766515-1',
+          trackingID: 'UA-162766515-2',
           anonymizeIP: true,
         },
       }),

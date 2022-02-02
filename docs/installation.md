@@ -16,7 +16,7 @@ You can install kwatch into your kubernetes(k8s) cluster easily in one command
 Get the configuration template
 
 ```bash
-curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/config.yaml -o config.yaml
+curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.4.0/deploy/config.yaml -o config.yaml
 ```
 
 Here is an example of the configuration file
@@ -35,6 +35,7 @@ metadata:
 data:
   config.yaml: |
     maxRecentLogLines: <optional_number_of_lines>
+    ignoreFailedGracefulShutdown: <optional_boolean>
     alert:
       slack:
         webhook: <webhook_url>
@@ -49,6 +50,10 @@ data:
           webhook: <webhook_url>
       rocketchat:
           webhook: <webhook_url>
+      mattermost:
+          webhook: <webhook_url>
+      opsgenie:
+        apiKey: <api_key>
     namespaces:
       - <optional_namespace>
 ```
@@ -73,5 +78,5 @@ kubectl apply -f config.yaml
 Deploy kwatch on your cluster with one command
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.4.0/deploy/deploy.yaml
 ```

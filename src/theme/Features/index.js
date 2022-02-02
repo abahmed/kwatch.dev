@@ -1,6 +1,5 @@
 import React from "react";
 import clsx from "clsx";
-import useThemeContext from '@theme/hooks/useThemeContext';
 
 import styles from "./styles.module.scss";
 

@@ -43,8 +43,8 @@ const config = {
           changefreq: 'weekly',
           priority: 0.5,
         },
-        googleAnalytics: {
-          trackingID: 'UA-162766515-2',
+        gtag: {
+          trackingID: '302070010',
           anonymizeIP: true,
         },
       }),

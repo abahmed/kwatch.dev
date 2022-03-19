@@ -13,8 +13,9 @@ pagination_prev: null
 | Parameter                |  Description                              | Required       | Default   |
 |:-------------------------|:----------------------------------------- |:-------------- |:----------|
 | `maxRecentLogLines`  |  Optional Max tail log lines in messages, if it's not provided it will get all log lines webhook URL                      | No            | 0  |
-| `namespaces`    |  Optional list of namespaces that you want to watch, if it's not provided it will watch all namespaces      | No             | [] |
+| `namespaces`    |  Optional comma separated list of namespaces that you want to watch or forbid, if it's not provided it will watch all namespaces. If you want to forbid a namespace, configure it with "!<namespace_name>". You can either set forbidden namespaces or allowed, not both.      | No             | [] |
 | `ignoreFailedGracefulShutdown` | If set to true, containers which are forcefully killed during shutdown (as their graceful shutdown failed) are not reported as error | No | false |
+| `disableUpdateCheck` | If set to true, does not check for and notify about kwatch updates | No | false |
 
 
 ### Example

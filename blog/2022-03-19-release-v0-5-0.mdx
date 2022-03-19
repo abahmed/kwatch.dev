@@ -1,0 +1,41 @@
+---
+slug: release-v0-5-0
+title: v0.5.0 is released!
+authors: [abahmed]
+tags: [kwatch, kubernetes, devops, monitoring, release]
+keywords: [kwatch, kubernetes, devops, monitoring, release, cluster, crash, v0.5.0]
+description: monitor all changes in your Kubernetes cluster & detects crashes in your running apps in real time
+pagination_prev: null
+---
+
+We are glad to announce that [v0.5.0](https://github.com/abahmed/kwatch/releases/tag/v0.5.0) of kwatch is released! :tada::tada::tada:
+<!--truncate-->
+
+## 🚀 What's New
+* Use slack blocks in slack handler by [@simonfrey](https://github.com/simonfrey) in https://github.com/abahmed/kwatch/pull/63
+* Feature/allow to disable update check by [@simonfrey](https://github.com/simonfrey) in https://github.com/abahmed/kwatch/pull/67
+* Add namespace forbid list, to allow all namespaces except certain ones by [@simonfrey](https://github.com/simonfrey) in https://github.com/abahmed/kwatch/pull/70
+
+## 🧰 Maintenance
+* ⬆️ Bump github.com/slack-go/slack from 0.10.1 to 0.10.2 by @dependabot in https://github.com/abahmed/kwatch/pull/69
+* add(Helm): by @yaskinny in https://github.com/abahmed/kwatch/pull/74
+* ⬆️ Bump k8s.io/client-go from 0.23.3 to 0.23.4 by @dependabot in https://github.com/abahmed/kwatch/pull/73
+* ⬆️ Bump github.com/bwmarrin/discordgo from 0.23.2 to 0.24.0 by @dependabot in https://github.com/abahmed/kwatch/pull/77
+* ⬆️ Bump k8s.io/client-go from 0.23.4 to 0.23.5 by @dependabot in https://github.com/abahmed/kwatch/pull/80
+
+## ⬆️ How to Upgrade
+
+There are no breaking changes, just deploy the new version from any previous version using
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.5.0/deploy/deploy.yaml
+```
+
+## 🌟 New Contributors
+
+* [@romualdofernandes](https://github.com/romualdofernandes) made their first contribution in https://github.com/abahmed/kwatch/pull/45
+* [@dependabot](https://github.com/dependabot)made their first contribution in https://github.com/abahmed/kwatch/pull/46
+* [@simonfrey](https://github.com/simonfrey) made their first contribution in https://github.com/abahmed/kwatch/pull/54
+
+
+**If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)!**

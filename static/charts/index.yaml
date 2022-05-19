@@ -3,7 +3,7 @@ entries:
   kwatch:
   - apiVersion: v2
     appVersion: v0.5.0
-    created: "2022-05-19T17:35:31.649165+02:00"
+    created: "2022-05-19T17:40:34.521153+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -28,6 +28,6 @@ entries:
     - https://github.com/abahmed/kwatch
     type: application
     urls:
-    - kwatch-v0.5.0.tgz
+    - https://kwatch.dev/charts/kwatch-v0.5.0.tgz
     version: v0.5.0
-generated: "2022-05-19T17:35:31.648574+02:00"
+generated: "2022-05-19T17:40:34.520143+02:00"

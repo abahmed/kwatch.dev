@@ -1,0 +1,59 @@
+---
+slug: release-v0-6-0
+title: v0.6.0 is released!
+authors: [abahmed]
+tags: [kwatch, kubernetes, devops, monitoring, release]
+keywords: [kwatch, kubernetes, devops, monitoring, release, cluster, crash, v0.6.0]
+description: monitor all changes in your Kubernetes cluster & detects crashes in your running apps in real time
+pagination_prev: null
+---
+
+We are glad to announce that [v0.6.0](https://github.com/abahmed/kwatch/releases/tag/v0.6.0) of kwatch is released! :tada::tada::tada:
+<!--truncate-->
+
+## 🚀 What's New
+
+* Allow filtering by reasons by @simonfrey in #104
+* feat: truncate logs to respect Discord's API requirements by @Tchoupinax in #105
+* Fix copy-paste mistake for reasons parsing by @simonfrey in #110
+* Run in a namespace context by @kdihalas in #115
+* Fix typo by @unixfox in #95
+
+
+## 🧰 Maintenance
+
+* Improve Documentation by @oguzhanoyan in #87
+* Refactor/helm by @eremeevfd in #88
+* ⬆️ Bump github.com/spf13/viper from 1.10.1 to 1.11.0 by @dependabot in #89
+* ⬆️ Bump github.com/bwmarrin/discordgo from 0.24.0 to 0.25.0 by @dependabot in #90
+* ⬆️ Bump k8s.io/client-go from 0.23.5 to 0.23.6 by @dependabot in #93
+* ⬆️ Bump github.com/slack-go/slack from 0.10.2 to 0.10.3 by @dependabot in #94
+* ⬆️ Bump k8s.io/client-go from 0.23.6 to 0.24.0 by @dependabot in #96
+* ⬆️ Bump k8s.io/client-go from 0.24.0 to 0.24.1 by @dependabot in #99
+* ⬆️ Bump github.com/spf13/viper from 1.11.0 to 1.12.0 by @dependabot in #102
+* ⬆️ Bump github.com/slack-go/slack from 0.10.3 to 0.11.0 by @dependabot in #106
+* ⬆️ Bump k8s.io/client-go from 0.24.1 to 0.24.2 by @dependabot in #107
+* ⬆️ Bump k8s.io/client-go from 0.24.2 to 0.24.3 by @dependabot in #114
+* ⬆️ Bump github.com/sirupsen/logrus from 1.8.1 to 1.9.0 by @dependabot in #116
+* ⬆️ Bump github.com/slack-go/slack from 0.11.0 to 0.11.1 by @dependabot in #117
+
+
+## ⬆️ How to Upgrade
+
+There are no breaking changes, just deploy the new version from any previous version using
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.6.0/deploy/deploy.yaml
+```
+
+
+## 🌟 New Contributors
+
+* [@oguzhanoyan](https://github.com/oguzhanoyan) made their first contribution in https://github.com/abahmed/kwatch/pull/87
+* [@eremeevfd](https://github.com/eremeevfd)made their first contribution in https://github.com/abahmed/kwatch/pull/88
+* [@unixfox](https://github.com/unixfox) made their first contribution in https://github.com/abahmed/kwatch/pull/95
+* [@Tchoupinax](https://github.com/Tchoupinax) made their first contribution in https://github.com/abahmed/kwatch/pull/105
+* [@kdihalas](https://github.com/kdihalas) made their first contribution in https://github.com/abahmed/kwatch/pull/115
+
+
+**If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)!**

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 11
 title: FeiShu
 description: kwatch configuration for feishu
 keywords: [kwatch, feishu, monitor, detect, crash, kubernetes, cluster]

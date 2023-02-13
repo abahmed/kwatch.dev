@@ -15,6 +15,7 @@ detects crashes in your running apps in realtime,
 and publishes notifications to your channels instantly
 
 ### Check our guide
+
 - [Installation](./docs/installation)
 - [General Configuration](./docs/general-configuration)
 - [Configure Channels](./docs/channels)

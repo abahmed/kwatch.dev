@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 8
 title: High Level Architecture
 description: High Level Architecture and design of kwatch
 keywords: [kwatch, kubernetes, architecture, design]

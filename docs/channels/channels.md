@@ -2,12 +2,11 @@
 sidebar_position: 1
 title: Channels
 description: supported channels by kwatch to send notification
-keywords: [kwatch, channels, notification, slack, discord, teams, rocket, telegram, pagerduty]
+keywords: [kwatch, channels, notification, slack, discord, teams, rocket, telegram, pagerduty, mattermost, opsgenie, matrix, dingtalk, feishu]
 pagination_next: null
 pagination_prev: null
 ---
 # Channels
-
 
 Here is a list of support channels by kwatch and their configuration in kwatch
 
@@ -24,4 +23,3 @@ Here is a list of support channels by kwatch and their configuration in kwatch
 - [Matrix](./channels/matrix)
 - [DingTalk](./channels/dingtalk)
 - [FeiShu](./channels/feishu)
-

@@ -12,9 +12,16 @@ pagination_prev: null
 Here is a list of support channels by kwatch and their configuration in kwatch
 
 ### Supported Channels
+
 - [Slack](./channels/slack)
 - [Discord](./channels/discord)
 - [Microsoft Teams](./channels/ms-teams)
 - [Rocket.Chat](./channels/rocketchat)
 - [PagerDuty](./channels/pagerduty)
 - [Telegram](./channels/telegram)
+- [Mattermost](./channels/mattermost)
+- [Opsgenie](./channels/opsgenie)
+- [Matrix](./channels/matrix)
+- [DingTalk](./channels/dingtalk)
+- [FeiShu](./channels/feishu)
+

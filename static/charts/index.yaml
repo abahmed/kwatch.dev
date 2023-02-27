@@ -2,8 +2,37 @@ apiVersion: v1
 entries:
   kwatch:
   - apiVersion: v2
-    appVersion: v0.6.1
-    created: "2022-05-19T17:40:34.521153+02:00"
+    appVersion: v0.8.0
+    created: "2023-02-27T22:29:55.727029+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: 203bada681c03ecb82511c0a3f8b5925d9b6cc37d0e3aeb21314dbceb85cd4f9
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.0.tgz
+    version: 0.8.0
+  - apiVersion: v2
+    appVersion: v0.5.0
+    created: "2023-02-27T22:29:55.727591+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -28,6 +57,6 @@ entries:
     - https://github.com/abahmed/kwatch
     type: application
     urls:
-    - https://kwatch.dev/charts/kwatch-v0.6.1.tgz
-    version: v0.6.1
-generated: "2022-05-19T17:40:34.520143+02:00"
+    - https://kwatch.dev/charts/kwatch-v0.5.0.tgz
+    version: v0.5.0
+generated: "2023-02-27T22:29:55.726036+02:00"

@@ -23,3 +23,4 @@ Here is a list of support channels by kwatch and their configuration in kwatch
 - [Matrix](./channels/matrix)
 - [DingTalk](./channels/dingtalk)
 - [FeiShu](./channels/feishu)
+- [FeiShu](./channels/webhook)

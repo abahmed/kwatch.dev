@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkkwatch=self.webpackChunkkwatch||[]).push([[202],{383:t=>{t.exports=JSON.parse('{"permalink":"/blog/tags/kwatch","page":1,"postsPerPage":10,"totalPages":1,"totalCount":8,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

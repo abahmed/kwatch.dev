@@ -1,0 +1,149 @@
+apiVersion: v1
+entries:
+  kwatch:
+  - apiVersion: v2
+    appVersion: v0.8.3
+    created: "2023-03-13T22:58:59.87525+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: 32c66acdb37e7e88845fa1846169cdd8caeb71c3ea9bef3924d341f9bb44282e
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.3.tgz
+    version: 0.8.3
+  - apiVersion: v2
+    appVersion: v0.8.2
+    created: "2023-03-13T22:58:59.874792+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: 4742038390fd6219a97f8f9667e1daca9e95a62ef315d6ca7f02246544acaa44
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.2.tgz
+    version: 0.8.2
+  - apiVersion: v2
+    appVersion: v0.8.1
+    created: "2023-03-13T22:58:59.874287+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: a4142af3a2ae337666af22b3594c23e10c6caec2d3d65f3bd3cbdb6f1161faac
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.1.tgz
+    version: 0.8.1
+  - apiVersion: v2
+    appVersion: v0.8.0
+    created: "2023-03-13T22:58:59.873643+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: 203bada681c03ecb82511c0a3f8b5925d9b6cc37d0e3aeb21314dbceb85cd4f9
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.0.tgz
+    version: 0.8.0
+  - apiVersion: v2
+    appVersion: v0.5.0
+    created: "2023-03-13T22:58:59.875847+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: 3463c1ee68ff62a7f34fbb4b6adc9a967159650c5a5afff83430eff9b7ae34ca
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-v0.5.0.tgz
+    version: v0.5.0
+generated: "2023-03-13T22:58:59.872109+02:00"

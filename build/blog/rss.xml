@@ -10,8 +10,8 @@
         <language>en</language>
         <item>
             <title><![CDATA[Monitor Persistent Volumes in your cluster using kwatch]]></title>
-            <link>https://kwatch.dev/blog/monitor-pvc</link>
-            <guid>https://kwatch.dev/blog/monitor-pvc</guid>
+            <link>https://kwatch.dev/blog/monitor-pvc-usage</link>
+            <guid>https://kwatch.dev/blog/monitor-pvc-usage</guid>
             <pubDate>Tue, 14 Mar 2023 00:00:00 GMT</pubDate>
             <description><![CDATA[monitor Persistent Volumes (PV) usage in your cluster using kwatch]]></description>
             <content:encoded><![CDATA[<p>In this tutorial, I will help you set up and deploy kwatch on your Kubernetes

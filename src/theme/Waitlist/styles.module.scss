@@ -1,0 +1,21 @@
+.installation {
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+  background-color: var(--ifm-background-surface-color);
+}
+.headline {
+  margin-bottom: 2rem;
+}
+
+.category {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary-light);
+}
+
+.subtitle {
+  margin-top: 2rem;
+  color: var(--ifm-color-emphasis-600);
+}

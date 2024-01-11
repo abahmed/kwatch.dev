@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkwatch=self.webpackChunkkwatch||[]).push([[580],{7069:a=>{a.exports=JSON.parse('{"label":"pvc","permalink":"/blog/tags/pvc","allTagsPath":"/blog/tags","count":1}')}}]);

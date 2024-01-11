@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkwatch=self.webpackChunkkwatch||[]).push([[7007],{9064:a=>{a.exports=JSON.parse('{"label":"docker","permalink":"/blog/tags/docker","allTagsPath":"/blog/tags","count":1}')}}]);

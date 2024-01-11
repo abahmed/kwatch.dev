@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkwatch=self.webpackChunkkwatch||[]).push([[9524],{5128:t=>{t.exports=JSON.parse('{"permalink":"/blog/tags/monitoring","page":1,"postsPerPage":10,"totalPages":1,"totalCount":6,"blogDescription":"Blog","blogTitle":"Blog"}')}}]);

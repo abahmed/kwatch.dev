@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkkwatch=self.webpackChunkkwatch||[]).push([[8399],{3570:a=>{a.exports=JSON.parse('{"label":"downloads","permalink":"/blog/tags/downloads","allTagsPath":"/blog/tags","count":1}')}}]);

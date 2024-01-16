@@ -2,8 +2,37 @@ apiVersion: v1
 entries:
   kwatch:
   - apiVersion: v2
+    appVersion: v0.8.4
+    created: "2024-01-17T01:10:14.132225+02:00"
+    description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
+      in your running apps in realtime, and publishes notifications to your channels
+      (Slack, Discord, etc.) instantly
+    digest: db5ad9644cec2d0503c4e20141e041828243e62aaa74b094e751dcd1e4fe3e0a
+    home: https://kwatch.dev
+    icon: https://kwatch.dev/img/kwatch-logo.png
+    keywords:
+    - kwatch
+    - kubernetes
+    - monitoring
+    - crash-reporting
+    - event-notifier
+    maintainers:
+    - email: a.ahmed1026@gmail.com
+      name: Abdelrahman Ahmed
+      url: github.com/abahmed
+    - email: yaserkalali.work@gmail.com
+      name: yaser
+      url: github.com/yaskinny
+    name: kwatch
+    sources:
+    - https://github.com/abahmed/kwatch
+    type: application
+    urls:
+    - https://kwatch.dev/charts/kwatch-0.8.4.tgz
+    version: 0.8.4
+  - apiVersion: v2
     appVersion: v0.8.3
-    created: "2023-03-13T22:58:59.87525+02:00"
+    created: "2024-01-17T01:10:14.131801+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -32,7 +61,7 @@ entries:
     version: 0.8.3
   - apiVersion: v2
     appVersion: v0.8.2
-    created: "2023-03-13T22:58:59.874792+02:00"
+    created: "2024-01-17T01:10:14.131378+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -61,7 +90,7 @@ entries:
     version: 0.8.2
   - apiVersion: v2
     appVersion: v0.8.1
-    created: "2023-03-13T22:58:59.874287+02:00"
+    created: "2024-01-17T01:10:14.130906+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -90,7 +119,7 @@ entries:
     version: 0.8.1
   - apiVersion: v2
     appVersion: v0.8.0
-    created: "2023-03-13T22:58:59.873643+02:00"
+    created: "2024-01-17T01:10:14.130356+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -119,7 +148,7 @@ entries:
     version: 0.8.0
   - apiVersion: v2
     appVersion: v0.5.0
-    created: "2023-03-13T22:58:59.875847+02:00"
+    created: "2024-01-17T01:10:14.132643+02:00"
     description: monitor all changes in your Kubernetes(K8s) cluster, detects crashes
       in your running apps in realtime, and publishes notifications to your channels
       (Slack, Discord, etc.) instantly
@@ -146,4 +175,4 @@ entries:
     urls:
     - https://kwatch.dev/charts/kwatch-v0.5.0.tgz
     version: v0.5.0
-generated: "2023-03-13T22:58:59.872109+02:00"
+generated: "2024-01-17T01:10:14.128872+02:00"

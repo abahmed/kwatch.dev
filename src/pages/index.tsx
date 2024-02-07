@@ -15,7 +15,6 @@ export default function Home(): JSX.Element {
       <Header />
       <main className={styles.main}>
         <Features />
-        <Waitlist />
         <Installation />
       </main>
     </Layout>

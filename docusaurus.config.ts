@@ -87,7 +87,7 @@ const config: Config = {
         {to: '/docs', label: 'Docs', position: 'left'},
         {to: '/docs/contributing', label: 'Contributing', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
-        {to: 'https://join.kwatch.dev', label: 'Join Waitlist', position: 'right'},
+        // {to: 'https://join.kwatch.dev', label: 'Join Waitlist', position: 'right'},
         {to: 'community', label: 'Community', position: 'right'},
         {
           href: 'https://github.com/abahmed/kwatch/releases/latest',
@@ -103,13 +103,14 @@ const config: Config = {
         },
       ],
     },
+    /*
     announcementBar: {
       id: 'supportus',
       backgroundColor: '#0b8df5',
       textColor: 'white',
       isCloseable: false,
       content: '⭐️ We\'re working on SAAS version of kwatch that provides User interface, optimized notifications, more details about crashes, and more. you can join <a href="https://join.kwatch.dev">the waitlist</a>! ⭐️',
-    },
+    },*/
     footer: {
       style: 'dark',
       links: [

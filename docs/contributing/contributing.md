@@ -28,7 +28,7 @@ Contributions to kwatch should be made in the form of **pull requests** (PR) to 
 
 Each pull request will be **reviewed by someone with permission to land patches**.
 
-After reviewing the patch, it could be merged to the **main** branch or given feedback for changes. (Seems not clear to you! Don't worry, we have added tutorials for [Github Workflow](./contributing/GitHub-workflow)
+After reviewing the patch, it could be merged to the **main** branch or given feedback for changes. (Seems not clear to you! Don't worry, we have added tutorials for [Github Workflow](./contributing/github-workflow)
 
 
 ### Code of Conduct

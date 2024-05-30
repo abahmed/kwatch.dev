@@ -1,13 +1,13 @@
 ---
 sidebar_position: 4
-title: Google.Chat
+title: Google Chat
 description: kwatch configuration for google chat
 keywords: [kwatch, googlechat, monitor, detect, crash, kubernetes, cluster]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Google.Chat
+# Google Chat
 
 If you want to enable Google Chat, provide the webhook with optional text
 

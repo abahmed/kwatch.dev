@@ -17,6 +17,8 @@ pagination_prev: null
 | `ignoreFailedGracefulShutdown` | If set to true, containers which are forcefully killed during shutdown (as their graceful shutdown failed) are not reported as error     |
 | `ignoreContainerNames`         | Optional comma separated list of container names to ignore    |
 | `ignorePodNames`               | Optional list of pod name regexp patterns to ignore    |
+| `IgnoreLogPatterns`            | Optional list of regexp patterns of logs to ignore     |
+
 
 ### Example
 

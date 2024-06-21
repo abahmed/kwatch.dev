@@ -14,7 +14,7 @@ function Installation() {
               <h4 className={styles.subtitle}>Get Configuration</h4>
               <CodeSnippet
                 language="bash"
-                code="curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.9.3/deploy/config.yaml -o config.yaml"
+                code="curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.9.4/deploy/config.yaml -o config.yaml"
               />
               <h4 className={styles.subtitle}>Apply Configuration</h4>
               <CodeSnippet
@@ -24,7 +24,7 @@ function Installation() {
               <h4 className={styles.subtitle}>Deploy kwatch</h4>
               <CodeSnippet
                 language="bash"
-                code="kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.9.3/deploy/deploy.yaml"
+                code="kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.9.4/deploy/deploy.yaml"
               />
             </div>
           </div>

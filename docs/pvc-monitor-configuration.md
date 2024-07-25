@@ -11,9 +11,9 @@ pagination_prev: null
 
 | Parameter                |  Description                              | Required       | Default   |
 |:-------------------------|:----------------------------------------- |:-------------- |:----------|
-| `pvcMonitor.enabled`         | to enable or disable this module (default: true) |
-| `pvcMonitor.interval`        | the frequency (in minutes) to check pvc usage in the cluster  (default: 15) |
-| `pvcMonitor.threshold`       | the percentage of accepted pvc usage. if current usage exceeds this value, it will send a notification (default: 80) |
+| `pvcMonitor.enabled`         | to enable or disable this module (default: true) | false | true |
+| `pvcMonitor.interval`        | the frequency (in minutes) to check pvc usage in the cluster  (default: 15) | false | 15 |
+| `pvcMonitor.threshold`       | the percentage of accepted pvc usage. if current usage exceeds this value, it will send a notification (default: 80) | false | 80 |
 
 ### Example
 

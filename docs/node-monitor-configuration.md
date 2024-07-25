@@ -1,17 +1,18 @@
 ---
-sidebar_position: 8
-title: Upgrader Configuration
-description: upgrader configuration used in kwatch
-keywords: [kwatch, kubernetes, configuration, upgrader]
+sidebar_position: 7
+title: Node Monitoring Configuration
+description: node monitoring configuration used in kwatch
+keywords: [kwatch, kubernetes, configuration, monitor, node, machine]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Upgrader Configuration
+## Node Monitoring Configuration
 
 | Parameter                |  Description                              | Required       | Default   |
 |:-------------------------|:----------------------------------------- |:-------------- |:----------|
-| `upgrader.disableUpdateCheck` | If set to true, does not check for and notify about kwatch updates |
+| `nodeMonitor.enabled`    | to enable or disable this module (default: true) | false | true |
+
 
 ### Example
 
@@ -28,6 +29,6 @@ metadata:
   namespace: kwatch
 data:
   config.yaml: |
-    upgrader:
-        disableUpdateCheck: true
+    nodeMonitor:
+        enabled: true
 ```

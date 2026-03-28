@@ -13,6 +13,7 @@ pagination_prev: null
 |:-------------------------|:----------------------------------------- |:-------------- |:----------|
 | `app.proxyURL` | used in outgoing http(s) requests except Kubernetes requests to cluster optionally | false | "" |
 | `app.clusterName` | used in notifications to indicate which cluster has issue | true | "" |
+| `app.disableStartupMessage` | If set to true, welcome message will not be sent to notification channels | false | false |
 | `app.logFormatter` | used for setting custom formatter when app prints logs: text, json  | false | text |
 
 

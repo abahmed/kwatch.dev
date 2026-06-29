@@ -1,35 +1,760 @@
 .banner {
-  padding: 4rem 0;
+  padding: 5rem 0 4rem;
   text-align: center;
   position: relative;
   overflow: hidden;
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  background: var(--kwatch-gradient-light);
+  background-size: 200% 200%;
+  animation: fadeIn 0.8s ease, gradientShift 12s ease infinite 1s;
 
   @media screen and (max-width: 966px) {
-    padding: 2rem;
+    padding: 3rem 1rem;
+    min-height: auto;
   }
 }
 
-.logo {
-  max-width: 160px;
+.glowOrb1 {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14,165,233,0.12) 0%, transparent 70%);
+  top: -150px;
+  left: -100px;
+  animation: floatSlow 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.glowOrb2 {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+  bottom: -100px;
+  right: -80px;
+  animation: floatSlow 10s ease-in-out infinite reverse;
+  pointer-events: none;
+}
+
+.glowOrb3 {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 70%);
+  top: 30%;
+  right: 15%;
+  animation: floatSlow 7s ease-in-out infinite 2s;
+  pointer-events: none;
+}
+
+.gridBg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(14, 165, 233, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridPulse 8s ease-in-out infinite;
+}
+
+@keyframes gridPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.floatingEmoji {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  animation: fadeIn 0.6s ease forwards, float 4s ease-in-out infinite 0.6s;
+  transition: opacity 0.3s;
+  display: none;
+
+  @media screen and (min-width: 768px) {
+    display: block;
+  }
+}
+
+/* ─── Demo panel ─── */
+
+.demoPanel {
+  position: absolute;
+  left: calc(max(24px, (100vw - 1140px) / 2 + 548px));
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+
+  @media screen and (max-width: 1100px) {
+    display: none;
+  }
+}
+
+.demoConnector {
+  position: relative;
+  width: 14px;
+  height: 2px;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, rgba(34,197,94,0.5), rgba(99,102,241,0.3), transparent);
+}
+
+.demoConnector::before {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0.6;
+  animation: connectorPulse 2s ease-in-out infinite;
+}
+
+@keyframes connectorPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 0.8; transform: scale(1.2); }
+}
+
+/* ─── Terminal ─── */
+
+.terminal {
+  flex: 1;
+  min-width: 210px;
+  max-width: 420px;
+  background: #1e293b;
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  animation: panelEntrance 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.terminalBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #0f172a;
+}
+
+.terminalDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.terminalLabel {
+  margin-left: auto;
+  font-size: 0.6rem;
+  color: #475569;
+  font-family: var(--ifm-font-family-monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.terminalBody {
+  padding: 8px 12px 12px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  min-height: 170px;
+}
+
+.terminalLine {
+  color: #94a3b8;
+  white-space: pre;
+  animation: terminalFadeIn 0.15s ease both;
+}
+
+@keyframes terminalFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.terminalCommand {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.terminalPrompt {
+  color: #22c55e;
+}
+
+.terminalSuccess {
+  color: #22c55e;
+}
+
+.terminalError {
+  color: #ef4444;
+}
+
+.terminalCursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  background: #22c55e;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: terminalBlink 0.8s step-end infinite;
+}
+
+@keyframes terminalBlink {
+  50% { opacity: 0; }
+}
+
+@keyframes panelEntrance {
+  0% { opacity: 0; transform: translateX(40px) scale(0.95); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ─── Central text ─── */
+
+.heroCenter {
+  @media screen and (min-width: 1100px) {
+    width: 500px;
+    margin-left: 0;
+  }
+
+  @media screen and (max-width: 1099px) {
+    max-width: 540px;
+    margin: 0 auto;
+  }
+
+  @media screen and (max-width: 480px) {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+.heroLogo {
+  display: block;
+  max-width: 128px;
+  margin: 0 auto 1.5rem;
+  animation: fadeUp 0.8s ease 0.1s both;
 }
 
 .buttons {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
+
+  @media screen and (max-width: 480px) {
+    flex-direction: column;
+  }
 }
 
 .subtitle {
-  margin: 0 auto 2rem;
+  margin: 0 auto 0.75rem;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-800);
+  animation: fadeUp 0.8s ease 0.15s both;
+}
+
+html[data-theme="dark"] .subtitle {
+  background: linear-gradient(90deg, #e2e8f0, #f1f5f9, #e2e8f0);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: fadeUp 0.8s ease 0.15s both, shimmer 4s linear infinite 1s;
+}
+
+.highlight {
+  background: linear-gradient(90deg, var(--ifm-color-primary), #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.description {
+  margin: 0 auto 1rem;
+  font-size: 1.15rem;
+  max-width: 640px;
+  line-height: 1.7;
+  color: var(--ifm-color-emphasis-700);
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+.shimmerText {
+  background: linear-gradient(90deg, var(--ifm-color-primary), #8b5cf6, var(--ifm-color-primary));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+  font-weight: 700;
+}
+
+.tagline {
+  margin: 0 auto 1.5rem;
+  font-size: 1.05rem;
+  color: var(--ifm-color-emphasis-500);
+  animation: fadeUp 0.8s ease 0.45s both;
+  min-height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.sparkle {
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.cyclingTagline {
+  display: inline-block;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(90deg, var(--ifm-color-primary), #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+
+.cyclingIn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cyclingOut {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ─── Slack chatbox ─── */
+
+.slackCard {
+  flex: 1;
+  min-width: 230px;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(74, 21, 75, 0.08);
+  overflow: hidden;
+  animation: panelEntrance 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s both;
+  position: relative;
+}
+
+html[data-theme="dark"] .slackCard {
+  background: #1a1d21;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 21, 75, 0.2);
+}
+
+.slackHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #4A154B;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.slackHeaderTitle {
+  flex: 1;
+}
+
+.slackHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0.7;
+}
+
+.slackBody {
+  padding: 0.6rem 1rem;
+}
+
+.slackChannel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1d1c1d;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+html[data-theme="dark"] .slackChannel {
+  color: #d1d2d3;
+}
+
+.slackChannelHash {
+  color: #616061;
+  font-size: 0.8rem;
+}
+
+html[data-theme="dark"] .slackChannelHash {
+  color: #888;
+}
+
+.slackMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.slackMessage {
+  font-size: 0.72rem;
+  color: #616061;
+  line-height: 1.5;
+}
+
+html[data-theme="dark"] .slackMessage {
+  color: #aaa;
+}
+
+.slackSystemMsg {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  animation: slackFadeIn 0.3s ease both;
+}
+
+.slackSystemDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: inline-block;
+}
+
+.slackTyping {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  animation: slackFadeIn 0.3s ease both;
+}
+
+.slackTypingAvatar {
+  opacity: 0.6;
+  border-radius: 4px;
+}
+
+.slackTypingDots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 10px;
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+
+html[data-theme="dark"] .slackTypingDots {
+  background: #2d2d30;
+}
+
+.slackDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #888;
+  animation: slackDotBounce 1.2s ease-in-out infinite;
+}
+
+.slackDot:nth-child(2) { animation-delay: 0.2s; }
+.slackDot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes slackDotBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.slackMsg {
+  display: flex;
+  gap: 0.5rem;
+  animation: slackFadeIn 0.4s ease both;
+  margin-top: 0.2rem;
+}
+
+@keyframes slackFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slackMsgAvatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.slackMsgContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.slackMsgHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.2rem;
+}
+
+.slackMsgApp {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #1d1c1d;
+}
+
+html[data-theme="dark"] .slackMsgApp {
+  color: #d1d2d3;
+}
+
+.slackMsgBadge {
+  font-size: 0.5rem;
+  padding: 0.08rem 0.25rem;
+  border-radius: 2px;
+  background: #e8e8e8;
+  color: #616061;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+html[data-theme="dark"] .slackMsgBadge {
+  background: #3d3d40;
+  color: #aaa;
+}
+
+.slackMsgTime {
+  margin-left: auto;
+  font-size: 0.6rem;
+  color: #999;
+}
+
+/* ─── Slack message body ─── */
+
+.slackMsgBody {
+  background: #f8f8f8;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  transition: border-color 0.5s ease;
+}
+
+html[data-theme="dark"] .slackMsgBody {
+  background: #2d2d30;
+  border-color: #3d3d40;
+  border-left-color: #3d3d40;
+}
+
+.slackAlertSeverity {
+  display: inline-block;
+  font-size: 0.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: white;
+  padding: 0.08rem 0.35rem;
+  border-radius: 2px;
+  align-self: flex-start;
+}
+
+.slackErrorLine {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.slackAlertIcon {
+  font-size: 0.8rem;
+}
+
+.slackAlertError {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+html[data-theme="dark"] .slackAlertError {
+  color: #f87171;
+}
+
+.slackExitCode {
+  font-size: 0.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+}
+
+html[data-theme="dark"] .slackExitCode {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.slackPodLine {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  color: #1d1c1d;
+}
+
+html[data-theme="dark"] .slackPodLine {
+  color: #d1d2d3;
+}
+
+.slackAlertPod {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+}
+
+.slackRestarts {
+  font-size: 0.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  font-weight: 600;
+}
+
+html[data-theme="dark"] .slackRestarts {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.slackDivider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 0.15rem 0;
+}
+
+html[data-theme="dark"] .slackDivider {
+  background: #3d3d40;
+}
+
+.slackAiSection {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: #475569;
+  flex-wrap: wrap;
+}
+
+html[data-theme="dark"] .slackAiSection {
+  color: #94a3b8;
+}
+
+.slackAiLabel {
+  font-weight: 700;
+  color: #8b5cf6;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.slackAiSummary {
+  color: #64748b;
+}
+
+html[data-theme="dark"] .slackAiSummary {
+  color: #94a3b8;
+}
+
+.slackSuggestionLine {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  color: #0ea5e9;
+  font-weight: 500;
+  font-family: var(--ifm-font-family-monospace);
+}
+
+.slackSuggestionText {
+  word-break: break-all;
+}
+
+.slackFooterRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.6rem;
+  color: #94a3b8;
+  margin-top: 0.1rem;
+}
+
+.slackAlertNamespace {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.slackAlertAge {
+  color: #94a3b8;
+}
+
+.slackMsgFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.15rem;
+}
+
+.slackMsgActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #999;
+  opacity: 0.5;
+}
+
+.slackMsgSent {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.6rem;
+  color: #16a34a;
+  font-weight: 500;
+  animation: slackFadeIn 0.3s ease both;
+}
+
+/* ─── Buttons ─── */
+
+.getStarted {
+  font-weight: 600;
+  animation: fadeUp 0.8s ease 0.6s both;
+}
+
+.githubButton {
+  font-weight: 600;
+  animation: fadeUp 0.8s ease 0.7s both;
 }
 
 .githubStars {
   display: flex;
-  margin-top: 20px;
+  margin-top: 28px;
+  animation: fadeUp 0.8s ease 0.8s both;
 }
 
 .githubStarsButton {
   border: none;
-  margin-left: 24px;
   overflow: hidden;
 }
+
+

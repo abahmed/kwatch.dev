@@ -5,13 +5,13 @@ import { EnumChangefreq } from 'sitemap';
 
 const logo = {
   alt: 'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
-  src: 'img/kwatch-logo.png',
+  src: 'img/kwatch-logo.svg',
 };
 
 const config: Config = {
   title: 'kwatch',
-  tagline: 'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
-  favicon: 'img/kwatch-logo.png',
+  tagline: 'Monitor your Kubernetes cluster — get crash alerts with plain-English explanations and fixes',
+  favicon: 'img/kwatch-logo.svg',
 
   // Set the production url of your site here
   url: 'https://kwatch.dev',
@@ -25,11 +25,15 @@ const config: Config = {
   projectName: 'kwatch', // Usually your repo name.
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
+  },
 
   customFields: {
     description:
-    'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
+    'kwatch monitors your Kubernetes cluster and sends crash alerts with plain-English explanations of what went wrong and how to fix it',
   },
   trailingSlash: false,
 
@@ -48,10 +52,16 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
         },
-        blog: {
-          showReadingTime: true,
-          blogSidebarCount: 0,
-        },
+    blog: {
+      showReadingTime: true,
+      blogSidebarCount: 0,
+      feedOptions: {
+        type: 'all',
+        title: 'kwatch Blog',
+        description: 'Latest news and updates about kwatch — Kubernetes crash monitoring',
+        copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
+      },
+    },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -73,10 +83,19 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/kwatch-logo-full.png',
+    metadata: [
+      {name: 'keywords', content: 'kubernetes, k8s, crash monitoring, pod crashes, alerting, devops, cluster monitoring, kubernetes alerts'},
+      {property: 'og:title', content: 'kwatch — Kubernetes Crash Monitor'},
+      {property: 'og:description', content: 'Monitor your Kubernetes cluster and get crash alerts with plain-English explanations and fixes'},
+      {property: 'og:type', content: 'website'},
+      {property: 'og:url', content: 'https://kwatch.dev'},
+      {name: 'twitter:card', content: 'summary_large_image'},
+      {name: 'twitter:title', content: 'kwatch — Kubernetes Crash Monitor'},
+      {name: 'twitter:description', content: 'Monitor your Kubernetes cluster and get crash alerts with plain-English explanations and fixes'},
+    ],
     colorMode: {
-      defaultMode: 'light',
+      defaultMode: 'dark',
       disableSwitch: true,
       respectPrefersColorScheme: false,
     },
@@ -85,9 +104,9 @@ const config: Config = {
       logo: logo,
       items: [
         {to: '/docs', label: 'Docs', position: 'left'},
-        {to: '/docs/contributing', label: 'Contributing', position: 'left'},
+        {to: '/docs/installation', label: 'Install', position: 'left'},
+        {to: '/docs/channels', label: 'Channels', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
-        // {to: 'https://join.kwatch.dev', label: 'Join Waitlist', position: 'right'},
         {to: 'community', label: 'Community', position: 'right'},
         {
           href: 'https://github.com/abahmed/kwatch/releases/latest',
@@ -115,30 +134,32 @@ const config: Config = {
       style: 'dark',
       links: [
         {
-          title: 'Docs',
+          title: 'Getting Started',
           items: [
-            {
-              label: 'Getting started',
-              to: 'docs',
-            },
-            {to: '/docs/contributing', label: 'Contributing'},
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
+            {label: 'Installation', to: '/docs/installation'},
+            {label: 'Configuration', to: '/docs/general-configuration'},
+            {label: 'Channels', to: '/docs/channels'},
+            {label: 'CLI Commands', to: '/docs/cli-commands'},
+          ],
+        },
+        {
+          title: 'Monitors',
+          items: [
+            {label: 'Pod Crashes', to: '/docs/general-configuration'},
+            {label: 'PVC Disk Usage', to: '/docs/general-configuration'},
+            {label: 'Node Health', to: '/docs/general-configuration'},
+            {label: 'Rollouts & DaemonSets', to: '/docs/rollout-monitor-configuration'},
+            {label: 'Jobs & CronJobs', to: '/docs/job-monitor-configuration'},
+            {label: 'HPA & TLS', to: '/docs/hpa-monitor-configuration'},
           ],
         },
         {
           title: 'Community',
           items: [
-            {
-              label: 'Join the chat',
-              href: 'https://discord.gg/kzJszdKmJ7',
-            },
-            {
-              label: 'GitHub',
-              href: 'https://github.com/abahmed/kwatch',
-            },
+            {label: 'Discord', href: 'https://discord.gg/kzJszdKmJ7'},
+            {label: 'GitHub', href: 'https://github.com/abahmed/kwatch'},
+            {label: 'Contributing', to: '/docs/contributing'},
+            {label: 'Blog', to: '/blog'},
           ],
         },
       ],

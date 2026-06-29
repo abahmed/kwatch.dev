@@ -9,13 +9,13 @@ pagination_prev: null
 
 # 🤖 AI-powered troubleshooting
 
-kwatch ships with a **built-in AI sidecar** that runs inside your cluster —
+kwatch ships with **built-in AI** that runs inside your cluster —
 zero data leaves your environment.
 
 When a crash happens, the AI reads the logs and tells you the **most likely
 cause** and **what to do next**. Like having a senior SRE on-call with you.
 
-> **📌 Architecture note:** The AI sidecar is available for **linux/amd64** and **linux/arm64** only. It does not support `arm/v6` or `arm/v7` (the main kwatch image supports all four).
+> **📌 Architecture note:** AI is available for **linux/amd64** and **linux/arm64** only. It does not support `arm/v6` or `arm/v7` (the main kwatch image supports all four).
 
 ## How it works
 
@@ -33,11 +33,11 @@ llm:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `llm.enabled` | `bool` | `true` | Enable AI enrichment. When true, kwatch sends crash context to the sidecar and includes analysis in alerts. |
+| `llm.enabled` | `bool` | `true` | Enable AI enrichment. When true, kwatch includes AI analysis in alerts. |
 
 **That's it.** The model (`kwatch-triage`), endpoint (`localhost:8080`),
 redaction patterns, prompt, timeouts (30s), and output limits (600 chars) are
-all baked into the sidecar image and code — there are no other user-facing
+all baked into the image and code — there are no other user-facing
 knobs.
 
 ## Privacy

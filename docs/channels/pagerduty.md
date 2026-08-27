@@ -1,24 +1,19 @@
 ---
-sidebar_position: 5
+sidebar_position: 7
 title: PagerDuty
-description: kwatch configuration for pagerduty
-keywords: [kwatch, pagerduty, monitor, detect, crash, kubernetes, cluster]
+description: Route Kubernetes crash alerts to PagerDuty — configure integration key and severity routing for kwatch
+keywords: [kwatch, pagerduty, kubernetes crash alerts, incident response, k8s monitoring]
 pagination_next: null
 pagination_prev: null
 ---
 
 # PagerDuty
 
-If you want to enable PagerDuty, provide the integration key
-
-### Configuration
-
-| Parameter                        |  Description                              | Required       |
-|:---------------------------------|:----------------------------------------- |:-------------- |
-| `alert.pagerduty.integrationKey` |  PagerDuty integration key [more info](https://support.pagerduty.com/docs/services-and-integrations)                        | Yes            |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.pagerduty.integrationKey` | 🔑 PagerDuty integration key | Yes |
 
 ### Example
-
 
 ```yaml
 apiVersion: v1
@@ -35,11 +30,52 @@ data:
   config.yaml: |
     alert:
       pagerduty:
-        integrationKey: INTEGRATION_KEY
+        integrationKey: YOUR_INTEGRATION_KEY
+```
+
+### Routing
+
+```yaml
+alert:
+  pagerduty:
+    integrationKey: YOUR_INTEGRATION_KEY
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+      - reasons: ["OOMKilled"]
+```
+
+### Retry
+
+```yaml
+alert:
+  pagerduty:
+    integrationKey: YOUR_INTEGRATION_KEY
+    retry:
+      maxAttempts: 5
+      delay: 5s
+```
+
+### Fallback
+
+```yaml
+alert:
+  pagerduty:
+    integrationKey: YOUR_INTEGRATION_KEY
+    fallback: <another_provider>
+```
+
+### Compact mode
+
+```yaml
+alert:
+  pagerduty:
+    integrationKey: YOUR_INTEGRATION_KEY
+    compact: true
 ```
 
 ### Screenshot
 
 <p align="center">
-    <img src="./../../img/pagerduty.png" max-height="700px" />
+    <img src="./../../img/pagerduty.png" max-height="700px" alt="PagerDuty notification screenshot" />
 </p>

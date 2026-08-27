@@ -1,24 +1,19 @@
 ---
-sidebar_position: 10
+sidebar_position: 13
 title: DingTalk
-description: kwatch configuration for dingtalk
-keywords: [kwatch, dingtalk, monitor, detect, crash, kubernetes, cluster]
+description: Send Kubernetes crash alerts to DingTalk — configure webhook and security tokens for kwatch
+keywords: [kwatch, dingtalk, kubernetes crash alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
 # DingTalk
 
-If you want to enable DingTalk, provide accessToken with optional secret and
-title
-
-### Configuration
-
-| Parameter                           | Description                            |
-|:------------------------------------|:-------------------------------------- |
-| `alert.dingtalk.accessToken`        | Chat access token                      |
-| `alert.dingtalk.secret`             | Optional secret used to sign requests  |
-| `alert.dingtalk.title`              | Customized title in message            |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.dingtalk.accessToken` | 🔑 Access token | Yes |
+| `alert.dingtalk.secret` | 🔐 Signing secret | No |
+| `alert.dingtalk.title` | ✏️ Custom title | No |
 
 ### Example
 
@@ -37,5 +32,52 @@ data:
   config.yaml: |
     alert:
       dingtalk:
-        accessToken: ACCESS_TOKEN
+        accessToken: "YOUR_ACCESS_TOKEN"
+        secret: "YOUR_SECRET"
+        title: "optional customized title"
+```
+
+### Routing
+
+```yaml
+alert:
+  dingtalk:
+    accessToken: "YOUR_ACCESS_TOKEN"
+    secret: "YOUR_SECRET"
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+      - reasons: ["OOMKilled"]
+```
+
+### Retry
+
+```yaml
+alert:
+  dingtalk:
+    accessToken: "YOUR_ACCESS_TOKEN"
+    secret: "YOUR_SECRET"
+    retry:
+      maxAttempts: 5
+      delay: 5s
+```
+
+### Fallback
+
+```yaml
+alert:
+  dingtalk:
+    accessToken: "YOUR_ACCESS_TOKEN"
+    secret: "YOUR_SECRET"
+    fallback: <another_provider>
+```
+
+### Compact mode
+
+```yaml
+alert:
+  dingtalk:
+    accessToken: "YOUR_ACCESS_TOKEN"
+    secret: "YOUR_SECRET"
+    compact: true
 ```

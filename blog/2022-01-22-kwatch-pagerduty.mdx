@@ -12,15 +12,15 @@ In this article you will learn how to setup and deploy kwatch in your Kubernetes
 <!--truncate-->
 ### Configure PagerDuty
 #### Step 1: Create a new service
-![1](./../static/img/blog/kwatch-pagerduty/1.png)
+![1](/img/blog/kwatch-pagerduty/1.png)
 #### Step 2: Give your service a Name and a Description
-![2](./../static/img/blog/kwatch-pagerduty/2.png)
+![2](/img/blog/kwatch-pagerduty/2.png)
 #### Step 3: Add an [Escalation Policy](https://support.pagerduty.com/docs/escalation-policies)
-![3](./../static/img/blog/kwatch-pagerduty/3.png)
+![3](/img/blog/kwatch-pagerduty/3.png)
 #### Step 4: Make sure to add the [Events API V2](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODI2Nw-send-an-event-to-pager-duty) Integration
-![4](./../static/img/blog/kwatch-pagerduty/4.png)
+![4](/img/blog/kwatch-pagerduty/4.png)
 #### Step 5: Navigate to your service and copy the Integration Key
-![5](./../static/img/blog/kwatch-pagerduty/5.png)
+![5](/img/blog/kwatch-pagerduty/5.png)
 ### Configure kwatch
 #### Step 1: Get the configuration template
 ```shell
@@ -54,6 +54,6 @@ kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/
 ```
 
 **You will now start receiving PagerDuty alerts whenever there is a pod crash in your Kubernetes (K8s) cluster!**
-![6](./../static/img/blog/kwatch-pagerduty/6.png)
+![6](/img/blog/kwatch-pagerduty/6.png)
 
 _If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)_!

@@ -1,24 +1,19 @@
 ---
-sidebar_position: 12
+sidebar_position: 15
 title: Custom Webhook
-description: kwatch configuration for custom webhook
-keywords: [kwatch, webhook, monitor, detect, crash, kubernetes, cluster]
+description: Send Kubernetes crash alerts to any custom webhook — configure endpoint and payload format for kwatch
+keywords: [kwatch, webhook, custom, kubernetes crash alerts, k8s notifications, webhook integration]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Custom webhook
+# Custom Webhook
 
-If you want to enable custom webhook, provide url with optional headers and
-basic auth
-
-### Configuration
-
-| Parameter                 | Description                     |
-|:--------------------------|:--------------------------------|
-| `alert.webhook.url`       | Webhook URL                     |
-| `alert.webhook.headers`   | optional list of name and value |
-| `alert.webhook.basicAuth` | optional username and password  |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.webhook.url` | 🔗 Webhook URL | Yes |
+| `alert.webhook.headers` | 📋 Custom headers | No |
+| `alert.webhook.basicAuth` | 🔐 Username + password | No |
 
 ### Example
 
@@ -37,11 +32,57 @@ data:
   config.yaml: |
     alert:
       webhook:
-        url: URL
+        url: "https://hooks.example.com/alerts"
         headers:
-          - name: HEADER_NAME
-            value: HEADER_VALUE
+          X-Custom: "value"
         basicAuth:
-          username: USERNAME
-          password: PASSWORD
+          username: "user"
+          password: "pass"
+```
+
+### Routing
+
+```yaml
+alert:
+  webhook:
+    url: "https://hooks.example.com/alerts"
+    headers:
+      X-Custom: "value"
+    basicAuth:
+      username: "user"
+      password: "pass"
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+      - reasons: ["OOMKilled"]
+```
+
+### Retry
+
+```yaml
+alert:
+  webhook:
+    url: "https://hooks.example.com/alerts"
+    headers:
+      X-Custom: "value"
+    basicAuth:
+      username: "user"
+      password: "pass"
+    retry:
+      maxAttempts: 5
+      delay: 5s
+```
+
+### Fallback
+
+```yaml
+alert:
+  webhook:
+    url: "https://hooks.example.com/alerts"
+    headers:
+      X-Custom: "value"
+    basicAuth:
+      username: "user"
+      password: "pass"
+    fallback: <another_provider>
 ```

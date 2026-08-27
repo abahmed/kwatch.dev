@@ -70,10 +70,6 @@ const config: Config = {
           priority: 0.5,
           filename: 'sitemap.xml',
         },
-        googleAnalytics: {
-          trackingID: 'UA-162766515-2',
-          anonymizeIP: true,
-        },
         gtag: {
           trackingID: 'G-999X9XX9XX',
           anonymizeIP: true,
@@ -107,11 +103,11 @@ const config: Config = {
         {to: '/docs/installation', label: 'Install', position: 'left'},
         {to: '/docs/channels', label: 'Channels', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
-        {to: 'community', label: 'Community', position: 'right'},
+        {to: '/community', label: 'Community', position: 'right'},
         {
           href: 'https://github.com/abahmed/kwatch/releases/latest',
           position: 'right',
-          className: 'header-download-link header-icon-link',
+          className: 'header-download-link',
           'aria-label': 'Download',
         },
         {

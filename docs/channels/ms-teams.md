@@ -1,27 +1,21 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 title: Microsoft Teams
-description: kwatch configuration for ms teams
-keywords: [kwatch, teams, monitor, detect, crash, kubernetes, cluster]
+description: Get Kubernetes crash alerts in Microsoft Teams — configure webhook connector for kwatch notifications
+keywords: [kwatch, microsoft teams, kubernetes crash alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
 # Microsoft Teams
 
-If you want to enable Microsoft Teams, provide the channel webhook with optional text and title
-
-### Configuration
-
-| Parameter             |  Description                                        | Required       |
-|:----------------------|:--------------------------------------------------- |:-------------- |
-| `alert.teams.webhook` |  Microsoft teams webhook URL                        | Yes            |
-| `alert.teams.title`   |  Customized title in Microsoft teams message        | No             |
-| `alert.teams.text`    |  Customized text in Microsoft teams message         | No             |
-
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.teams.webhook` | 🔗 Webhook URL | Yes |
+| `alert.teams.title` | ✏️ Custom title | No |
+| `alert.teams.text` | ✏️ Custom text | No |
 
 ### Example
-
 
 ```yaml
 apiVersion: v1
@@ -43,8 +37,49 @@ data:
         text: "optional customized text"
 ```
 
+### Routing
+
+```yaml
+alert:
+  teams:
+    webhook: WEBHOOK_URL
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+      - reasons: ["OOMKilled"]
+```
+
+### Retry
+
+```yaml
+alert:
+  teams:
+    webhook: WEBHOOK_URL
+    retry:
+      maxAttempts: 5
+      delay: 5s
+```
+
+### Fallback
+
+```yaml
+alert:
+  teams:
+    webhook: WEBHOOK_URL
+    fallback: <another_provider>
+```
+
+### Compact mode
+
+```yaml
+alert:
+  teams:
+    webhook: WEBHOOK_URL
+    compact: true
+```
+
 ### Screenshot
 
 <p align="center">
-    <img src="./../../img/teams.png" max-height="700px" />
+    <img src="./../../img/teams.png" max-height="700px" alt="Microsoft Teams notification screenshot" />
 </p>

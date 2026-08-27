@@ -8,7 +8,7 @@ pagination_prev: null
 ---
 # GitHub workflow
 
-If you have **never** used git or GitHub, you may also need to check [Hello World in GitHub Guides](https://guides.github.com/activities/hello-world/).
+If you have **never** used git or GitHub, you may also need to check [Hello World in GitHub Guides](https://docs.github.com/en/get-started/start-your-journey/hello-world).
 
 Firstly, You need to [Fork](https://help.github.com/articles/fork-a-repo/) kwatch repository `abahmed/kwatch` then clone it on your local machine using
 

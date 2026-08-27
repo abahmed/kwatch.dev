@@ -198,6 +198,40 @@
   color: #ef4444;
 }
 
+html[data-theme="light"] .terminal {
+  background: #f1f5f9;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="light"] .terminalBar {
+  background: #e2e8f0;
+}
+
+html[data-theme="light"] .terminalLabel {
+  color: #94a3b8;
+}
+
+html[data-theme="light"] .terminalLine {
+  color: #64748b;
+}
+
+html[data-theme="light"] .terminalCommand {
+  color: #1e293b;
+}
+
+html[data-theme="light"] .terminalPrompt,
+html[data-theme="light"] .terminalSuccess {
+  color: #16a34a;
+}
+
+html[data-theme="light"] .terminalError {
+  color: #dc2626;
+}
+
+html[data-theme="light"] .terminalCursor {
+  background: #16a34a;
+}
+
 .terminalCursor {
   display: inline-block;
   width: 6px;

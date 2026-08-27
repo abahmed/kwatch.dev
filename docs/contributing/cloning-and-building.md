@@ -44,7 +44,7 @@ sudo yum install -y golang git
 ### Mac OS X
 In your terminal
 ``` bash
-/bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+/bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install git
 brew install go
 ```

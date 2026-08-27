@@ -11,7 +11,7 @@ const floatingEmojis = ["💥", "🔇", "🧠", "⚡", "🎯", "🤖"];
 const taglines = [
   "60 seconds to install.",
   "No backend. No dashboards.",
-  "AI-powered troubleshooting.",
+  "Alerts that explain themselves.",
   "No YAML spaghetti.",
   "Smart noise reduction.",
 ];
@@ -23,11 +23,10 @@ const terminalLines = [
   { text: '', type: 'spacer' },
   { text: '✓ kwatch is running', type: 'success' },
   { text: '  monitoring 8 namespaces', type: 'output' },
-  { text: '  10 monitors active • AI enabled', type: 'output' },
+  { text: '  monitors active • 56 channels', type: 'output' },
   { text: '', type: 'spacer' },
   { text: '🚨 Crash detected: api-7d8f9c', type: 'error' },
   { text: '  → OOMKilled (exit code 137)', type: 'output' },
-  { text: '  → AI analyzing logs...', type: 'output' },
   { text: '  → root cause: memory limit', type: 'output' },
   { text: '  ✓ alert sent to Slack, Discord', type: 'success' },
   { text: '', type: 'spacer' },
@@ -42,8 +41,7 @@ const alertSamples = [
     exitCode: 137,
     restarts: 3,
     age: "crashed 2m ago",
-    aiSummary: "Container used 290Mi of 256Mi limit",
-    suggestion: "kubectl set resources deploy/api --memory=512Mi",
+    summary: "Container used 290Mi of 256Mi limit",
     severity: "critical",
   },
   {
@@ -54,8 +52,7 @@ const alertSamples = [
     exitCode: 1,
     restarts: 7,
     age: "crashed 5m ago",
-    aiSummary: "Missing DATABASE_URL environment variable",
-    suggestion: "kubectl set env deploy/user-service DATABASE_URL=...",
+    summary: "Missing DATABASE_URL environment variable",
     severity: "warning",
   },
   {
@@ -66,8 +63,7 @@ const alertSamples = [
     exitCode: 0,
     restarts: 1,
     age: "unreachable 1m ago",
-    aiSummary: "HTTP GET :8080/healthz timed out (30s)",
-    suggestion: "kubectl edit deploy/nginx-ingress -n production",
+    summary: "HTTP GET :8080/healthz timed out (30s)",
     severity: "low",
   },
   {
@@ -78,8 +74,7 @@ const alertSamples = [
     exitCode: 0,
     restarts: 0,
     age: "trending 10m",
-    aiSummary: "Volume using 85Gi of 100Gi, growing 2Gi/day",
-    suggestion: "kubectl edit pvc postgres-data --requests=storage=200Gi",
+    summary: "Volume using 85Gi of 100Gi, growing 2Gi/day",
     severity: "warning",
   },
 ];
@@ -144,10 +139,10 @@ function SlackChat({ elapsed }: { elapsed: number }) {
       <div className={styles.slackHeader}>
         <span className={styles.slackHeaderTitle}>kwatch-bot</span>
         <span className={styles.slackHeaderMeta}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
           </svg>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </span>
@@ -167,7 +162,7 @@ function SlackChat({ elapsed }: { elapsed: number }) {
 
           {(phase === 'typing' || phase === 'alert' || phase === 'done') && (
             <div className={styles.slackTyping}>
-              <svg viewBox="0 0 24 24" width="16" height="16" className={styles.slackTypingAvatar}>
+              <svg viewBox="0 0 24 24" width="16" height="16" className={styles.slackTypingAvatar} aria-hidden="true">
                 <rect width="24" height="24" rx="4" fill="#4A154B"/>
                 <circle cx="12" cy="10" r="4" fill="white"/>
                 <path d="M6 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="white" strokeWidth="1.5"/>
@@ -183,7 +178,7 @@ function SlackChat({ elapsed }: { elapsed: number }) {
           {(phase === 'alert' || phase === 'done') && (
             <div className={styles.slackMsg}>
               <div className={styles.slackMsgAvatar}>
-                <svg viewBox="0 0 24 24" width="36" height="36">
+                <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
                   <rect width="24" height="24" rx="6" fill="url(#kg)"/>
                   <rect x="6" y="6" width="12" height="12" rx="2" fill="none" stroke="white" strokeWidth="1.5"/>
                   <path d="M9 12l2 2 4-4" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -221,25 +216,16 @@ function SlackChat({ elapsed }: { elapsed: number }) {
                   <div className={styles.slackDivider} />
 
                   <div className={styles.slackAiSection}>
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#8b5cf6" strokeWidth="2">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#8b5cf6" strokeWidth="2" aria-hidden="true">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    <span className={styles.slackAiLabel}>AI Analysis</span>
-                    <span className={styles.slackAiSummary}>{alert.aiSummary}</span>
-                  </div>
-
-                  <div className={styles.slackSuggestionLine}>
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#0ea5e9" strokeWidth="2">
-                      <path d="M9.66 17.67l-1.33 1.34c-.78.78-2.05.78-2.83 0l-.5-.5c-.78-.78-.78-2.05 0-2.83l1.33-1.33"/>
-                      <path d="M14.34 6.33l1.33-1.34c.78-.78 2.05-.78 2.83 0l.5.5c.78.78.78 2.05 0 2.83l-1.33 1.33"/>
-                      <path d="M15.5 8.5L9.5 14.5"/>
-                    </svg>
-                    <span className={styles.slackSuggestionText}>{alert.suggestion}</span>
+                    <span className={styles.slackAiLabel}>Root cause</span>
+                    <span className={styles.slackAiSummary}>{alert.summary}</span>
                   </div>
 
                   <div className={styles.slackFooterRow}>
                     <span className={styles.slackAlertNamespace}>
-                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                         <circle cx="12" cy="10" r="3"/>
                       </svg>
@@ -251,18 +237,18 @@ function SlackChat({ elapsed }: { elapsed: number }) {
 
                 <div className={styles.slackMsgFooter}>
                   <span className={styles.slackMsgActions}>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                     </svg>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
                     </svg>
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
                     </svg>
                   </span>
                   <span className={styles.slackMsgSent}>
-                    {phase === 'done' && <><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#16a34a" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg> Sent via kwatch</>}
+                    {phase === 'done' && <><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#16a34a" strokeWidth="2" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> Sent via kwatch</>}
                   </span>
                 </div>
               </div>
@@ -330,7 +316,7 @@ function Header() {
 
       <div className="container">
         <div className={styles.heroCenter}>
-          <img src={useBaseUrl("img/kwatch-logo.svg")} className={styles.heroLogo} />
+          <img src={useBaseUrl("img/kwatch-logo.svg")} className={styles.heroLogo} alt="kwatch" />
           <p className={clsx("hero__subtitle", styles.subtitle)}>
             Crash. <span className={styles.highlight}>Root cause. Next step.</span>
           </p>
@@ -363,7 +349,7 @@ function Header() {
               )}
               to="https://github.com/abahmed/kwatch"
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" style={{ marginRight: '0.4rem', verticalAlign: 'middle', fill: 'currentColor' }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" style={{ marginRight: '0.4rem', verticalAlign: 'middle', fill: 'currentColor' }} aria-hidden="true">
                 <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
               </svg> View on GitHub
             </Link>

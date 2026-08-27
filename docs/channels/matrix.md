@@ -1,26 +1,21 @@
 ---
-sidebar_position: 9
+sidebar_position: 12
 title: Matrix
-description: kwatch configuration for matrix
-keywords: [kwatch, matrix, monitor, detect, crash, kubernetes, cluster]
+description: Get Kubernetes crash alerts in Matrix — configure homeserver and room ID for kwatch
+keywords: [kwatch, matrix, kubernetes crash alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
 # Matrix
 
-If you want to enable Matrix, provide homeServer, accessToken and internalRoomID
-with optional text and title
-
-### Configuration
-
-| Parameter                           | Description                            |
-|:------------------------------------|:-------------------------------------- |
-| `alert.matrix.homeServer`           | HomeServer URL                         |
-| `alert.matrix.accessToken`          | Account access token                   |
-| `alert.matrix.internalRoomID`       | Internal room ID                       |
-| `alert.matrix.title`                | Customized title in message            |
-| `alert.matrix.text`                 | Customized text in message             |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.matrix.homeServer` | 🖥️ HomeServer URL | Yes |
+| `alert.matrix.accessToken` | 🔑 Access token | Yes |
+| `alert.matrix.internalRoomID` | 🆔 Room ID | Yes |
+| `alert.matrix.title` | ✏️ Custom title | No |
+| `alert.matrix.text` | ✏️ Custom text | No |
 
 ### Example
 
@@ -39,11 +34,64 @@ data:
   config.yaml: |
     alert:
       matrix:
-        accessToken: ACCESS_TOKEN
+        homeServer: "https://matrix.example.com"
+        accessToken: "YOUR_ACCESS_TOKEN"
+        internalRoomID: "!roomid:example.com"
+        title: "optional customized title"
+        text: "optional customized text"
+```
+
+### Routing
+
+```yaml
+alert:
+  matrix:
+    homeServer: "https://matrix.example.com"
+    accessToken: "YOUR_ACCESS_TOKEN"
+    internalRoomID: "!roomid:example.com"
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+      - reasons: ["OOMKilled"]
+```
+
+### Retry
+
+```yaml
+alert:
+  matrix:
+    homeServer: "https://matrix.example.com"
+    accessToken: "YOUR_ACCESS_TOKEN"
+    internalRoomID: "!roomid:example.com"
+    retry:
+      maxAttempts: 5
+      delay: 5s
+```
+
+### Fallback
+
+```yaml
+alert:
+  matrix:
+    homeServer: "https://matrix.example.com"
+    accessToken: "YOUR_ACCESS_TOKEN"
+    internalRoomID: "!roomid:example.com"
+    fallback: <another_provider>
+```
+
+### Compact mode
+
+```yaml
+alert:
+  matrix:
+    homeServer: "https://matrix.example.com"
+    accessToken: "YOUR_ACCESS_TOKEN"
+    internalRoomID: "!roomid:example.com"
+    compact: true
 ```
 
 ### Screenshot
 
 <p align="center">
-    <img src="./../../img/matrix.png" max-height="700px" />
+    <img src="./../../img/matrix.png" max-height="700px" alt="Matrix notification screenshot" />
 </p>

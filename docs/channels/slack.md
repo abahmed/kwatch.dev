@@ -1,33 +1,71 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 title: Slack
-description: kwatch configuration for slack
-keywords: [kwatch, slack, monitor, detect, crash, kubernetes, cluster]
+description: Send Kubernetes crash alerts to Slack — configure webhook, channels, and severity routing for kwatch notifications
+keywords: [kwatch, slack, kubernetes crash alerts, pod monitoring, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
 # Slack
 
-If you want to enable Slack, provide either a webhook URL or a bot token with channel
+If you want to enable Slack, provide either a webhook URL or a bot token with channel.
 
 **Webhook mode:**
 
-| Parameter             |  Description                              | Required       |
-|:----------------------|:----------------------------------------- |:-------------- |
-| `alert.slack.webhook` |  Slack webhook URL                        | Yes            |
-| `alert.slack.title`   |  Customized title in slack message        | No             |
-| `alert.slack.text`    |  Customized text in slack message         | No             |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.slack.webhook` | Slack webhook URL | Yes |
+| `alert.slack.channel` | 📢 Override channel | No |
+| `alert.slack.title` | ✏️ Custom title | No |
+| `alert.slack.text` | ✏️ Custom text | No |
+| `alert.slack.compact` | 📏 Single-line mode | No |
 
 **Bot Token mode:**
 
-| Parameter             |  Description                              | Required       |
-|:----------------------|:----------------------------------------- |:-------------- |
-| `alert.slack.token`   |  Slack bot token (xoxb-...)               | Yes            |
-| `alert.slack.channel` |  Channel to post to (e.g. #alerts)        | Yes            |
-| `alert.slack.title`   |  Customized title in slack message        | No             |
-| `alert.slack.text`    |  Customized text in slack message         | No             |
+| Parameter | Description | Required |
+|:----------|:------------|:---------|
+| `alert.slack.token` | Slack bot token (`xoxb-...`) | Yes |
+| `alert.slack.channel` | 📢 Channel to post to | Yes |
+| `alert.slack.title` | ✏️ Custom title | No |
+| `alert.slack.text` | ✏️ Custom text | No |
+| `alert.slack.compact` | 📏 Single-line mode | No |
 
+> 💡 **Pro tip:** When using bot token mode, alerts become threaded conversations — root message on first alert, updates as replies. Clean and organized! 🧹
+
+### Compact mode
+
+```yaml
+alert:
+  slack:
+    webhook: "https://hooks.slack.com/..."
+    compact: true
+```
+
+### Routing & Retry
+
+```yaml
+alert:
+  slack:
+    webhook: "https://hooks.slack.com/..."
+    routes:
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+    retry:
+      maxAttempts: 3
+      delay: 5s
+```
+
+### Fallback provider
+
+```yaml
+alert:
+  slack:
+    webhook: "https://hooks.slack.com/..."
+    fallback: "pagerduty"
+    retry:
+      maxAttempts: 3
+```
 
 ### Example (Webhook)
 
@@ -77,5 +115,5 @@ data:
 ### Screenshot
 
 <p align="center">
-    <img src="./../../img/slack.png" max-height="700px" />
+    <img src="./../../img/slack.png" max-height="700px" alt="Slack notification screenshot" />
 </p>

@@ -329,7 +329,10 @@ function Header() {
         <div className={styles.heroCenter}>
           <img src={useBaseUrl("img/kwatch-logo.svg")} className={styles.heroLogo} alt="kwatch" />
           <h1 className={clsx("hero__subtitle", styles.subtitle)}>
-            See what broke. Understand why. <span className={styles.highlight}>Know what to do next.</span> 👀🧠⚡
+            <span className={styles.brandName}>kwatch:</span>{' '}
+            See what broke. Understand why.{' '}
+            <span className={styles.highlight}>Know what to do next.</span>{' '}
+            👀🧠⚡
           </h1>
           <p className={styles.description}>
             👋 New to Kubernetes? It runs your apps in containers. kwatch watches

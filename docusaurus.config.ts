@@ -1,12 +1,14 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import { EnumChangefreq } from 'sitemap';
 
 const logo = {
   alt: 'kwatch Kubernetes incident monitoring and alerting',
   src: 'img/kwatch-logo.svg',
 };
+
+const siteDescription =
+  'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.';
 
 const config: Config = {
   title: 'kwatch',
@@ -15,12 +17,9 @@ const config: Config = {
 
   // Set the production url of your site here
   url: 'https://kwatch.dev',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
+  // Render serves the site from the domain root.
   baseUrl: '/',
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
   organizationName: 'abahmed', // GitHub owner of the documentation site.
   projectName: 'kwatch.dev', // Repository containing the documentation site.
 
@@ -32,8 +31,7 @@ const config: Config = {
   },
 
   customFields: {
-    description:
-    'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.',
+    description: siteDescription,
   },
   trailingSlash: false,
 
@@ -55,6 +53,9 @@ const config: Config = {
         blog: {
           showReadingTime: true,
           blogSidebarCount: 0,
+          blogTitle: 'Kubernetes monitoring and incident response blog',
+          blogDescription:
+            'Practical Kubernetes monitoring, incident diagnosis, and alerting guides from the kwatch team.',
           feedOptions: {
             type: 'all',
             title: 'kwatch Blog',
@@ -66,8 +67,12 @@ const config: Config = {
           customCss: './src/css/custom.css',
         },
         sitemap: {
-          changefreq: EnumChangefreq.DAILY,
-          priority: 0.5,
+          ignorePatterns: [
+            '/blog/archive',
+            '/blog/authors',
+            '/blog/tags/**',
+          ],
+          lastmod: 'date',
           filename: 'sitemap.xml',
         },
       } satisfies Preset.Options,
@@ -77,15 +82,25 @@ const config: Config = {
   themeConfig: {
     image: 'img/kwatch-logo-full.png',
     metadata: [
-      {name: 'keywords', content: 'kubernetes monitoring, kubernetes alerting, k8s alerts, pod crash monitoring, incident diagnosis, devops, cloud native'},
+      {
+        name: 'author',
+        content: 'kwatch contributors',
+      },
+      {
+        name: 'keywords',
+        content:
+          'kubernetes monitoring, kubernetes alerting, k8s alerts, pod crash monitoring, incident diagnosis, devops, cloud native',
+      },
       {property: 'og:type', content: 'website'},
       {property: 'og:site_name', content: 'kwatch'},
-      {name: 'twitter:card', content: 'summary_large_image'},
-      {name: 'twitter:title', content: 'kwatch — Kubernetes incident monitoring'},
       {
-        name: 'twitter:description',
-        content:
-          'See what broke. Understand why. Know what to do next. 👀🧠⚡',
+        property: 'og:image:alt',
+        content: 'kwatch Kubernetes incident monitoring and alerting',
+      },
+      {name: 'twitter:card', content: 'summary_large_image'},
+      {
+        name: 'twitter:image:alt',
+        content: 'kwatch Kubernetes incident monitoring and alerting',
       },
     ],
     colorMode: {

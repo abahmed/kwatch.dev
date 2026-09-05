@@ -10,7 +10,7 @@ import ChannelIcon from '@site/src/theme/ChannelIcon';
 export default function Home(): ReactElement {
   return (
     <Layout
-      title="Kubernetes incident monitoring"
+      title="Kubernetes incident monitoring and alerting"
       description="See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.">
       <Header />
       <main className={styles.main}>

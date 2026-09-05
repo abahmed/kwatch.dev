@@ -1,41 +1,65 @@
-# Website
+# kwatch.dev
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The public website and documentation for [kwatch](https://github.com/abahmed/kwatch):
 
-### Installation
+> **See what broke. Understand why. Know what to do next. 👀🧠⚡**
 
-```
-$ yarn
-```
+This repository contains the landing page, user guides, provider guides, and
+contributor docs. The Kubernetes monitor itself lives in the
+[`abahmed/kwatch`](https://github.com/abahmed/kwatch) repository.
 
-### Local Development
+## 🚀 Run it locally
 
-```
-$ yarn start
-```
+Requirements: Node.js 18+, Yarn, and Git.
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
-
-### Build
-
-```
-$ yarn build
+```bash
+git clone https://github.com/abahmed/kwatch.dev.git
+cd kwatch.dev
+yarn install
+yarn start
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+Open the local URL printed by Docusaurus, usually `http://localhost:3000/`.
 
-### Deployment
+## ✍️ Where to edit
 
-Using SSH:
+| Location | Contains |
+| --- | --- |
+| `docs/` | Public documentation pages |
+| `src/pages/index.tsx` | Landing page layout |
+| `src/theme/` | Homepage components and shared docs UI |
+| `src/css/` | Site-wide styles |
+| `static/kwatch.sh` | Interactive installer and manager |
+| `src/data/releases.json` | Stable and preview versions shown on the site |
+| `sidebars.ts` | Documentation navigation |
 
+Write for someone who may be seeing Kubernetes for the first time: start with
+the goal, explain unfamiliar terms, show a complete command, and use fake
+credentials in examples. Emojis are welcome when they improve scanning. 🙌
+
+## 🧪 Check your changes
+
+```bash
+yarn test:manager
+yarn typecheck
+yarn build
 ```
-$ USE_SSH=true yarn deploy
-```
 
-Not using SSH:
+Do not commit the generated `build/` directory.
 
-```
-$ GIT_USER=<Your GitHub username> yarn deploy
-```
+## 📦 Release updates
 
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The kwatch release workflow updates `src/data/releases.json` automatically:
+
+- an RC updates the preview install link;
+- a stable release updates the stable install link and clears the preview; and
+- the website is built and deployed after the metadata commit.
+
+The release workflow also updates the main kwatch README. Keep version pins in
+the release-managed blocks only.
+
+## 🤝 Contribute
+
+Read [Contributing](./docs/contributing/contributing.md) and
+[Run the website locally](./docs/contributing/cloning-and-building.md), then
+open a pull request against `main`.

@@ -1,13 +1,13 @@
 ---
 sidebar_position: 12
 title: Matrix
-description: Get Kubernetes crash alerts in Matrix — configure homeserver and room ID for kwatch
-keywords: [kwatch, matrix, kubernetes crash alerts, pod monitoring, k8s notifications]
+description: Get clear Kubernetes incident alerts in Matrix — configure homeserver and room ID for kwatch
+keywords: [kwatch, matrix, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Matrix
+# 🏗️ Matrix
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -26,16 +26,17 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  matrix-access-token: "replace-me"
   config.yaml: |
     alert:
       matrix:
         homeServer: "https://matrix.example.com"
-        accessToken: "YOUR_ACCESS_TOKEN"
+        accessToken: "${file:/config/matrix-access-token}"
         internalRoomID: "!roomid:example.com"
         title: "optional customized title"
         text: "optional customized text"
@@ -47,7 +48,7 @@ data:
 alert:
   matrix:
     homeServer: "https://matrix.example.com"
-    accessToken: "YOUR_ACCESS_TOKEN"
+    accessToken: "${file:/config/matrix-access-token}"
     internalRoomID: "!roomid:example.com"
     routes:
       - namespaces: ["production"]
@@ -61,7 +62,7 @@ alert:
 alert:
   matrix:
     homeServer: "https://matrix.example.com"
-    accessToken: "YOUR_ACCESS_TOKEN"
+    accessToken: "${file:/config/matrix-access-token}"
     internalRoomID: "!roomid:example.com"
     retry:
       maxAttempts: 5
@@ -74,7 +75,7 @@ alert:
 alert:
   matrix:
     homeServer: "https://matrix.example.com"
-    accessToken: "YOUR_ACCESS_TOKEN"
+    accessToken: "${file:/config/matrix-access-token}"
     internalRoomID: "!roomid:example.com"
     fallback: <another_provider>
 ```
@@ -85,7 +86,7 @@ alert:
 alert:
   matrix:
     homeServer: "https://matrix.example.com"
-    accessToken: "YOUR_ACCESS_TOKEN"
+    accessToken: "${file:/config/matrix-access-token}"
     internalRoomID: "!roomid:example.com"
     compact: true
 ```

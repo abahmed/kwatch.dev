@@ -98,172 +98,6 @@
 }
 
 /* ════════════════════════════════════════
-   COMPARISON TABLE
-   ════════════════════════════════════════ */
-
-.tableWrapper {
-  overflow-x: auto;
-  margin: 2rem 0;
-  animation: fadeUp 0.6s ease 0.2s both;
-  border-radius: 14px;
-  border: 1px solid var(--ifm-color-emphasis-200);
-  background: var(--ifm-card-background-color);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-html[data-theme="light"] .tableWrapper {
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.06);
-}
-
-.comparisonTable {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 0.9rem;
-}
-
-.comparisonTable thead {
-  background: var(--ifm-background-surface-color);
-}
-
-.comparisonTable th {
-  padding: 1rem 1rem;
-  font-weight: 700;
-  text-align: left;
-  border-bottom: 2px solid var(--ifm-color-emphasis-200);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-.comparisonTable th:first-child,
-.comparisonTable td:first-child {
-  width: 20%;
-}
-
-.comparisonTable th:nth-child(2),
-.comparisonTable td:nth-child(2) {
-  width: 32%;
-}
-
-.comparisonTable th:nth-child(3),
-.comparisonTable td:nth-child(3) {
-  width: 24%;
-}
-
-.comparisonTable th:nth-child(4),
-.comparisonTable td:nth-child(4) {
-  width: 24%;
-}
-
-.thFeature {
-  color: var(--ifm-color-emphasis-600);
-}
-
-.thOther {
-  color: var(--ifm-color-emphasis-500);
-}
-
-.thKwatch {
-  color: var(--ifm-color-primary);
-  font-size: 0.9rem;
-}
-
-html[data-theme="dark"] .thKwatch {
-  color: var(--ifm-color-primary-lighter);
-  text-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
-}
-
-.comparisonTable tbody tr {
-  transition: background 0.2s ease;
-  animation: fadeIn 0.5s ease both;
-}
-
-.comparisonTable tbody tr:nth-child(1) { animation-delay: 0.05s; }
-.comparisonTable tbody tr:nth-child(2) { animation-delay: 0.1s; }
-.comparisonTable tbody tr:nth-child(3) { animation-delay: 0.15s; }
-.comparisonTable tbody tr:nth-child(4) { animation-delay: 0.2s; }
-.comparisonTable tbody tr:nth-child(5) { animation-delay: 0.25s; }
-
-.comparisonTable tbody tr:hover {
-  background: rgba(14, 165, 233, 0.06);
-}
-
-html[data-theme="dark"] .comparisonTable tbody tr:hover {
-  background: rgba(56, 189, 248, 0.06);
-}
-
-.comparisonTable tbody tr:nth-child(even) {
-  background: var(--ifm-background-surface-color);
-}
-
-.comparisonTable tbody tr:nth-child(even):hover {
-  background: rgba(14, 165, 233, 0.08);
-}
-
-html[data-theme="dark"] .comparisonTable tbody tr:nth-child(even):hover {
-  background: rgba(56, 189, 248, 0.08);
-}
-
-.comparisonTable td {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--ifm-color-emphasis-100);
-  line-height: 1.45;
-  transition: all 0.2s ease;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-.comparisonTable tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.tdFeature {
-  font-weight: 600;
-  color: var(--ifm-color-emphasis-800);
-}
-
-.tdKwatch {
-  font-weight: 500;
-  color: var(--ifm-color-primary-dark);
-  background: rgba(14, 165, 233, 0.08);
-  position: relative;
-}
-
-html[data-theme="light"] .tdKwatch {
-  background: rgba(14, 165, 233, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.12);
-}
-
-html[data-theme="dark"] .tdKwatch {
-  color: #93e0fd;
-  background: rgba(56, 189, 248, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.15);
-}
-
-.tdKwatch::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  background: linear-gradient(180deg, var(--ifm-color-primary), #8b5cf6);
-  border-radius: 0 2px 2px 0;
-}
-
-.tdOther {
-  color: var(--ifm-color-emphasis-600);
-}
-
-html[data-theme="dark"] .tdOther {
-  color: var(--ifm-color-emphasis-500);
-}
-
-/* ════════════════════════════════════════
    BEFORE / AFTER
    ════════════════════════════════════════ */
 
@@ -562,6 +396,11 @@ html[data-theme="dark"] .baCodeAfter {
 .monitorCheck {
   font-size: 1rem;
   animation: pulse 2s ease-in-out infinite;
+}
+
+.monitorOptional {
+  color: var(--ifm-color-emphasis-500);
+  animation: none;
 }
 
 .monitorSignal {

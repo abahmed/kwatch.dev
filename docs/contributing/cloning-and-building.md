@@ -1,63 +1,72 @@
 ---
 sidebar_position: 2
-title: Cloning and building
-description: a guide for newcomers to contribute to kwatch
-keywords: [kwatch, github, clone, build, go, debian, ubuntu, windows, osx]
-pagination_next: null
-pagination_prev: null
+title: Run the website locally
+description: clone, edit, and verify the kwatch documentation website
+keywords: [kwatch, website, docusaurus, contribute, node, yarn, build]
+pagination_next: contributing/github-workflow
+pagination_prev: contributing/contributing
 ---
 
-# Cloning and building
+# 🧑‍💻 Run the website locally
 
-### Build prerequisites
+This guide is for changes to `kwatch.dev`: documentation, landing-page copy,
+styles, and components. For changes to the Kubernetes monitor itself, use the
+[kwatch repository contribution guide](https://github.com/abahmed/kwatch/blob/main/CONTRIBUTING.md).
 
-You need to have the following tools installed on your computer
-+ [Git](https://git-scm.com)
-+ [Go](https://golang.org/dl/)
+## ✅ Install the tools
 
-### Unix/Linux
+You need:
 
-#### Debian based distributions (Debian / Ubuntu / Linux Mint / elementary OS)
-In your terminal
-``` bash
-sudo apt-get install -y golang-go build-essential git
+- [Git](https://git-scm.com/downloads)
+- [Node.js 18 or newer](https://nodejs.org/)
+- [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+
+Check your versions:
+
+```bash
+git --version
+node --version
+yarn --version
 ```
 
-#### Enterprise based distributions (Red Hat® / CentOS / CloudLinux / Fedora)
-In your terminal
-``` bash
-sudo yum install -y golang git
-```
-### Windows
+## 📥 Clone the site
 
-#### Installing Git
-1. Open [Git Downloads page](https://git-scm.com/downloads)
-2. Download the Windows Installer(.exe)
-3. Run the downloaded _Git-v.exe_ Installer
-
-#### Installing Go
-1. Open [Go Downloads page](https://golang.org/dl/)
-2. Download the Windows Installer(.msi)
-3. Run the downloaded MSI Installer
-
-
-### Mac OS X
-In your terminal
-``` bash
-/bin/sh -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install git
-brew install go
+```bash
+git clone https://github.com/abahmed/kwatch.dev.git
+cd kwatch.dev
+yarn install
 ```
 
-### Getting the source
-In your terminal
-``` bash
-# Clone kwatch repository
-git clone https://github.com/abahmed/kwatch
+## 👀 Preview your changes
+
+```bash
+yarn start
 ```
 
-### Build kwatch
-In your terminal
-``` bash
-go build
+Open the local URL printed by Docusaurus, usually
+`http://localhost:3000/`. Documentation pages live in `docs/`; the homepage
+components live in `src/`.
+
+## 🧪 Verify before opening a pull request
+
+Run the type checker and production build:
+
+```bash
+yarn typecheck
+yarn build
 ```
+
+The build creates static files in `build/`. Do not commit that generated
+directory.
+
+## ✍️ Add a documentation page
+
+1. Create a Markdown file under `docs/`.
+2. Add frontmatter with a clear `title` and `description`.
+3. Start with the task the reader wants to complete.
+4. Use a copy-pasteable example and explain required values.
+5. Add the page to `sidebars.ts` when it belongs in the public navigation.
+6. Run `yarn typecheck` and `yarn build`.
+
+Use short sections, simple English, and emojis when they clarify the topic.
+Do not put real tokens, passwords, or webhook URLs in examples.

@@ -1,12 +1,15 @@
 ---
 sidebar_position: 6
 title: Design Decisions
-description: Why kwatch is stateless, informer-based, uses a dependency graph with an insight engine, per-resource workqueues, circuit breakers, and the filter pipeline pattern
+description: why kwatch uses stateless Kubernetes informers, dependency graphs, workqueues, circuit breakers, and filter pipelines
 keywords: [kwatch, kubernetes, architecture, design decisions, stateless, informers, edge-triggered]
 pagination_prev: architecture/data-flow
 ---
 
-# Design Decisions
+# 🧠 Design decisions
+
+These are the choices that shape kwatch: small, local, predictable, and useful
+without a separate monitoring backend.
 
 ## Why stateless? No database needed
 

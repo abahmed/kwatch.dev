@@ -1,23 +1,53 @@
 ---
 sidebar_position: 3
 title: General Configuration
-description: all configuration options for kwatch, verified against the kwatch Go source
-keywords: [kwatch, kubernetes, configuration, general, silences, inhibition, correlation, templates, crd, severity, monitors]
+description: configure kwatch Kubernetes monitoring, alert routing, silences, correlation, monitors, CRD overlays, and Secret-backed credentials
+keywords: [kwatch configuration, Kubernetes monitoring configuration, Kubernetes alerts, silences, alert routing, CRD, monitors, secrets]
 pagination_next: null
 pagination_prev: null
 ---
 
-# General Configuration
+# ⚙️ General configuration
 
-All config lives in a single ConfigMap. kwatch watches `CONFIG_FILE` (default
-`/config/config.yaml`). Every field below maps directly to the Go struct at
+This is the complete settings reference. Most people only need to choose an
+alert channel; the defaults already cover the common Kubernetes failures.
+
+## 🗺️ Find a setting quickly
+
+| You want to... | Start with... |
+| --- | --- |
+| Choose a notification destination | [Channels](/docs/channels) |
+| Watch fewer namespaces | [`namespaces`](#-general) |
+| Ignore an intentional failure | [Silences](#-silences--advanced-suppression) |
+| Group related incidents | [Correlation](#-correlation--incident-lifecycle) |
+| Add a runbook link | [Custom templates and runbooks](#-custom-templates--runbooks) |
+| Keep credentials safe | [Secret-backed credentials](#-secret-backed-credentials-are-required) |
+
+### ✅ A safe change checklist
+
+1. Change one setting.
+2. Run `kwatch lint`.
+3. Apply the config through `kwatch.sh` and wait for the Pod to become ready.
+4. Use `kwatch lint --check` or `/test-alert` after changing a provider.
+
+Every default below is the value used by the binary unless the installation
+method says otherwise. TLS, heartbeat, Metrics Server, and active probes are
+opt-in.
+
+The base config is read from `CONFIG_FILE` (default `/config/config.yaml`).
+The interactive manager mounts it from a Kubernetes Secret and can also enable
+a `KwatchConfig` resource as a versioned configuration overlay. If you maintain
+a custom deployment, preserve the same file and Secret contract. Every field
+below maps directly to the Go struct at
 [`internal/config/config.go`](https://github.com/abahmed/kwatch/blob/main/internal/config/config.go).
+Sensitive strings must use an exact `${file:/absolute/path}` reference to read
+a file mounted from a Kubernetes Secret at startup.
 
 > **The good news: you probably don't need this page.** Every option below has a safe
 > default and works out of the box. Use this reference when you want to *change* something —
 > fewer alerts, a different channel, a custom message — or when a term in an alert confuses
 > you. After editing your `config.yaml`, run `kwatch lint` (add `--check` to also verify
-> your alert-provider credentials).
+> credentials for providers that support checks).
 
 ---
 
@@ -33,7 +63,9 @@ Decide **what** to watch and **how often**.
 | `containerRestartThreshold` | `int` | `0` | Alert when a *running* container exceeds this cumulative restart count. `0` = disabled. |
 | `ignoreFailedGracefulShutdown` | `bool` | `true` | Skip containers stopped by a clean/graceful shutdown. |
 | `ignoreDisruptionTerminations` | `bool` | `true` | Skip pods evicted during node drains (DeletionTimestamp / DisruptionTarget). |
+| `adaptiveThresholds` | `bool` | `true` | Add bounded workload-aware grace during normal partial rollouts. |
 | `reportStartupBaseline` | `bool` | `true` | Send one startup summary of pre-existing issues (suppressed from individual alerts). Anything already broken when kwatch starts is otherwise quiet for **24 hours**, so keep this on. |
+| `maintenance` | `object` | enabled | Suppress explicitly marked pod/container maintenance without disabling cluster-level alerts. |
 | `namespaces` | `[]string` | all | Watch only these namespaces — or use `!kube-system` to watch *everything except* it. |
 | `namespaceSelector` | `string` | `""` | Kubernetes label selector to discover namespaces. Use *instead of* `namespaces`, not with it. |
 | `reasons` | `[]string` | all | Alert on these event reasons only — or exclude with `!` (e.g. `reasons: ["!Started"]`). |
@@ -94,7 +126,7 @@ app:
 | `healthCheck.port` | `int` | `8060` | HTTP listen port. |
 | `healthCheck.pprof` | `bool` | `false` | Enable Go `/debug/pprof/*` profiling endpoints. |
 | `healthCheck.diagnostics` | `bool` | `false` | Enable `/incidents`, `/test-alert`, `/deadletters` endpoints. |
-| `healthCheck.diagnosticsToken` | `string` | `""` | Bearer token required for diagnostic endpoints. Empty = no auth. |
+| `healthCheck.diagnosticsToken` | `string` | `""` | Bearer token; must use `${file:/absolute/path}`. |
 
 **Endpoints:**
 | Path | Description | Requires |
@@ -281,14 +313,34 @@ structured JSON line — feed it to your log pipeline for a searchable history.
 
 ---
 
-## 📋 CRD — live config reloading
-
-Instead of editing the ConfigMap and restarting, push config changes live with a small
-custom resource. Off by default.
+## 🧰 Operations and security
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `crd.enabled` | `bool` | `false` | Watch `KwatchConfig` custom resources for live config changes. |
+| `telemetry.enabled` | `bool` | `true` | Send a small anonymous adoption heartbeat. |
+| `maintenance.enabled` | `bool` | `true` | Honor maintenance annotations. |
+| `maintenance.annotation` | `string` | `kwatch.io/maintenance` | Annotation used to mark deliberate maintenance. |
+| `maintenance.untilAnnotation` | `string` | `kwatch.io/maintenance-until` | Optional annotation containing the maintenance expiry time. |
+
+For maintenance behavior and examples, see the [maintenance section in the
+repository reference](https://github.com/abahmed/kwatch/blob/main/docs/configuration.md#-maintenance-mode).
+
+---
+
+## 📋 CRD — configuration overlay with automatic restart
+
+Instead of editing the base config, you can store a non-sensitive overlay in a
+small custom resource. Provider settings, heartbeat URLs, and diagnostic
+tokens are forbidden in `KwatchConfig`; they remain in the mounted Secret. The
+overlay is applied at startup. When the resource changes, kwatch restarts its
+Pod so the complete configuration is rebuilt consistently. It is off by
+default in the generic binary.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `crd.enabled` | `bool` | `false` | Watch `KwatchConfig` custom resources and restart kwatch when the overlay changes. |
+| `crd.failureConditions` | `list` | `[]` | Extra CRD status rules such as `Ready=False` or `Degraded=True`. |
+| `crd.graphReferences` | `list` | `[]` | Optional references that add custom CRD edges to dependency analysis. |
 
 ```yaml
 apiVersion: kwatch.abahmed.dev/v1alpha1
@@ -385,7 +437,7 @@ stalling ("unschedulable for 5m30s") to the hint.
 | `pvcMonitor.enabled` | `bool` | `true` | Monitor PersistentVolumeClaim disk usage. |
 | `pvcMonitor.interval` | `int` (min) | `5` | Check frequency. |
 | `pvcMonitor.threshold` | `float` (%) | `80` | Warn threshold. |
-| `pvcMonitor.criticalThreshold` | `float` (%) | `90` | Critical threshold. Must be ≥ `threshold`. |
+| `pvcMonitor.criticalThreshold` | `float` (%) | `90` | High-severity threshold. Must be ≥ `threshold`. |
 | `pvcMonitor.clearThreshold` | `float` (%) | `75` | Resolve below this %. Must be ≤ `threshold`. |
 
 ### 💓 Heartbeat Monitor (dead man's switch)
@@ -397,12 +449,12 @@ stops, the external monitor stops getting pings and pages you.
 |-----------|------|---------|-------------|
 | `heartbeatMonitor.enabled` | `bool` | `false` | Enable heartbeat pings. |
 | `heartbeatMonitor.interval` | `int` (sec) | `300` | Seconds between pings. |
-| `heartbeatMonitor.url` | `string` | `""` | External URL (e.g. Healthchecks.io). |
+| `heartbeatMonitor.url` | `string` | `""` | Secret-backed `${file:/absolute/path}` heartbeat URL. |
 
 ### 🔒 TLS Certificate Monitor
 
 **Off by default** because it requires an additional `secrets` RBAC permission. Warns with
-30 days to go, pages with 3 days to go.
+30 days to go, and raises severity to high with 3 days to go.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -427,6 +479,10 @@ stops, the external monitor stops getting pings and pages you.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `controlPlaneMonitor.enabled` | `bool` | `true` | Detect container issues in control-plane pods (apiserver, scheduler, controller-manager, etcd, kube-proxy, coredns). |
+| `controlPlaneMonitor.intervalSeconds` | `int` | `30` | Seconds between API and control-plane health checks. |
+| `controlPlaneMonitor.apiServerLatencyWarningMs` | `int` | `1000` | API server `/readyz` latency warning threshold in milliseconds. |
+| `controlPlaneMonitor.failureThreshold` | `int` | `2` | Consecutive failures before alerting. |
+| `controlPlaneMonitor.recoveryThreshold` | `int` | `2` | Consecutive successes before resolving. |
 
 ### 🌐 Ingress Backend Monitor
 
@@ -457,6 +513,96 @@ stops, the external monitor stops getting pings and pages you.
 | `nodeResourceMonitor.cpuCritical` | `float` | `4.0` | CPU overcommit ratio for critical. |
 | `nodeResourceMonitor.memWarning` | `float` | `2.0` | Memory overcommit ratio for warning. |
 | `nodeResourceMonitor.memCritical` | `float` | `4.0` | Memory overcommit ratio for critical. |
+| `nodeResourceMonitor.filesystemWarningPercent` | `float` | `90` | Node filesystem usage warning threshold. `0` disables it. |
+| `nodeResourceMonitor.filesystemCriticalPercent` | `float` | `95` | Node filesystem usage critical threshold. `0` disables it. |
+| `nodeResourceMonitor.inodeWarningPercent` | `float` | `90` | Node inode usage warning threshold. `0` disables it. |
+| `nodeResourceMonitor.inodeCriticalPercent` | `float` | `95` | Node inode usage critical threshold. `0` disables it. |
+
+### 📊 Optional Metrics Server monitor
+
+`runtimeMetricsMonitor` reads the optional `metrics.k8s.io` API. It is disabled
+by default and is not required for kwatch's built-in kubelet telemetry.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `runtimeMetricsMonitor.enabled` | `bool` | `false` | Use Metrics Server data for workload usage diagnostics. |
+| `runtimeMetricsMonitor.intervalSeconds` | `int` | `60` | Seconds between checks. |
+| `runtimeMetricsMonitor.memoryWarningPercent` | `int` | `90` | Memory usage warning percentage. |
+| `runtimeMetricsMonitor.memoryCriticalPercent` | `int` | `100` | Memory usage critical percentage. |
+| `runtimeMetricsMonitor.cpuWarningPercent` | `int` | `90` | CPU usage warning percentage. |
+| `runtimeMetricsMonitor.cpuCriticalPercent` | `int` | `100` | CPU usage critical percentage. |
+
+The shipped RBAC does not grant the extra `metrics.k8s.io` permission by
+default. Add it only when this monitor is enabled.
+
+### 🏛️ Cluster resource monitor
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `clusterResourceMonitor.enabled` | `bool` | `true` | Watch quota, namespace, and node-lease lifecycle failures. |
+| `clusterResourceMonitor.sustainedMinutes` | `int` | `10` | Minutes a terminating namespace or quota condition must persist. |
+| `clusterResourceMonitor.nodeLeaseStaleSeconds` | `int` | `90` | Seconds without a node lease renewal before reporting a stale heartbeat. |
+
+### 🧠 Kubelet telemetry monitor
+
+This monitor uses built-in kubelet endpoints. It does not need an agent or
+Prometheus.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `kubeletTelemetryMonitor.enabled` | `bool` | `true` | Read built-in kubelet telemetry. |
+| `kubeletTelemetryMonitor.intervalSeconds` | `int` | `60` | Seconds between telemetry sweeps. |
+| `kubeletTelemetryMonitor.failureThreshold` | `int` | `2` | Consecutive failed samples before alerting. |
+| `kubeletTelemetryMonitor.recoveryThreshold` | `int` | `2` | Consecutive healthy samples before resolving. |
+| `kubeletTelemetryMonitor.persistState` | `bool` | `true` | Persist telemetry counters across restarts. |
+| `kubeletTelemetryMonitor.memoryWarningPercent` | `float` | `90` | Container memory warning threshold. |
+| `kubeletTelemetryMonitor.memoryCriticalPercent` | `float` | `100` | Container memory critical threshold. |
+| `kubeletTelemetryMonitor.ephemeralStorageWarningPercent` | `float` | `90` | Ephemeral-storage warning threshold. |
+| `kubeletTelemetryMonitor.ephemeralStorageCriticalPercent` | `float` | `95` | Ephemeral-storage critical threshold. |
+| `kubeletTelemetryMonitor.cpuWarningPercent` | `float` | `90` | CPU usage warning threshold. |
+| `kubeletTelemetryMonitor.cpuCriticalPercent` | `float` | `100` | CPU usage critical threshold. |
+| `kubeletTelemetryMonitor.cpuThrottlingWarningPercent` | `float` | `25` | CPU throttling warning threshold. |
+| `kubeletTelemetryMonitor.cpuThrottlingCriticalPercent` | `float` | `50` | CPU throttling critical threshold. |
+| `kubeletTelemetryMonitor.psiWarningPercent` | `float` | `20` | PSI warning threshold. |
+| `kubeletTelemetryMonitor.psiCriticalPercent` | `float` | `50` | PSI critical threshold. |
+| `kubeletTelemetryMonitor.networkErrorRateWarning` | `float` | `1` | Network errors per second warning threshold. |
+| `kubeletTelemetryMonitor.networkErrorRateCritical` | `float` | `10` | Network errors per second critical threshold. |
+| `kubeletTelemetryMonitor.runtimeErrorRateWarning` | `float` | `1` | Runtime errors per second warning threshold. |
+| `kubeletTelemetryMonitor.runtimeErrorRateCritical` | `float` | `10` | Runtime errors per second critical threshold. |
+
+### 🎯 Active probes
+
+Active probes are disabled by default because they create traffic. Explicit
+HTTP, TCP, and DNS targets are the recommended low-noise mode. Set
+`autoServices: true` only when you want kwatch to probe advertised Service
+ports automatically.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `activeProbeMonitor.enabled` | `bool` | `false` | Run configured application probes. |
+| `activeProbeMonitor.intervalSeconds` | `int` | `30` | Seconds between probe rounds. |
+| `activeProbeMonitor.timeoutSeconds` | `int` | `5` | Timeout for each probe. |
+| `activeProbeMonitor.failureThreshold` | `int` | `3` | Consecutive failures before alerting. |
+| `activeProbeMonitor.recoveryThreshold` | `int` | `2` | Consecutive successes before resolving. |
+| `activeProbeMonitor.autoServices` | `bool` | `false` | Probe discoverable Service ports automatically. |
+| `activeProbeMonitor.http` | `list` | `[]` | HTTP targets with optional status and latency limits. |
+| `activeProbeMonitor.tcp` | `list` | `[]` | TCP targets. |
+| `activeProbeMonitor.dns` | `list` | `[]` | DNS targets. |
+
+```yaml
+activeProbeMonitor:
+  enabled: true
+  http:
+    - name: api
+      url: https://api.example.com/ready
+      expectedStatus: 200
+  tcp:
+    - name: postgres
+      address: postgres.database.svc:5432
+  dns:
+    - name: cluster-dns
+      host: kubernetes.default.svc
+```
 
 ### 💥 OOM Pattern Monitor
 
@@ -468,41 +614,44 @@ stops, the external monitor stops getting pings and pages you.
 
 ---
 
-## 🔐 Keeping credentials out of the ConfigMap
+## 🔐 Secret-backed credentials are required
 
-ConfigMaps are readable by anyone with `get` access and are not encrypted at rest by
-default. kwatch expands `${VAR}` in its config, so keep the secret in a Secret and reference it:
+Provider credentials, diagnostic tokens, and heartbeat URLs must be files
+mounted from a Kubernetes Secret. Plain values and `${ENV_VAR}` substitutions
+are rejected for sensitive fields:
 
 ```yaml
 # config.yaml
 alert:
   slack:
-    token: "${SLACK_TOKEN}"
+    webhook: "${file:/config/slack-webhook}"
 ```
 
-```yaml
-# kwatch container in the Deployment
-env:
-  - name: SLACK_TOKEN
-    valueFrom:
-      secretKeyRef:
-        name: kwatch-credentials
-        key: SLACK_TOKEN
+```bash
+kubectl -n kwatch create secret generic kwatch-config \
+  --from-file=config.yaml \
+  --from-file=slack-webhook
 ```
 
-Only `${VAR}` (braced) is expanded, and only where the value is a string.
+Mount `kwatch-config` at `/config`, or set the Helm `configSecretName` value to
+`kwatch-config`. `${VAR}` remains available for non-sensitive strings only.
+
+The shipped workloads use a non-root user, read-only root filesystem, dropped
+Linux capabilities, disabled privilege escalation, and the `RuntimeDefault`
+seccomp profile. Protect the Secret with least-privilege RBAC, enable API
+server/etcd encryption at rest, and restart the deployment after rotating it.
 
 ---
 
 ## 🚦 Alert Providers
 
-kwatch delivers to **56 alert providers**. Configure one or more under `alert:`. Routing,
+kwatch delivers to **56 alert integrations**. Configure one or more under `alert:`. Routing,
 retry, and fallback are supported by every provider:
 
 ```yaml
 alert:
   slack:
-    webhook: <url>
+    webhook: "${file:/config/slack-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -512,24 +661,24 @@ alert:
     fallback: pagerduty
 
   pagerduty:
-    integrationKey: <key>
+    integrationKey: "${file:/config/pagerduty-integration-key}"
 
   discord:
-    webhook: <url>
+    webhook: "${file:/config/discord-webhook}"
 
   telegram:
-    token: <token>
+    token: "${file:/config/telegram-token}"
     chatId: <chat>
 
   email:
     from: <from>
     to: <to>
-    password: <pass>
+    password: "${file:/config/email-password}"
     host: <smtp-host>
     port: <smtp-port>
 ```
 
-The full list of all 56 providers — with every parameter and example — is in
+The full list of all 56 integrations — with every parameter and example — is in
 [`docs/providers.md`](https://github.com/abahmed/kwatch/blob/main/docs/providers.md) in the
 kwatch repository, and the dedicated pages under [Channels](/docs/channels).
 
@@ -565,11 +714,13 @@ cannot hold up other alerts.
 
 ```yaml
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  slack-webhook: "replace-me"
+  pagerduty-integration-key: "replace-me"
   config.yaml: |
     maxRecentLogLines: 50
     ignoreFailedGracefulShutdown: true
@@ -605,7 +756,7 @@ data:
 
     alert:
       slack:
-        webhook: https://hooks.slack.com/services/...
+        webhook: "${file:/config/slack-webhook}"
       pagerduty:
-        integrationKey: abc123
+        integrationKey: "${file:/config/pagerduty-integration-key}"
 ```

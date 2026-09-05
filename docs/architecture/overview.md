@@ -6,7 +6,11 @@ keywords: [kwatch, kubernetes, architecture, overview, informers, correlation]
 pagination_next: architecture/packages-overview
 ---
 
-# 🏗️ Architecture Overview
+# 🏗️ Architecture overview
+
+This section is for people who want to understand the system, extend it, or
+debug an unusual alert. Start here, then follow the alert path from detection
+to delivery.
 
 kwatch is a **stateless, single-binary** Kubernetes controller that watches
 cluster resources via informers, detects incidents, builds a dependency graph

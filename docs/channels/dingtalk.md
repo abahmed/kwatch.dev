@@ -1,13 +1,13 @@
 ---
 sidebar_position: 13
 title: DingTalk
-description: Send Kubernetes crash alerts to DingTalk — configure webhook and security tokens for kwatch
-keywords: [kwatch, dingtalk, kubernetes crash alerts, k8s notifications, devops]
+description: Send clear Kubernetes incident alerts to DingTalk — configure webhook and security tokens for kwatch
+keywords: [kwatch, dingtalk, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# DingTalk
+# 🔔 DingTalk
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,16 +24,18 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  dingtalk-access-token: "replace-me"
+  dingtalk-secret: "replace-me"
   config.yaml: |
     alert:
       dingtalk:
-        accessToken: "YOUR_ACCESS_TOKEN"
-        secret: "YOUR_SECRET"
+        accessToken: "${file:/config/dingtalk-access-token}"
+        secret: "${file:/config/dingtalk-secret}"
         title: "optional customized title"
 ```
 
@@ -42,8 +44,8 @@ data:
 ```yaml
 alert:
   dingtalk:
-    accessToken: "YOUR_ACCESS_TOKEN"
-    secret: "YOUR_SECRET"
+    accessToken: "${file:/config/dingtalk-access-token}"
+    secret: "${file:/config/dingtalk-secret}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -55,8 +57,8 @@ alert:
 ```yaml
 alert:
   dingtalk:
-    accessToken: "YOUR_ACCESS_TOKEN"
-    secret: "YOUR_SECRET"
+    accessToken: "${file:/config/dingtalk-access-token}"
+    secret: "${file:/config/dingtalk-secret}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -67,8 +69,8 @@ alert:
 ```yaml
 alert:
   dingtalk:
-    accessToken: "YOUR_ACCESS_TOKEN"
-    secret: "YOUR_SECRET"
+    accessToken: "${file:/config/dingtalk-access-token}"
+    secret: "${file:/config/dingtalk-secret}"
     fallback: <another_provider>
 ```
 
@@ -77,7 +79,7 @@ alert:
 ```yaml
 alert:
   dingtalk:
-    accessToken: "YOUR_ACCESS_TOKEN"
-    secret: "YOUR_SECRET"
+    accessToken: "${file:/config/dingtalk-access-token}"
+    secret: "${file:/config/dingtalk-secret}"
     compact: true
 ```

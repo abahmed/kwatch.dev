@@ -1,40 +1,70 @@
 ---
 sidebar_position: 1
 title: Contributing
-description: a guide for newcomers to contribute to kwatch
-keywords: [kwatch, newcomers, contribute, development]
-pagination_next: null
+description: how to contribute code, documentation, tests, and ideas to kwatch
+keywords: [kwatch, contribute, open source, github, pull request]
+pagination_next: contributing/cloning-and-building
 pagination_prev: null
 ---
-# Contributing
 
-**Newcomers** are always welcome to contribute to kwatch, and we are happy to offer help to newcomers.
-Before making changes, please first discuss the change you want to make through [Discord](https://discord.gg/kzJszdKmJ7), or email us at [kwatch@googlegroups.com](mailto:kwatch@googlegroups.com)
+# 🤝 Contributing to kwatch
 
-### There are many ways to contribute:
+Thank you for helping make Kubernetes easier to operate. You do not need to be
+a Kubernetes expert to contribute. Documentation, bug reports, tests, ideas,
+and small fixes are all useful.
 
-+ [Suggest new features to be implemented](https://github.com/abahmed/kwatch/issues)
-+ [Report issues](https://github.com/abahmed/kwatch/issues)
-+ [Fixing issues](https://github.com/abahmed/kwatch/issues)
-+ Improve Documentation
+## 🌱 Choose a way to help
 
+- 🐛 [Report a bug](https://github.com/abahmed/kwatch/issues/new)
+- 💡 [Suggest an improvement](https://github.com/abahmed/kwatch/issues)
+- 📚 Improve a guide or example
+- 🧪 Add or improve tests
+- 💻 Fix an issue or build a feature
+- 💬 Ask questions in [Discord](https://discord.gg/kzJszdKmJ7)
 
-### Code Contribution
+Before starting a large change, open an issue or discuss it in Discord. This
+helps us agree on the approach and avoids duplicated work.
 
-If you wish to work on an issue, please comment on the issue that you want to work on it. This is to prevent duplicated efforts on the same issue.
+## 🛠️ A normal code contribution
 
+1. Find an issue or open one describing the problem.
+2. Fork the repository and create a focused branch.
+3. Make the smallest change that solves the problem.
+4. Add or update tests and documentation.
+5. Run the verification command locally.
+6. Open a pull request against `main` and explain what changed.
 
-Contributions to kwatch should be made in the form of **pull requests** (PR) to the **main** branch.
+Read [Cloning and building](/docs/contributing/cloning-and-building) for local
+setup and the [GitHub workflow](/docs/contributing/github-workflow) for the Git
+commands.
 
-Each pull request will be **reviewed by someone with permission to land patches**.
+## ✅ Before opening a pull request
 
-After reviewing the patch, it could be merged to the **main** branch or given feedback for changes. (Seems not clear to you! Don't worry, we have added tutorials for [Github Workflow](/docs/contributing/github-workflow)
+```bash
+go build ./...
+go vet ./...
+go test ./...
+golangci-lint run
+make verify
+```
 
+Keep changes focused, use clear names, and add comments only when they explain
+a non-obvious decision. If a change affects configuration, alerts, persistence,
+or release behavior, update the matching docs too.
 
-### Code of Conduct
+## 📝 Documentation changes
 
-We expect everyone to follow the [Code Of Conduct](https://github.com/abahmed/kwatch/blob/main/CODE_OF_CONDUCT.md)
+Write for the person who is seeing the problem for the first time:
 
-### Useful links for collaborators/maintainers
+- Start with the goal and the result.
+- Show a copy-pasteable example.
+- Explain Kubernetes terms the first time you use them.
+- Say whether a setting is on by default or opt-in.
+- Never include real credentials in examples.
+- Keep version pins inside the release-managed README blocks only.
 
-+ [Checking out branches locally](https://help.github.com/articles/checking-out-pull-requests-locally/)
+## 📜 Community rules
+
+Please follow the [Code of Conduct](https://github.com/abahmed/kwatch/blob/main/CODE_OF_CONDUCT.md).
+Security issues should be reported privately using the process in
+[SECURITY.md](https://github.com/abahmed/kwatch/blob/main/SECURITY.md).

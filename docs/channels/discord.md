@@ -1,13 +1,13 @@
 ---
 sidebar_position: 3
 title: Discord
-description: Receive Kubernetes crash alerts in Discord — configure webhook integration and channel routing for kwatch notifications
-keywords: [kwatch, discord, kubernetes crash alerts, pod monitoring, k8s notifications, devops]
+description: Receive clear Kubernetes incident alerts in Discord — configure webhook integration and channel routing for kwatch
+keywords: [kwatch, discord, kubernetes incident alerts, pod monitoring, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Discord
+# 💬 Discord
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,15 +24,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  discord-webhook: "replace-me"
   config.yaml: |
     alert:
       discord:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/discord-webhook}"
         title: "optional customized title"
         text: "optional customized text"
 ```
@@ -42,7 +43,7 @@ data:
 ```yaml
 alert:
   discord:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/discord-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -54,7 +55,7 @@ alert:
 ```yaml
 alert:
   discord:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/discord-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   discord:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/discord-webhook}"
     fallback: <another_provider>
 ```
 
@@ -74,7 +75,7 @@ alert:
 ```yaml
 alert:
   discord:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/discord-webhook}"
     compact: true
 ```
 

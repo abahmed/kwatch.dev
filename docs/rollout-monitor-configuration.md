@@ -1,13 +1,16 @@
 ---
 sidebar_position: 10
 title: Rollout Monitor
-description: rollout monitor configuration for stuck deployments
+description: configure kwatch to detect Kubernetes Deployments stuck during rollout or past their progress deadline
 keywords: [kwatch, kubernetes, configuration, monitor, rollout, deployment]
 pagination_next: null
 pagination_prev: null
 ---
 
-# 🚀 Rollout Monitor
+# 🚀 Rollout monitor
+
+A **rollout** is Kubernetes replacing old Pods with new ones after a change.
+This monitor alerts when a Deployment gets stuck instead of finishing.
 
 Watches for deployments that get stuck during rollout (ProgressDeadlineExceeded).
 
@@ -15,21 +18,12 @@ Watches for deployments that get stuck during rollout (ProgressDeadlineExceeded)
 |:---|---|
 | `rolloutMonitor.enabled` | ✅ Watch for stuck deployments (default: true) |
 
-### Example
+### Configuration fragment
+
+Add this fragment through `kwatch.sh`'s **Configure settings** flow, or merge it
+into the configuration file used by your existing supported installation:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    rolloutMonitor:
-      enabled: true
+rolloutMonitor:
+  enabled: true
 ```

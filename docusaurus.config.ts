@@ -4,13 +4,13 @@ import type * as Preset from '@docusaurus/preset-classic';
 import { EnumChangefreq } from 'sitemap';
 
 const logo = {
-  alt: 'monitor & detect crashes in your Kubernetes(K8s) cluster instantly',
+  alt: 'kwatch Kubernetes incident monitoring and alerting',
   src: 'img/kwatch-logo.svg',
 };
 
 const config: Config = {
   title: 'kwatch',
-  tagline: 'Monitor your Kubernetes cluster — get crash alerts with plain-English explanations and fixes',
+  tagline: 'See what broke. Understand why. Know what to do next. 👀🧠⚡',
   favicon: 'img/kwatch-logo.svg',
 
   // Set the production url of your site here
@@ -21,8 +21,8 @@ const config: Config = {
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'kwatch', // Usually your GitHub org/user name.
-  projectName: 'kwatch', // Usually your repo name.
+  organizationName: 'abahmed', // GitHub owner of the documentation site.
+  projectName: 'kwatch.dev', // Repository containing the documentation site.
 
   onBrokenLinks: 'throw',
   markdown: {
@@ -33,7 +33,7 @@ const config: Config = {
 
   customFields: {
     description:
-    'kwatch monitors your Kubernetes cluster and sends crash alerts with plain-English explanations of what went wrong and how to fix it',
+    'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.',
   },
   trailingSlash: false,
 
@@ -52,16 +52,16 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
         },
-    blog: {
-      showReadingTime: true,
-      blogSidebarCount: 0,
-      feedOptions: {
-        type: 'all',
-        title: 'kwatch Blog',
-        description: 'Latest news and updates about kwatch — Kubernetes crash monitoring',
-        copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
-      },
-    },
+        blog: {
+          showReadingTime: true,
+          blogSidebarCount: 0,
+          feedOptions: {
+            type: 'all',
+            title: 'kwatch Blog',
+            description: 'Latest news and updates about kwatch — Kubernetes incident monitoring',
+            copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
+          },
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -70,10 +70,6 @@ const config: Config = {
           priority: 0.5,
           filename: 'sitemap.xml',
         },
-        gtag: {
-          trackingID: 'G-999X9XX9XX',
-          anonymizeIP: true,
-        },
       } satisfies Preset.Options,
     ],
   ],
@@ -81,14 +77,16 @@ const config: Config = {
   themeConfig: {
     image: 'img/kwatch-logo-full.png',
     metadata: [
-      {name: 'keywords', content: 'kubernetes, k8s, crash monitoring, pod crashes, alerting, devops, cluster monitoring, kubernetes alerts'},
-      {property: 'og:title', content: 'kwatch — Kubernetes Crash Monitor'},
-      {property: 'og:description', content: 'Monitor your Kubernetes cluster and get crash alerts with plain-English explanations and fixes'},
+      {name: 'keywords', content: 'kubernetes monitoring, kubernetes alerting, k8s alerts, pod crash monitoring, incident diagnosis, devops, cloud native'},
       {property: 'og:type', content: 'website'},
-      {property: 'og:url', content: 'https://kwatch.dev'},
+      {property: 'og:site_name', content: 'kwatch'},
       {name: 'twitter:card', content: 'summary_large_image'},
-      {name: 'twitter:title', content: 'kwatch — Kubernetes Crash Monitor'},
-      {name: 'twitter:description', content: 'Monitor your Kubernetes cluster and get crash alerts with plain-English explanations and fixes'},
+      {name: 'twitter:title', content: 'kwatch — Kubernetes incident monitoring'},
+      {
+        name: 'twitter:description',
+        content:
+          'See what broke. Understand why. Know what to do next. 👀🧠⚡',
+      },
     ],
     colorMode: {
       defaultMode: 'dark',
@@ -100,7 +98,12 @@ const config: Config = {
       logo: logo,
       items: [
         {to: '/docs', label: 'Docs', position: 'left'},
-        {to: '/docs/installation', label: 'Install', position: 'left'},
+        {
+          to: '/docs/installation',
+          label: 'Install',
+          position: 'left',
+          className: 'navbar-install-link',
+        },
         {to: '/docs/channels', label: 'Channels', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
         {to: '/community', label: 'Community', position: 'right'},

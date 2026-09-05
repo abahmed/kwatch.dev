@@ -1,13 +1,13 @@
 ---
 sidebar_position: 10
 title: Mattermost
-description: Send Kubernetes crash alerts to Mattermost — configure webhook integration for kwatch notifications
-keywords: [kwatch, mattermost, kubernetes crash alerts, pod monitoring, k8s notifications]
+description: Send clear Kubernetes incident alerts to Mattermost — configure webhook integration for kwatch notifications
+keywords: [kwatch, mattermost, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Mattermost
+# 🌐 Mattermost
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,15 +24,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  mattermost-webhook: "replace-me"
   config.yaml: |
     alert:
       mattermost:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/mattermost-webhook}"
         title: "optional customized title"
         text: "optional customized text"
 ```
@@ -42,7 +43,7 @@ data:
 ```yaml
 alert:
   mattermost:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/mattermost-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -54,7 +55,7 @@ alert:
 ```yaml
 alert:
   mattermost:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/mattermost-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   mattermost:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/mattermost-webhook}"
     fallback: <another_provider>
 ```
 
@@ -74,7 +75,7 @@ alert:
 ```yaml
 alert:
   mattermost:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/mattermost-webhook}"
     compact: true
 ```
 

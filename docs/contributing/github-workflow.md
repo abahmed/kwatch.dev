@@ -1,59 +1,74 @@
 ---
 sidebar_position: 3
 title: GitHub workflow
-description: a guide for github workflow used in developing kwatch
-keywords: [kwatch, git, github, contribute, development, workflow, fork]
+description: the simple GitHub workflow for contributing to kwatch.dev
+keywords: [kwatch, github, git, contribute, pull request, fork]
 pagination_next: null
-pagination_prev: null
+pagination_prev: contributing/cloning-and-building
 ---
-# GitHub workflow
 
-If you have **never** used git or GitHub, you may also need to check [Hello World in GitHub Guides](https://docs.github.com/en/get-started/start-your-journey/hello-world).
+# 🔁 GitHub workflow
 
-Firstly, You need to [Fork](https://help.github.com/articles/fork-a-repo/) kwatch repository `abahmed/kwatch` then clone it on your local machine using
+If GitHub is new to you, read GitHub's [Hello World guide](https://docs.github.com/en/get-started/start-your-journey/hello-world) first. The flow below is the same for documentation and code changes.
 
-`git clone https://github.com/YOUR-USER_NAME/kwatch `
+## 1. 🍴 Fork and clone
 
-#### According to GitHub naming we will call
+Click **Fork** on the repository, then clone your fork:
 
-+ The repository you have forked **origin** and its link is `https://github.com/YOUR-USER_NAME/kwatch `
-+ This repository **upstream** and its link is `https://github.com/abahmed/kwatch `
+```bash
+git clone https://github.com/YOUR-USERNAME/kwatch.dev.git
+cd kwatch.dev
+git remote add upstream https://github.com/abahmed/kwatch.dev.git
+```
 
-#### The previous steps are done once, then these steps that you should follow every time you work on patch(es) or feature(s):
+Here, `origin` is your fork and `upstream` is the main project.
 
+## 2. 🌿 Create a branch
 
-1. Fetch code and create a local branch
+```bash
+git fetch upstream
+git switch -c improve-alert-docs upstream/main
+```
 
-    ```
-    git fetch upstream
-    git checkout -b LOCAL_BRANCH_NAME upstream/main
-    ```
+Choose a short branch name that describes the change.
 
-2. Do your code changes then commit
+## 3. ✍️ Make and check your changes
 
-    ```
-    git commit -a -m "Issue #ISSUE_NUMBER: BRIEF_DESCRIPTION."
-    ```
+Edit the docs or site, then run:
 
-3. Push commit you have made to your fork
+```bash
+yarn typecheck
+yarn build
+```
 
-    ```
-    git push -u origin "LOCAL_BRANCH_NAME"
-    ```
+Read the page once as a new user. Check that commands are complete, examples use fake credentials, and links work.
 
-4. Create a [Pull Request(PR)](https://help.github.com/articles/using-pull-requests/) to the branch **main**. To notify the reviewer that will review this PR, you can write r? @USER_NAME
+## 4. 📤 Push and open a pull request
 
-5. After getting reviewers' feedback - if something needs to be changed, added, removed or fixed and these changes  are minor (means you didn't get **r+**, just fix it in a new commit on the same branch
+```bash
+git add docs/ src/ sidebars.ts
+git commit -m "docs: clarify alert setup"
+git push -u origin improve-alert-docs
+```
 
-    ```
-    git commit --fixup SHA1_OF_THE_PREVIOUS_COMMIT (You can get it using **git log**)
-    ```
+Open a pull request from your branch to `abahmed/kwatch.dev:main`. Explain:
 
-6. Use step 3 to update the Pull Request. Repeat steps 5-6 until the review is accepted.
+- what changed;
+- who the change helps; and
+- how you checked it.
 
-7. When you notice that there is a change on **upstream** that affects your patch or files you have worked on, you need to update and rebase your local branch
+## 5. 🔄 Keep the branch current
 
-    ```
-    git fetch upstream
-    git rebase upstream/main
-    ```
+If `main` changes while your pull request is open:
+
+```bash
+git fetch upstream
+git rebase upstream/main
+git push --force-with-lease
+```
+
+Only use `--force-with-lease` on your own feature branch. Never force-push `main`.
+
+## 💬 Need help?
+
+Ask in [Discord](https://discord.gg/kzJszdKmJ7) or comment on the issue before starting a large change. Small improvements are welcome too. 🙌

@@ -1,13 +1,17 @@
 ---
 sidebar_position: 14
 title: HPA Monitor
-description: HPA monitor configuration for stuck autoscalers with detection logic
+description: configure kwatch to detect Kubernetes HPAs stuck at maximum replicas or unable to scale
 keywords: [kwatch, kubernetes, configuration, monitor, hpa, autoscaling, horizontalpodautoscaler]
 pagination_next: null
 pagination_prev: null
 ---
 
-# 📈 HPA Monitor
+# 📈 HPA monitor
+
+An **HPA** (Horizontal Pod Autoscaler) changes the number of Pods when load
+changes. This monitor alerts only when scaling is failing and the HPA stays at
+its maximum for a sustained period.
 
 Watches for HorizontalPodAutoscalers that are stuck at max replicas for a
 sustained period with scaling errors.
@@ -27,24 +31,15 @@ sustained period with scaling errors.
 | `hpaMonitor.enabled` | `bool` | `true` | Enable HPA monitoring. |
 | `hpaMonitor.sustainedMinutes` | `int` | `20` | Minutes the HPA must be at max replicas before alerting. |
 
-## Example
+## Configuration fragment
+
+Add this fragment through `kwatch.sh`'s **Configure settings** flow, or merge it
+into the configuration file used by your existing supported installation:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    hpaMonitor:
-      enabled: true
-      sustainedMinutes: 20
+hpaMonitor:
+  enabled: true
+  sustainedMinutes: 20
 ```
 
 ## What triggers an alert

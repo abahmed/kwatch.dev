@@ -1,13 +1,16 @@
 ---
 sidebar_position: 16
 title: TLS Monitor
-description: TLS certificate expiry monitor configuration with detection details
+description: configure kwatch to detect expiring TLS certificates stored in Kubernetes Secrets
 keywords: [kwatch, kubernetes, configuration, monitor, tls, certificate, ssl, expiry]
 pagination_next: null
 pagination_prev: null
 ---
 
-# 🔒 TLS Certificate Monitor
+# 🔒 TLS certificate monitor
+
+TLS certificates protect HTTPS connections. This optional monitor warns before
+a certificate stored in a Kubernetes Secret expires.
 
 Watches for TLS/SSL certificates in `kubernetes.io/tls` Secrets that are about
 to expire. **This monitor is off by default** because it requires an additional
@@ -32,8 +35,9 @@ RBAC permission (`secrets`).
 
 ## Required RBAC
 
-The TLS monitor needs `secrets` access. Uncomment these lines in your
-`deploy.yaml` ClusterRole:
+The TLS monitor needs `secrets` access. Enable TLS from `kwatch.sh`, which
+updates the managed RBAC safely. For a custom installation, grant the running
+ServiceAccount these read-only permissions:
 
 ```yaml
 - apiGroups: [""]
@@ -41,25 +45,16 @@ The TLS monitor needs `secrets` access. Uncomment these lines in your
   verbs: ["get", "list", "watch"]
 ```
 
-## Example
+## Configuration fragment
+
+Add this fragment through `kwatch.sh`'s **Configure settings** flow, or merge it
+into the configuration file used by your existing supported installation:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    tlsMonitor:
-      enabled: true
-      threshold: 30
-      criticalThreshold: 3
+tlsMonitor:
+  enabled: true
+  threshold: 30
+  criticalThreshold: 3
 ```
 
 ## Multiple certificates in one Secret

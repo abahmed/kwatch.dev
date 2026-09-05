@@ -1,5 +1,6 @@
 import React from "react";
 import CodeSnippet from "@site/src/theme/CodeSnippet";
+import Link from "@docusaurus/Link";
 
 import styles from './styles.module.css';
 
@@ -13,65 +14,59 @@ function Installation() {
               <span className={styles.category}>
                 <span className={styles.lightning}>⚡</span> Installation
               </span>
-              <h2 className={styles.title}>60-second install</h2>
-              <p className={styles.subtitle}>Pick your method — both take under a minute 🚀</p>
+              <h2 className={styles.title}>Start here: one command to install</h2>
+              <p className={styles.subtitle}>
+                One command is all you need to get started. No Helm or
+                <code>kubectl apply</code> steps here 🚀
+              </p>
 
               <div className={styles.methodCard}>
                 <div className={styles.methodBadge}>
-                  <span className={styles.methodIcon}>🏆</span>
-                  <span className={styles.methodLabel}>Easiest</span>
+                  <span className={styles.methodIcon}>✨</span>
+                  <span className={styles.methodLabel}>Recommended</span>
                 </div>
-                <h4 className={styles.methodTitle}>📦 Helm</h4>
+                <h4 className={styles.methodTitle}>Interactive manager</h4>
                 <CodeSnippet
                   language="bash"
-                  code="helm repo add kwatch https://kwatch.dev/charts
-helm install [RELEASE_NAME] kwatch/kwatch --namespace kwatch --create-namespace --version 0.11.0-rc.6"
+                  code={'/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"'}
                 />
                 <p className={styles.note}>
-                  More details in the <a href="https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md">chart docs</a> 📖
+                  Install, configure, upgrade, check, or uninstall kwatch from
+                  one menu. The manager asks for your cluster and alert
+                  destination, stores credentials in a Secret, and waits for
+                  kwatch to become ready.
                 </p>
               </div>
 
-              <div className={styles.methodCard}>
-                <div className={styles.methodBadge}>
-                  <span className={styles.methodIcon}>🐙</span>
-                  <span className={styles.methodLabel}>Classic</span>
+              <div className={styles.steps} aria-label="Installation steps">
+                <div className={styles.step}>
+                  <span className={styles.stepNum}>1</span>
+                  <div className={styles.stepContent}>
+                    <span className={styles.stepLabel}>Run the command</span>
+                    <span>Keep your current kubectl context selected.</span>
+                  </div>
                 </div>
-                <h4 className={styles.methodTitle}>kubectl</h4>
-                <div className={styles.steps}>
-                  <div className={styles.step}>
-                    <span className={styles.stepNum}>1</span>
-                    <div className={styles.stepContent}>
-                      <span className={styles.stepLabel}>Get config</span>
-                      <CodeSnippet
-                        language="bash"
-                        code="curl -L https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/config.yaml -o config.yaml"
-                      />
-                    </div>
+                <div className={styles.step}>
+                  <span className={styles.stepNum}>2</span>
+                  <div className={styles.stepContent}>
+                    <span className={styles.stepLabel}>Choose your alert channel</span>
+                    <span>Credentials are stored in a Kubernetes Secret.</span>
                   </div>
-                  <div className={styles.step}>
-                    <span className={styles.stepNum}>2</span>
-                    <div className={styles.stepContent}>
-                      <span className={styles.stepLabel}>Edit & apply</span>
-                      <CodeSnippet
-                        language="bash"
-                        code="vim config.yaml  # ✏️ add your webhook
-kubectl apply -f config.yaml"
-                      />
-                    </div>
-                  </div>
-                  <div className={styles.step}>
-                    <span className={styles.stepNum}>3</span>
-                    <div className={styles.stepContent}>
-                      <span className={styles.stepLabel}>Deploy kwatch 🎉</span>
-                      <CodeSnippet
-                        language="bash"
-                        code="kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/deploy.yaml"
-                      />
-                    </div>
+                </div>
+                <div className={styles.step}>
+                  <span className={styles.stepNum}>3</span>
+                  <div className={styles.stepContent}>
+                    <span className={styles.stepLabel}>Start watching</span>
+                    <span>The manager verifies that kwatch is ready.</span>
                   </div>
                 </div>
               </div>
+
+              <p className={styles.previewNotice}>
+                Need to inspect release artifacts or understand the supported
+                lifecycle? Read the full{' '}
+                <Link to="/docs/installation">installation guide</Link>.
+              </p>
             </div>
           </div>
         </div>

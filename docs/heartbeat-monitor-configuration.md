@@ -1,13 +1,16 @@
 ---
 sidebar_position: 15
 title: Heartbeat Monitor
-description: heartbeat (dead man's switch) monitor configuration with setup guide
+description: configure kwatch's optional heartbeat monitor to detect when the Kubernetes monitor itself stops running
 keywords: [kwatch, kubernetes, configuration, monitor, heartbeat, deadman, healthchecks]
 pagination_next: null
 pagination_prev: null
 ---
 
-# 💓 Heartbeat Monitor (dead man's switch)
+# 💓 Heartbeat monitor (dead man's switch)
+
+This is an optional **watch-the-watcher** check. An external service expects a
+regular ping from kwatch; if the pings stop, that service alerts you.
 
 Sends periodic HTTP GET pings to an external health-check URL. If kwatch stops
 or crashes, the external monitor stops receiving pings and pages you.
@@ -32,7 +35,7 @@ If kwatch crashes:
 |-----------|------|---------|-------------|
 | `heartbeatMonitor.enabled` | `bool` | `false` | Enable heartbeat pings. |
 | `heartbeatMonitor.interval` | `int` (sec) | `300` | Seconds between pings (min: 1). |
-| `heartbeatMonitor.url` | `string` | `""` | External URL to ping (e.g. `https://hc-ping.com/your-uuid`). |
+| `heartbeatMonitor.url` | `string` | `""` | Secret-backed `${file:/absolute/path}` URL to ping. |
 
 ## Example with Healthchecks.io
 
@@ -40,21 +43,22 @@ If kwatch crashes:
 
 ```yaml
 apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
-  config.yaml: |
-    heartbeatMonitor:
-      enabled: true
-      interval: 300
-      url: "https://hc-ping.com/your-uuid-here"
+stringData:
+  heartbeat-url: "replace-me"
+```
+
+Add the monitor settings through `kwatch.sh`'s **Configure settings** flow (or
+merge them into the config file used by your supported installation):
+
+```yaml
+heartbeatMonitor:
+  enabled: true
+  interval: 300
+  url: "${file:/config/heartbeat-url}"
 ```
 
 1. Sign up at [Healthchecks.io](https://healthchecks.io)
@@ -69,5 +73,5 @@ data:
 heartbeatMonitor:
   enabled: true
   interval: 60
-  url: "https://betteruptime.com/api/v1/heartbeat/your-heartbeat-key"
+  url: "${file:/config/heartbeat-url}"
 ```

@@ -1,13 +1,13 @@
 ---
 sidebar_position: 4
 title: Microsoft Teams
-description: Get Kubernetes crash alerts in Microsoft Teams — configure webhook connector for kwatch notifications
-keywords: [kwatch, microsoft teams, kubernetes crash alerts, k8s notifications, devops]
+description: Get clear Kubernetes incident alerts in Microsoft Teams — configure webhook connector for kwatch
+keywords: [kwatch, microsoft teams, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Microsoft Teams
+# 💼 Microsoft Teams
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,15 +24,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  teams-webhook: "replace-me"
   config.yaml: |
     alert:
       teams:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/teams-webhook}"
         title: "optional customized title"
         text: "optional customized text"
 ```
@@ -42,7 +43,7 @@ data:
 ```yaml
 alert:
   teams:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/teams-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -54,7 +55,7 @@ alert:
 ```yaml
 alert:
   teams:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/teams-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   teams:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/teams-webhook}"
     fallback: <another_provider>
 ```
 
@@ -74,7 +75,7 @@ alert:
 ```yaml
 alert:
   teams:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/teams-webhook}"
     compact: true
 ```
 

@@ -1,13 +1,13 @@
 ---
 sidebar_position: 11
 title: Opsgenie
-description: Forward Kubernetes crash alerts to Opsgenie — configure API key and team routing for kwatch
-keywords: [kwatch, opsgenie, kubernetes crash alerts, incident management, k8s monitoring]
+description: Forward clear Kubernetes incident alerts to Opsgenie — configure API key and team routing for kwatch
+keywords: [kwatch, opsgenie, kubernetes incident alerts, incident management, k8s monitoring]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Opsgenie
+# 🔔 Opsgenie
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,15 +24,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  opsgenie-api-key: "replace-me"
   config.yaml: |
     alert:
       opsgenie:
-        apiKey: "YOUR_API_KEY"
+        apiKey: "${file:/config/opsgenie-api-key}"
         title: "optional customized title"
         text: "optional customized text"
 ```
@@ -42,7 +43,7 @@ data:
 ```yaml
 alert:
   opsgenie:
-    apiKey: "YOUR_API_KEY"
+    apiKey: "${file:/config/opsgenie-api-key}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -54,7 +55,7 @@ alert:
 ```yaml
 alert:
   opsgenie:
-    apiKey: "YOUR_API_KEY"
+    apiKey: "${file:/config/opsgenie-api-key}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   opsgenie:
-    apiKey: "YOUR_API_KEY"
+    apiKey: "${file:/config/opsgenie-api-key}"
     fallback: <another_provider>
 ```
 
@@ -74,7 +75,7 @@ alert:
 ```yaml
 alert:
   opsgenie:
-    apiKey: "YOUR_API_KEY"
+    apiKey: "${file:/config/opsgenie-api-key}"
     compact: true
 ```
 

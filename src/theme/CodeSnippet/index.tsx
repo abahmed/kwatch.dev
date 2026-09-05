@@ -1,24 +1,32 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Highlight } from "prism-react-renderer";
-import {themes as prismThemes} from 'prism-react-renderer';
+import { useColorMode } from "@docusaurus/theme-common";
+import { Highlight, themes as prismThemes } from "prism-react-renderer";
+import type { Language } from "prism-react-renderer";
 
 import styles from "./styles.module.css";
 
-function CodeSnippet(props) {
-  const [mounted, setMounted] = useState(null);
+interface CodeSnippetProps {
+  code: string;
+  language?: Language;
+}
+
+function CodeSnippet({ code, language = "bash" }: CodeSnippetProps) {
+  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { colorMode } = useColorMode();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const { language = "bash", code } = props;
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(code).then(() => {
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {
+      setCopied(false);
+    }
   }, [code]);
 
   return (
@@ -31,17 +39,17 @@ function CodeSnippet(props) {
         {copied ? '✅ Copied!' : '📋 Copy'}
       </button>
       <Highlight
-        key={mounted}
+        key={mounted ? "mounted" : "server"}
         code={code}
         language={language}
-        theme={prismThemes.github}
+        theme={colorMode === "dark" ? prismThemes.dracula : prismThemes.github}
       >
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre className={`${className} ${styles.code}`} style={style}>
             {tokens.map((line, i) => (
-              <div {...getLineProps({ line, key: i })}>
+              <div key={i} {...getLineProps({ line })}>
                 {line.map((token, key) => (
-                  <span {...getTokenProps({ token, key })} />
+                  <span key={key} {...getTokenProps({ token })} />
                 ))}
               </div>
             ))}

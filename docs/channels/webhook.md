@@ -1,13 +1,13 @@
 ---
 sidebar_position: 15
 title: Custom Webhook
-description: Send Kubernetes crash alerts to any custom webhook — configure endpoint and payload format for kwatch
-keywords: [kwatch, webhook, custom, kubernetes crash alerts, k8s notifications, webhook integration]
+description: Send clear Kubernetes incident alerts to any custom webhook — configure endpoint and payload format for kwatch
+keywords: [kwatch, webhook, custom, kubernetes incident alerts, k8s notifications, webhook integration]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Custom Webhook
+# 🔗 Custom Webhook
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -24,20 +24,24 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  webhook-url: "replace-me"
+  webhook-header: "replace-me"
+  webhook-password: "replace-me"
   config.yaml: |
     alert:
       webhook:
-        url: "https://hooks.example.com/alerts"
+        url: "${file:/config/webhook-url}"
         headers:
-          X-Custom: "value"
+          - name: X-Custom
+            value: "${file:/config/webhook-header}"
         basicAuth:
           username: "user"
-          password: "pass"
+          password: "${file:/config/webhook-password}"
 ```
 
 ### Routing
@@ -45,12 +49,13 @@ data:
 ```yaml
 alert:
   webhook:
-    url: "https://hooks.example.com/alerts"
+    url: "${file:/config/webhook-url}"
     headers:
-      X-Custom: "value"
+      - name: X-Custom
+        value: "${file:/config/webhook-header}"
     basicAuth:
       username: "user"
-      password: "pass"
+      password: "${file:/config/webhook-password}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -62,12 +67,13 @@ alert:
 ```yaml
 alert:
   webhook:
-    url: "https://hooks.example.com/alerts"
+    url: "${file:/config/webhook-url}"
     headers:
-      X-Custom: "value"
+      - name: X-Custom
+        value: "${file:/config/webhook-header}"
     basicAuth:
       username: "user"
-      password: "pass"
+      password: "${file:/config/webhook-password}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -78,11 +84,12 @@ alert:
 ```yaml
 alert:
   webhook:
-    url: "https://hooks.example.com/alerts"
+    url: "${file:/config/webhook-url}"
     headers:
-      X-Custom: "value"
+      - name: X-Custom
+        value: "${file:/config/webhook-header}"
     basicAuth:
       username: "user"
-      password: "pass"
+      password: "${file:/config/webhook-password}"
     fallback: <another_provider>
 ```

@@ -1,13 +1,13 @@
 ---
 sidebar_position: 2
 title: Slack
-description: Send Kubernetes crash alerts to Slack — configure webhook, channels, and severity routing for kwatch notifications
-keywords: [kwatch, slack, kubernetes crash alerts, pod monitoring, k8s notifications, devops]
+description: Send clear Kubernetes incident alerts to Slack — configure webhook, channels, and severity routing for kwatch
+keywords: [kwatch, slack, kubernetes incident alerts, pod monitoring, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Slack
+# 💬 Slack
 
 If you want to enable Slack, provide either a webhook URL or a bot token with channel.
 
@@ -38,7 +38,7 @@ If you want to enable Slack, provide either a webhook URL or a bot token with ch
 ```yaml
 alert:
   slack:
-    webhook: "https://hooks.slack.com/..."
+    webhook: "${file:/config/slack-webhook}"
     compact: true
 ```
 
@@ -47,7 +47,7 @@ alert:
 ```yaml
 alert:
   slack:
-    webhook: "https://hooks.slack.com/..."
+    webhook: "${file:/config/slack-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -61,7 +61,7 @@ alert:
 ```yaml
 alert:
   slack:
-    webhook: "https://hooks.slack.com/..."
+    webhook: "${file:/config/slack-webhook}"
     fallback: "pagerduty"
     retry:
       maxAttempts: 3
@@ -76,15 +76,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  slack-webhook: "replace-me"
   config.yaml: |
     alert:
       slack:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/slack-webhook}"
         title: "optional customized title"
         text: "optional customized text"
 ```
@@ -98,15 +99,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  slack-token: "replace-me"
   config.yaml: |
     alert:
       slack:
-        token: xoxb-your-token
+        token: "${file:/config/slack-token}"
         channel: "#alerts"
         title: "optional customized title"
         text: "optional customized text"

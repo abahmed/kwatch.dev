@@ -1,13 +1,13 @@
 ---
 sidebar_position: 8
 title: Zenduty
-description: Forward Kubernetes crash alerts to Zenduty — configure integration key for kwatch
-keywords: [kwatch, zenduty, kubernetes crash alerts, incident response, k8s monitoring]
+description: Forward clear Kubernetes incident alerts to Zenduty — configure integration key for kwatch
+keywords: [kwatch, zenduty, kubernetes incident alerts, incident response, k8s monitoring]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Zenduty
+# 🛡️ Zenduty
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -23,15 +23,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  zenduty-integration-key: "replace-me"
   config.yaml: |
     alert:
       zenduty:
-        integrationKey: YOUR_INTEGRATION_KEY
+        integrationKey: "${file:/config/zenduty-integration-key}"
         alertType: critical
 ```
 
@@ -40,7 +41,7 @@ data:
 ```yaml
 alert:
   zenduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/zenduty-integration-key}"
     alertType: critical
     routes:
       - namespaces: ["production"]
@@ -53,7 +54,7 @@ alert:
 ```yaml
 alert:
   zenduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/zenduty-integration-key}"
     alertType: critical
     retry:
       maxAttempts: 5
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   zenduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/zenduty-integration-key}"
     alertType: critical
     fallback: <another_provider>
 ```
@@ -75,7 +76,7 @@ alert:
 ```yaml
 alert:
   zenduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/zenduty-integration-key}"
     alertType: critical
     compact: true
 ```

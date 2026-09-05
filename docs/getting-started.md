@@ -2,129 +2,102 @@
 sidebar_position: 1
 slug: /
 title: Getting Started
-description: an introduction to kwatch — a beginner-friendly Kubernetes crash monitor
-keywords: [kwatch, introduction, kubernetes, monitor, crashes, cluster, slack, discord, teams, rocket, telegram, pagerduty, channels, notifications, realtime]
-pagination_next: null
+description: learn how kwatch monitors Kubernetes incidents and sends clear alerts with causes and next steps
+keywords: [kwatch, kubernetes monitoring, kubernetes alerts, pod crashes, incident diagnosis, beginner]
+pagination_next: installation
 pagination_prev: null
 ---
 
-# Getting Started
+# 👋 Getting started
 
-> **👋 New to Kubernetes? No problem.**
+## What is Kubernetes?
 
-kwatch watches your cluster and sends you a **friendly alert** the moment
-something breaks — with a plain-English explanation of what went wrong and
-**how to fix it**.
+Kubernetes (often called **K8s**) runs your applications in containers. It
+keeps those containers running, moves them between machines, and starts new
+ones when needed.
 
-✨ **60 seconds to install. No backend. No dashboards. No YAML spaghetti.**
+That also means there are many moving parts. A container can run out of memory,
+a deployment can get stuck, or a service can lose its healthy backends.
 
----
+## What is kwatch?
 
-## 🧐 What is kwatch?
+kwatch is the **alarm for your Kubernetes cluster**. It watches your workloads
+and sends a clear message when something needs attention:
 
-kwatch is like a **smart friend** for your Kubernetes cluster:
+1. 👀 **Watch** — kwatch reads Kubernetes status, events, and recent logs.
+2. 🧠 **Explain** — it connects the clues and finds the likely cause.
+3. 📣 **Alert** — it sends the reason, impact, and next step to your team.
 
-- 💥 **Something crashes** → you get a message that says *why* (not just "pod is broken")
-- 🔇 **Smart about noise** — groups related issues, ignores flapping, sends a digest when things get crazy
-- 🧠 **Explains itself** — every alert names the cause, the impact, and what recently changed
-- ⚡ **Works in under a minute** — just one command and a config file
+You do not need Prometheus, Grafana, or a new dashboard to get started. kwatch
+is small, runs in your cluster, and stores no logs or metrics database.
 
-No Prometheus. No Grafana. No 50-step setup. Just alerts that **make sense**.
+## 🚨 What an alert looks like
 
----
+Instead of only seeing `CrashLoopBackOff`, you get a message like:
 
-## 🆚 kwatch vs the scary stuff
-
-| | ✨ kwatch | 😰 DIY Prometheus + Alertmanager | 💸 Heavy SaaS |
-|---|---|---|---|
-| ⏱️ Setup time | **~5 minutes** | hours of YAML | agent + backend setup |
-| 📦 Size | ~20 MB single binary | whole monitoring stack | per-node agents + cloud costs |
-| 💬 Alerts | Self-explaining ("OOMKilled — raise memory limit") | Rule-defined message | Depends on configuration |
-| 🗄️ Storage | None (stateless) | Prometheus TSDB | Full retention (costly) |
-| 📚 Learning curve | One ConfigMap | PromQL + alert rules | Platform-specific DSL |
-
----
-
-## 🚨 Before vs After
-
-| Raw kubectl output 🤷 | kwatch tells you 💡 |
-|---|---|
-| `CrashLoopBackOff` | 🚨 **OOMKilled** (memory limit: 512Mi) — try raising `limits.memory` · here are the logs + events |
-| `Error` | 🚨 **HTTP probe** failing on `:8080/healthz` (exit 137) — container ran out of memory |
-
----
-
-## 🎯 What does it catch?
-
-Every monitor below is **on by default** — zero config needed:
-
-| Signal | What kwatch does |
-|--------|-----------------|
-| 🟥 Pod crashes (CrashLoop, OOM, ImagePull, Error) | Container state + previous logs + events — tells you *why* |
-| ⏳ Pending pods (stuck Unschedulable) | Alerts after 300s stuck |
-| 🖥️ Node issues (NotReady, Disk/Memory pressure) | Per-condition severity |
-| 💾 PVC running out of space | Warn at 80%, critical at 90% |
-| ❌ Failed Jobs | JobFailed / JobSuspended |
-| 🚀 Stuck rollouts & StatefulSets | ProgressDeadlineExceeded — deployment didn't finish |
-| 📡 DaemonSet pods not running | Unavailable pods detected |
-| ⏰ CronJob suspended or missing runs | Not scheduled in 24h? Alert. |
-| 📈 HPA stuck at max replicas | After 20 minutes sustained |
-| 📣 Cluster autoscaler can't scale | FailedToScaleUp / NotTriggerScaleUp |
-| 🔒 TLS certs expiring | Enable if you want cert expiry warnings |
-| 💓 Heartbeat (dead man's switch) | Enable to page you if kwatch goes down |
-
-> ✅ **TLS and heartbeat are the only ones off** — everything else just works out of the box.
-
----
-
-## 🚀 Quick Start (under 60 seconds)
-
-### 1. Create a config file
-
-```yaml
-# config.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    alert:
-      slack:
-        webhook: "https://hooks.slack.com/services/..."
+```text
+🚨 OOMKilled — production / orders-api
+   Cause: the container used more than its 512Mi memory limit.
+   Next step: increase limits.memory or reduce memory usage.
+   Evidence: recent logs and Kubernetes events
 ```
 
-### 2. Apply it
+## 🎯 What does kwatch watch?
+
+Most monitors are enabled by default:
+
+| Signal | What kwatch explains |
+| --- | --- |
+| 🟥 Pod crashes | Crash reason, logs, events, and a next step |
+| ⏳ Pending pods | Why the scheduler cannot place a pod |
+| 🖥️ Nodes | Readiness and disk or memory pressure |
+| 🚀 Deployments | Stuck rollouts and unavailable replicas |
+| 🧩 StatefulSets and DaemonSets | Unavailable or stuck workloads |
+| 🧑‍💼 Jobs and CronJobs | Failed, suspended, or missed work |
+| 📈 HPA | An autoscaler stuck at its replica limit |
+| 📣 Cluster autoscaler | Evidence that scaling could not happen |
+| 💾 PVCs | Storage pressure and volume failures |
+| 🌐 Services and Ingress | Missing or unhealthy backends |
+| 🏛️ Control plane | API server and platform health signals |
+
+TLS certificate monitoring and heartbeat notifications are **opt-in**. See the
+[configuration reference](/docs/general-configuration) for the complete list.
+
+## 🚀 Install in three steps
+
+### 1. Check your tools
+
+You need `kubectl`, `curl`, and access to a Kubernetes cluster. Confirm that
+`kubectl` can reach it:
 
 ```bash
-kubectl apply -f config.yaml
+kubectl cluster-info
 ```
 
-### 3. Deploy kwatch
+### 2. Run the manager
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/deploy.yaml
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-### 4. Check it's running
+The manager asks where alerts should go, stores credentials safely in a Secret,
+installs kwatch, and waits until it is ready. No Helm is required.
+
+### 3. Check the result
 
 ```bash
 kubectl get pods -n kwatch
 ```
 
-That's it. You'll now get alerts in Slack when something breaks. 🎉
+You should see a kwatch pod with `READY 1/1` and `STATUS Running`. 🎉
 
----
+## 🛠️ What next?
 
-## 📚 Next Steps
+- Need the full lifecycle and troubleshooting guide? Read [Installation](/docs/installation).
+- Want Slack, Discord, email, or PagerDuty? Open [Channels](/docs/channels).
+- Want to change thresholds or silence known noise? Read [Configuration](/docs/general-configuration).
+- Want to understand the manager? Read [kwatch.sh manager](/docs/kwatch-manager).
+- Want to contribute code? Start with [Contributing](/docs/contributing).
 
-- [Installation](/docs/installation) — full install guide with Helm, kubectl, and config options
-- [General Configuration](/docs/general-configuration) — all configuration options explained
-- [Configure Channels](/docs/channels) — set up Slack, Discord, email, PagerDuty, and more
-- [Architecture](/docs/architecture/overview) — how kwatch works under the hood
+If you are unsure where to begin, install with the manager first. You can run
+it again later to configure, upgrade, check, or uninstall kwatch. ✨

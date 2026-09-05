@@ -1,13 +1,13 @@
 ---
 sidebar_position: 6
 title: Rocket.Chat
-description: Receive Kubernetes crash alerts in Rocket.Chat — configure webhook and channel for kwatch
-keywords: [kwatch, rocketchat, kubernetes crash alerts, pod monitoring, k8s notifications]
+description: Receive clear Kubernetes incident alerts in Rocket.Chat — configure webhook and channel for kwatch
+keywords: [kwatch, rocketchat, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Rocket.Chat
+# 🚀 Rocket.Chat
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -23,15 +23,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  rocketchat-webhook: "replace-me"
   config.yaml: |
     alert:
       rocketchat:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/rocketchat-webhook}"
         text: "optional customized text"
 ```
 
@@ -40,7 +41,7 @@ data:
 ```yaml
 alert:
   rocketchat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/rocketchat-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -52,7 +53,7 @@ alert:
 ```yaml
 alert:
   rocketchat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/rocketchat-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -63,7 +64,7 @@ alert:
 ```yaml
 alert:
   rocketchat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/rocketchat-webhook}"
     fallback: <another_provider>
 ```
 
@@ -72,7 +73,7 @@ alert:
 ```yaml
 alert:
   rocketchat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/rocketchat-webhook}"
     compact: true
 ```
 

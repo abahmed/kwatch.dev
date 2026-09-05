@@ -1,13 +1,16 @@
 ---
 sidebar_position: 4
 title: Infrastructure Packages
-description: kwatch infrastructure — k8s utilities, client, state persistence, health server, metrics, startup, heartbeat, PVC monitor, CRD watcher, upgrader, and supporting packages
+description: kwatch infrastructure packages for Kubernetes clients, persistence, health, metrics, heartbeat, PVCs, CRDs, and upgrades
 keywords: [kwatch, kubernetes, architecture, infrastructure, k8s, client, state, health, metrics]
 pagination_prev: architecture/correlation-and-alerting
 pagination_next: architecture/data-flow
 ---
 
-# Infrastructure Packages
+# 🧱 Infrastructure packages
+
+These packages connect kwatch to Kubernetes, persistence, health endpoints,
+metrics, and periodic monitors.
 
 ## 12. `internal/k8s/` — Kubernetes Utilities
 
@@ -315,19 +318,19 @@ Injects build-time version information via `-ldflags -X`.
 
 ```go
 var (
-    version     = "dev"      // -X github.com/abahmed/kwatch/internal/version.version=v0.11.0-rc.6
+    version     = "dev"      // -X github.com/abahmed/kwatch/internal/version.version=vX.Y.Z
     gitCommitID = "none"     // -X .../version.gitCommitID=abc1234
     buildDate   = "unknown"  // -X .../version.buildDate=2026-08-27T00:00:00Z
 )
 
-func Short() string // returns the version string (e.g. "v0.11.0-rc.6"); printed by `kwatch --version`
+func Short() string // returns the version string (e.g. "vX.Y.Z"); printed by `kwatch --version`
 ```
 
 ---
 
-## 25. `internal/context/` — Dependency Graph & Change Tracker
+## 25. `internal/graphcontext/` — Dependency Graph & Change Tracker
 
-**Path:** `internal/context/graph.go`, `tracker.go`
+**Path:** `internal/graphcontext/graph.go`, `tracker.go`
 
 ### Role
 

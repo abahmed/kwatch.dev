@@ -2,56 +2,18 @@ import React from "react";
 import clsx from "clsx";
 import styles from "./styles.module.css";
 
-const comparisonData = [
-  {
-    feature: "⏱️ Setup time",
-    kwatch: "~5 minutes",
-    diy: "hours of YAML",
-    saas: "agent + backend setup",
-    winner: "kwatch",
-  },
-  {
-    feature: "📦 Size",
-    kwatch: "~20 MB single binary",
-    diy: "whole monitoring stack",
-    saas: "per-node agents + cloud costs",
-    winner: "kwatch",
-  },
-  {
-    feature: "💬 Alerts",
-    kwatch: 'Self-explaining ("OOMKilled — raise memory limit")',
-    diy: "Rule-defined message",
-    saas: "Depends on configuration",
-    winner: "kwatch",
-  },
-  {
-    feature: "🗄️ Storage",
-    kwatch: "None (stateless)",
-    diy: "Prometheus TSDB",
-    saas: "Full retention (costly)",
-    winner: "kwatch",
-  },
-  {
-    feature: "📚 Learning curve",
-    kwatch: "One ConfigMap",
-    diy: "PromQL + alert rules",
-    saas: "Platform-specific DSL",
-    winner: "kwatch",
-  },
-];
-
 const catchData = [
-  { signal: "🟥 Pod crashes (CrashLoop, OOM, ImagePull, Error)", what: "Container state + last logs + events — tells you *why*" },
-  { signal: "⏳ Pending pods (stuck Unschedulable)", what: "Alerts after 300s stuck" },
-  { signal: "🖥️ Node issues (NotReady, Disk/Memory pressure)", what: "Per-condition severity" },
-  { signal: "💾 PVC running out of space", what: "Warn at 80%, critical at 90%" },
-  { signal: "❌ Failed Jobs & stuck CronJobs", what: "JobFailed / suspended / missed runs" },
-  { signal: "🚀 Stuck rollouts & StatefulSets", what: "ProgressDeadlineExceeded — deployment didn't finish" },
-  { signal: "📡 DaemonSet pods not running", what: "Unavailable pods detected" },
-  { signal: "📈 HPA stuck at max replicas", what: "After 20 minutes sustained" },
-  { signal: "📣 Cluster autoscaler can't scale", what: "FailedToScaleUp / NotTriggerScaleUp" },
-  { signal: "🔒 TLS certs expiring", what: "Enable if you want cert expiry warnings" },
-  { signal: "💓 Heartbeat (dead man's switch)", what: "Enable to page you if kwatch itself goes down" },
+  { signal: "🟥 Pod crashes (CrashLoop, OOM, ImagePull, Error)", what: "Container state + last logs + events — tells you *why*", defaultOn: true },
+  { signal: "⏳ Pending pods (stuck Unschedulable)", what: "Alerts after 300s stuck", defaultOn: true },
+  { signal: "🖥️ Node issues (NotReady, Disk/Memory pressure)", what: "Per-condition severity", defaultOn: true },
+  { signal: "💾 PVC running out of space", what: "Warn at 80%, critical at 90%", defaultOn: true },
+  { signal: "❌ Failed Jobs & stuck CronJobs", what: "JobFailed / suspended / missed runs", defaultOn: true },
+  { signal: "🚀 Stuck rollouts & StatefulSets", what: "ProgressDeadlineExceeded — deployment didn't finish", defaultOn: true },
+  { signal: "📡 DaemonSet pods not running", what: "Unavailable pods detected", defaultOn: true },
+  { signal: "📈 HPA stuck at max replicas", what: "After 20 minutes sustained", defaultOn: true },
+  { signal: "📣 Cluster autoscaler can't scale", what: "FailedToScaleUp / NotTriggerScaleUp", defaultOn: true },
+  { signal: "🔒 TLS certs expiring", what: "Enable if you want cert expiry warnings", defaultOn: false },
+  { signal: "💓 Heartbeat (dead man's switch)", what: "Enable to page you if kwatch itself goes down", defaultOn: false },
 ];
 
 function Features() {
@@ -78,19 +40,19 @@ function Features() {
                 <div className={styles.gridCard}>
                   <div className={styles.gridIcon}>🔇</div>
                   <div>
-                    <strong>Smart about noise</strong> — groups related issues, ignores flapping, sends a digest when things get crazy
+                    <strong>Smart about noise</strong> — groups related problems and avoids repeating the same alert
                   </div>
                 </div>
                 <div className={styles.gridCard}>
                   <div className={styles.gridIcon}>🧠</div>
                   <div>
-                    <strong>Explains itself</strong> — every alert names the cause, the impact, and what recently changed
+                    <strong>Explains itself</strong> — every alert says the cause, the impact, and what changed
                   </div>
                 </div>
                 <div className={styles.gridCard}>
                   <div className={styles.gridIcon}>⚡</div>
                   <div>
-                    <strong>Works in under a minute</strong> — just one command and a config file
+                    <strong>Works from one command</strong> — a few simple answers and a ready cluster
                   </div>
                 </div>
               </div>
@@ -99,51 +61,9 @@ function Features() {
                 <span className={styles.badge}>🚫 No Grafana</span>
                 <span className={styles.badge}>🚫 No 50-step setup</span>
                 <br />
-                Just alerts that <strong>make sense</strong>. 🎯
+                You can keep your existing monitoring tools. kwatch is the alarm
+                that tells you what needs attention. 🎯
               </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Comparison ─── */}
-      <section id="comparison" className={clsx(styles.section, styles.altBg)}>
-        <div className="container">
-          <div className="row">
-            <div className="col col--10 col--offset-1">
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.titleEmoji}>🆚</span> kwatch vs the scary stuff
-              </h2>
-              <div className={styles.tableWrapper}>
-                <table className={styles.comparisonTable}>
-                  <thead>
-                    <tr>
-                      <th className={styles.thFeature}>Feature</th>
-                      <th className={styles.thKwatch}>👑 kwatch</th>
-                      <th className={styles.thOther}>😰 DIY</th>
-                      <th className={styles.thOther}>💸 SaaS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonData.map((row, i) => (
-                      <tr key={i} className={styles.compRow}>
-                        <td className={styles.tdFeature}>
-                          {row.feature}
-                        </td>
-                        <td className={styles.tdKwatch}>
-                          {row.kwatch}
-                        </td>
-                        <td className={styles.tdOther}>
-                          {row.diy}
-                        </td>
-                        <td className={styles.tdOther}>
-                          {row.saas}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
@@ -155,7 +75,7 @@ function Features() {
           <div className="row">
             <div className="col col--12">
               <h2 className={styles.sectionTitle}>
-                <span className={styles.titleEmoji}>🚨</span> Before vs After
+                <span className={styles.titleEmoji}>🚨</span> From confusing errors to clear next steps
               </h2>
               <div className={styles.baGrid}>
                 <div className={styles.baBefore}>
@@ -194,13 +114,13 @@ function Features() {
                   </div>
                   <div className={styles.baExampleAfter}>
                     <div className={styles.baCodeAfter}>
-                      🚨 <strong>HTTP probe failing</strong>
+                      🚨 <strong>Liveness probe failed</strong>
                     </div>
                     <div className={styles.baDescAfter}>
-                      <span className={styles.baArrowAfter}>💡</span> on <code>:8080/healthz</code> (exit 137) — container ran out of memory
+                      <span className={styles.baArrowAfter}>💡</span> <code>:8080/healthz</code> timed out — check the endpoint and startup timing
                     </div>
                     <div className={styles.baMeta}>
-                      <span>🔧 suggests raising memory limit</span>
+                      <span>🔧 points to the failing probe</span>
                     </div>
                   </div>
                 </div>
@@ -218,12 +138,19 @@ function Features() {
               <h2 className={styles.sectionTitle}>
                 <span className={styles.titleEmoji}>🎯</span> What does it catch?
               </h2>
-              <p className={styles.lead}>Every monitor below is <strong>on by default</strong> — zero config needed:</p>
+              <p className={styles.lead}>Most monitors are <strong>on by default</strong> — zero config needed:</p>
               <div className={styles.monitorGrid}>
                 {catchData.map((row, i) => (
                   <div key={i} className={styles.monitorCard}>
                     <div className={styles.monitorHeader}>
-                      <span className={styles.monitorCheck}>✅</span>
+                      <span
+                        className={clsx(
+                          styles.monitorCheck,
+                          !row.defaultOn && styles.monitorOptional,
+                        )}
+                      >
+                        {row.defaultOn ? "✅" : "○"}
+                      </span>
                       <span className={styles.monitorSignal}>{row.signal}</span>
                     </div>
                     <p className={styles.monitorWhat}>{row.what}</p>
@@ -231,7 +158,8 @@ function Features() {
                 ))}
               </div>
               <p className={styles.note}>
-                ✅ <strong>TLS and heartbeat are the only ones off</strong> — everything else just works out of the box.
+                ✨ <strong>TLS and heartbeat are opt-in</strong> — the core monitors
+                work out of the box.
               </p>
             </div>
           </div>

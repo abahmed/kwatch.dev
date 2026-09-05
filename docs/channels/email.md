@@ -1,13 +1,13 @@
 ---
 sidebar_position: 16
 title: Email
-description: Get Kubernetes crash alerts via Email (SMTP) — configure SMTP server and recipients for kwatch
-keywords: [kwatch, email, smtp, kubernetes crash alerts, k8s notifications, devops]
+description: Get clear Kubernetes incident alerts via Email (SMTP) — configure SMTP server and recipients for kwatch
+keywords: [kwatch, email, smtp, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Email
+# 📧 Email
 
 Sends alerts via SMTP. Uses HTML formatting for rich email content.
 
@@ -28,17 +28,18 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  email-password: "replace-me"
   config.yaml: |
     alert:
       email:
         from: "kwatch@example.com"
         to: "team@example.com"
-        password: "your-smtp-password"
+        password: "${file:/config/email-password}"
         host: "smtp.gmail.com"
         port: "587"
 ```
@@ -50,7 +51,7 @@ alert:
   email:
     from: "kwatch@example.com"
     to: "team@example.com"
-    password: "..."
+    password: "${file:/config/email-password}"
     host: "smtp.gmail.com"
     port: "587"
     routes:
@@ -66,7 +67,7 @@ alert:
   email:
     from: "kwatch@example.com"
     to: "team@example.com"
-    password: "..."
+    password: "${file:/config/email-password}"
     host: "smtp.gmail.com"
     port: "587"
     retry:
@@ -81,7 +82,7 @@ alert:
   email:
     from: "kwatch@example.com"
     to: "team@example.com"
-    password: "..."
+    password: "${file:/config/email-password}"
     host: "smtp.gmail.com"
     port: "587"
     fallback: slack

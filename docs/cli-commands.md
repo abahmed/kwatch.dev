@@ -7,7 +7,10 @@ pagination_next: null
 pagination_prev: null
 ---
 
-# 🛠️ CLI Commands
+# 💻 CLI commands
+
+Use the CLI when you want to run kwatch, validate a configuration, or replay a
+saved event. Most users can start with `kwatch lint`.
 
 kwatch's binary accepts several commands and flags for runtime, validation, and
 diagnostics.
@@ -25,7 +28,7 @@ kwatch
 
 ```shell
 kwatch --version
-# v0.11.0-rc.6
+# vX.Y.Z
 ```
 
 ## `kwatch lint` — validate configuration
@@ -42,7 +45,7 @@ kwatch lint
 | Flag | Description |
 |------|-------------|
 | `--strict` | Catches unknown/typo'd config fields (strict unmarshal) |
-| `--check` | Validate config **and** test all provider credentials |
+| `--check` | Validate config and verify credentials for providers that support checks |
 
 ```shell
 # Validate config
@@ -51,7 +54,7 @@ kwatch lint
 # Strict mode — catches typos in field names
 kwatch lint --strict
 
-# Full validation + provider credential check
+# Full validation + supported provider credential checks
 kwatch lint --check
 #   slack: OK
 #   pagerduty: OK
@@ -73,13 +76,18 @@ kwatch lint --check
 - `maxBaseline` doesn't exceed ConfigMap size limits
 - No unknown provider names
 
-## `kwatch replay` — replay past events
+## `kwatch replay` — replay saved events
 
-Reads JSONL-formatted events from stdin and simulates delivery. Useful for
-testing routing, formatting, and provider configuration.
+Reads JSONL-formatted events from stdin and sends them through the configured
+providers. This is useful for testing event formatting and delivery. Because
+the normal command sends real notifications, use `--dry-run` when you only
+want to preview the result.
 
 ```shell
 kwatch replay < events.jsonl
+
+# Preview without sending notifications
+kwatch replay --dry-run < events.jsonl
 ```
 
 ### Input format
@@ -95,14 +103,14 @@ Lines starting with `#` are ignored. Empty lines are skipped.
 ### Output
 
 ```shell
-$ kwatch replay < events.jsonl
-would notify [slack pagerduty]: default/nginx-abc123 OOMKilled: ...
-would notify [slack pagerduty]:  NodeNotReady: ...
+$ kwatch replay --dry-run < events.jsonl
+would replay to [slack pagerduty]: [replay] default/nginx-abc123 OOMKilled: ...
+would replay to [slack pagerduty]: [replay] / NodeNotReady: ...
 ```
 
-> **Note:** Replay mode validates config and lists which providers would be
-> notified, but does **not** actually send alerts. Use `lint --check` to test
-> provider connectivity.
+> **Safety note:** `kwatch replay` sends real notifications unless
+> `--dry-run` is set. Use `lint --check` to test provider connectivity without
+> sending an event.
 
 ---
 
@@ -113,13 +121,13 @@ would notify [slack pagerduty]:  NodeNotReady: ...
 | `CONFIG_FILE` | `/config/config.yaml` | Path to the YAML config file |
 | `POD_NAMESPACE` | (auto-detected) | Namespace kwatch runs in (for ConfigMap state) |
 
-The config file also supports `${VAR}` syntax for environment variable
-expansion:
+The config file supports `${VAR}` for non-sensitive strings. Credentials must
+use an absolute file reference backed by a mounted Secret:
 
 ```yaml
 alert:
   slack:
-    webhook: "${SLACK_WEBHOOK_URL}"
+    webhook: "${file:/config/slack-webhook}"
 ```
 
 ---

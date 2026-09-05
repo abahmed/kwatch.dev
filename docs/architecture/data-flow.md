@@ -7,7 +7,7 @@ pagination_prev: architecture/infrastructure-packages
 pagination_next: architecture/design-decisions
 ---
 
-# Data Flow — A Pod Crashes
+# 🔎 Data flow — a Pod crashes
 
 This page traces a single pod crash through every stage of kwatch, from
 Kubernetes API watch to a chat message. Each step references the real
@@ -43,8 +43,8 @@ dispatch functions (`sync.go`) share one signature
 
 Handlers also feed the two side structures the diagnostic engine needs:
 
-- `recordChange` → `context.ChangeTracker`, so "what changed recently" has data;
-- the graph-aware pod handler → `context.ResourceGraph`, so cause/impact
+- `recordChange` → `graphcontext.ChangeTracker`, so "what changed recently" has data;
+- the graph-aware pod handler → `graphcontext.ResourceGraph`, so cause/impact
   analysis can walk the cluster's family tree.
 
 ---

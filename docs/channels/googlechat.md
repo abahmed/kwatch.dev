@@ -1,13 +1,13 @@
 ---
 sidebar_position: 5
 title: Google Chat
-description: Send Kubernetes crash alerts to Google Chat — configure webhook URL for kwatch notifications
-keywords: [kwatch, google chat, kubernetes crash alerts, pod monitoring, k8s notifications]
+description: Send clear Kubernetes incident alerts to Google Chat — configure webhook URL for kwatch notifications
+keywords: [kwatch, google chat, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Google Chat
+# 💬 Google Chat
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -23,15 +23,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  googlechat-webhook: "replace-me"
   config.yaml: |
     alert:
       googlechat:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/googlechat-webhook}"
         text: "optional customized text"
 ```
 
@@ -40,7 +41,7 @@ data:
 ```yaml
 alert:
   googlechat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/googlechat-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -52,7 +53,7 @@ alert:
 ```yaml
 alert:
   googlechat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/googlechat-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -63,7 +64,7 @@ alert:
 ```yaml
 alert:
   googlechat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/googlechat-webhook}"
     fallback: <another_provider>
 ```
 
@@ -72,7 +73,7 @@ alert:
 ```yaml
 alert:
   googlechat:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/googlechat-webhook}"
     compact: true
 ```
 

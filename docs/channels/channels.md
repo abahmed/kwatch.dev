@@ -2,144 +2,115 @@
 sidebar_position: 1
 slug: /channels
 title: Channels
-description: all supported notification channels for kwatch with configuration examples
-keywords: [kwatch, channels, notification, slack, discord, teams, rocket, telegram, pagerduty, mattermost, opsgenie, matrix, dingtalk, feishu, googlechat, zenduty, webhook]
-pagination_next: null
+description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 56 notification providers
+keywords: [kwatch channels, Kubernetes notifications, Kubernetes alerts, Slack, Discord, PagerDuty, webhooks]
+pagination_next: channels/slack
 pagination_prev: null
 ---
 
-# Channels
+# 📣 Channels
 
-kwatch sends alerts through **56 notification providers**. The 15 below each have a
-dedicated configuration page; the rest follow the same shape from the
-[providers reference](https://github.com/abahmed/kwatch/blob/main/docs/providers.md).
-Configure one or more under `alert:` in your config.
+kwatch can send the same clear alert to **56 providers**. Pick the place your
+team already checks:
 
-## Supported Channels
+| You want... | Try... |
+| --- | --- |
+| 💬 Team chat | Slack, Discord, Microsoft Teams, Mattermost, Rocket.Chat |
+| 🚨 On-call pages | PagerDuty, Opsgenie, Zenduty, SIGNL4, Squadcast |
+| 📧 Email or SMS | Email, SendGrid, AWS SES, Twilio |
+| 🔗 Your own system | Custom Webhook, Ntfy, Gotify, n8n, Zapier |
+| 📋 Tickets | Jira, ClickUp, GitHub, GitLab, Gitea |
 
-| Channel | Config key | Type | Auth |
-|---------|-----------|------|------|
-| [Slack](/docs/channels/slack) | `slack` | Webhook or Bot Token | URL or `xoxb-*` |
-| [Discord](/docs/channels/discord) | `discord` | Webhook | URL |
-| [Microsoft Teams](/docs/channels/ms-teams) | `teams` | Webhook | URL |
-| [Google Chat](/docs/channels/googlechat) | `googlechat` | Webhook | URL |
-| [Rocket.Chat](/docs/channels/rocketchat) | `rocketchat` | Webhook | URL |
-| [Mattermost](/docs/channels/mattermost) | `mattermost` | Webhook | URL |
-| [Telegram](/docs/channels/telegram) | `telegram` | Bot API | Token + Chat ID |
-| [Email](/docs/channels/email) | `email` | SMTP | Password |
-| [PagerDuty](/docs/channels/pagerduty) | `pagerduty` | Events API | Integration Key |
-| [Opsgenie](/docs/channels/opsgenie) | `opsgenie` | API | API Key |
-| [Zenduty](/docs/channels/zenduty) | `zenduty` | API | Integration Key |
-| [Matrix](/docs/channels/matrix) | `matrix` | Homeserver API | User + Password |
-| [DingTalk](/docs/channels/dingtalk) | `dingtalk` | Webhook | URL |
-| [FeiShu](/docs/channels/feishu) | `feishu` | Webhook | URL |
-| [Custom Webhook](/docs/channels/webhook) | `webhook` | HTTP | Headers / Basic Auth |
+## 🌟 Dedicated setup guides
 
----
+The most common providers have a step-by-step page:
 
-## Common Features
+| Channel | Config key | What you need |
+| --- | --- | --- |
+| [Slack](/docs/channels/slack) | `slack` | Webhook URL or bot token |
+| [Discord](/docs/channels/discord) | `discord` | Webhook URL |
+| [Microsoft Teams](/docs/channels/ms-teams) | `teams` | Webhook URL |
+| [Google Chat](/docs/channels/googlechat) | `googlechat` | Webhook URL |
+| [Telegram](/docs/channels/telegram) | `telegram` | Bot token and chat ID |
+| [Email](/docs/channels/email) | `email` | SMTP server and password |
+| [PagerDuty](/docs/channels/pagerduty) | `pagerduty` | Integration key |
+| [Opsgenie](/docs/channels/opsgenie) | `opsgenie` | API key |
+| [Zenduty](/docs/channels/zenduty) | `zenduty` | Integration key |
+| [Mattermost](/docs/channels/mattermost) | `mattermost` | Webhook URL |
+| [Rocket.Chat](/docs/channels/rocketchat) | `rocketchat` | Webhook URL |
+| [Matrix](/docs/channels/matrix) | `matrix` | Homeserver, token, and room ID |
+| [DingTalk](/docs/channels/dingtalk) | `dingtalk` | Access token |
+| [FeiShu](/docs/channels/feishu) | `feishu` | Webhook URL |
+| [Custom Webhook](/docs/channels/webhook) | `webhook` | Endpoint URL |
 
-All channels support these advanced delivery features:
+The [provider reference in the kwatch repository](https://github.com/abahmed/kwatch/blob/main/docs/providers.md)
+lists every supported provider and its fields.
 
-### 📮 Routing
+## 🧩 Basic configuration
 
-Control which incidents reach which provider:
+Put one or more providers under `alert:`. This example sends alerts to Slack:
 
 ```yaml
 alert:
   slack:
-    webhook: "..."
+    webhook: "${file:/config/slack-webhook}"
+```
+
+You can configure several providers. kwatch sends each incident to all matching
+providers.
+
+## 🎯 Send only the alerts you need
+
+Routes filter alerts by namespace, severity, or reason. All conditions in one
+route must match:
+
+```yaml
+alert:
+  slack:
+    webhook: "${file:/config/slack-webhook}"
     routes:
-      - namespaces: ["production"]      # only production namespace
-        severities: ["high", "critical"] # only high/critical severity
-        reasons: ["OOMKilled"]           # only OOM kills
+      - namespaces: ["production"]
+        severities: ["high", "critical"]
+        reasons: ["OOMKilled"]
 ```
 
-An incident matches if it matches **all conditions in at least one route**.
-If no routes are configured, all incidents are delivered.
+If you do not add routes, the provider receives all alerts.
 
-### 🔁 Retry
+## 🔁 Delivery that can recover
+
+The same delivery options work for every provider:
 
 ```yaml
 alert:
   slack:
-    webhook: "..."
-    retry:
-      maxAttempts: 5       # max send attempts (default: 3, max: 20)
-      delay: 5s            # delay between attempts (default: 1s base, 30s cap)
-```
-
-Uses exponential backoff: 1s → 2s → 4s → 8s → ... capped at 30s.
-
-### 🆘 Fallback
-
-If the primary provider fails after all retries, kwatch tries a fallback:
-
-```yaml
-alert:
-  slack:
-    webhook: "..."
-    fallback: pagerduty    # must be configured at the top level of alert:
+    webhook: "${file:/config/slack-webhook}"
     retry:
       maxAttempts: 3
+      delay: 5s
+    fallback: pagerduty
 ```
 
-### 🔇 Compact mode
+- 🔁 **Retry** tries temporary failures again, such as timeouts and server errors.
+- 🆘 **Fallback** sends to another configured provider when the first one fails.
+- 📏 **Compact** reduces message size when your channel has strict limits.
+- 🧵 **Threaded mode** keeps Slack updates together when using a bot token.
 
-Hide common fields (namespace, node, etc.) to fit more incidents in a single
-message:
+Invalid requests and bad credentials are not retried forever. They are reported
+so you can fix the provider configuration.
 
-```yaml
-alert:
-  slack:
-    webhook: "..."
-    compact: true
-```
+## 🔐 Keep credentials safe
 
-### ⚡ Threaded mode (Slack only)
+The interactive manager stores credentials in a Kubernetes Secret and mounts
+them at `/config`. Use exact `${file:/absolute/path}` references in the config.
+Plain credentials and environment substitutions in sensitive fields are
+rejected at startup. Read the
+[configuration reference](/docs/general-configuration) for details.
 
-When using Slack bot token, alerts become threaded conversations — root message
-on first alert, updates as replies:
+## ✅ Test your channel
 
-```yaml
-alert:
-  slack:
-    token: "xoxb-..."
-    channel: "#alerts"
-```
+1. Run `kwatch lint` to validate the configuration.
+2. Run `kwatch lint --check` to test credentials for providers that support checks.
+3. Enable `healthCheck.diagnostics` and call `/test-alert` if you need a real
+   test message.
 
----
-
-## Delivery Architecture
-
-```
-Incident → AlertManager → per-provider buffered channel (cap 256)
-                           → circuit breaker (3 fails → 60s cooldown)
-                           → retry (exponential backoff)
-                           → fallback (optional)
-                           → either: HTTP 200 (delivered)
-                           → or: dead-letter queue (last 100 failures)
-```
-
-All channels are dispatched **non-blocking** — a slow or down provider won't
-delay alerts to other channels.
-
----
-
-## Format
-
-kwatch formats messages differently per channel type:
-
-| Format | Channels |
-|--------|----------|
-| **Markdown** | Slack, Discord, Mattermost, RocketChat, Teams, GoogleChat |
-| **HTML** | Email |
-| **Plain Text** | Telegram, Matrix, DingTalk, FeiShu |
-
-You can override the message template per incident reason:
-
-```yaml
-templates:
-  OOMKilled: "🔴 {{.Incident.Name}} OOM in {{.Incident.Namespace}}"
-  CrashLoopBackOff: "🔄 {{.Incident.Name}} crashing — {{.Incident.Hint}}"
-```
+For installation help, start with [Getting Started](/docs) or [Installation](/docs/installation).

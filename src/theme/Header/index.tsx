@@ -2,14 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import clsx from "clsx";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 
 import styles from "./styles.module.css";
 
 const floatingEmojis = ["💥", "🔇", "🧠", "⚡", "🎯", "🤖"];
 
 const taglines = [
-  "60 seconds to install.",
+  "One command to install.",
   "No backend. No dashboards.",
   "Alerts that explain themselves.",
   "No YAML spaghetti.",
@@ -17,13 +16,15 @@ const taglines = [
 ];
 
 const terminalLines = [
-  { text: '$ kubectl apply -f config.yaml', type: 'command' },
-  { text: 'configmap/kwatch-config created', type: 'output' },
+  { text: '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"', type: 'command' },
+  { text: 'checking the selected Kubernetes cluster...', type: 'output' },
+  { text: 'alert destination: Slack', type: 'output' },
+  { text: 'secret/kwatch-config created', type: 'output' },
   { text: 'deployment.apps/kwatch created', type: 'output' },
   { text: '', type: 'spacer' },
   { text: '✓ kwatch is running', type: 'success' },
-  { text: '  monitoring 8 namespaces', type: 'output' },
-  { text: '  monitors active • 56 channels', type: 'output' },
+  { text: '  watching your cluster', type: 'output' },
+  { text: '  manager ready for future upgrades', type: 'output' },
   { text: '', type: 'spacer' },
   { text: '🚨 Crash detected: api-7d8f9c', type: 'error' },
   { text: '  → OOMKilled (exit code 137)', type: 'output' },
@@ -261,17 +262,26 @@ function SlackChat({ elapsed }: { elapsed: number }) {
 }
 
 function Header() {
-  const {siteConfig} = useDocusaurusContext();
   const [taglineIndex, setTaglineIndex] = useState(0);
   const [taglineVisible, setTaglineVisible] = useState(true);
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(4400);
+  const [motionEnabled, setMotionEnabled] = useState(true);
 
   useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateMotion = () => setMotionEnabled(!media.matches);
+    updateMotion();
+    media.addEventListener('change', updateMotion);
+    return () => media.removeEventListener('change', updateMotion);
+  }, []);
+
+  useEffect(() => {
+    if (!motionEnabled) return undefined;
     const timer = setInterval(() => {
       setElapsed((e) => (e + 80) % cycleDuration);
     }, 80);
     return () => clearInterval(timer);
-  }, []);
+  }, [motionEnabled]);
 
   const advanceTagline = useCallback(() => {
     setTaglineVisible(false);
@@ -282,9 +292,10 @@ function Header() {
   }, []);
 
   useEffect(() => {
+    if (!motionEnabled) return undefined;
     const timer = setInterval(advanceTagline, 3500);
     return () => clearInterval(timer);
-  }, [advanceTagline]);
+  }, [advanceTagline, motionEnabled]);
 
   return (
     <header id="hero" className={clsx("hero", styles.banner)}>
@@ -308,7 +319,7 @@ function Header() {
         </span>
       ))}
 
-      <div className={styles.demoPanel}>
+      <div className={styles.demoPanel} aria-hidden="true">
         <TerminalDemo elapsed={elapsed} />
         <div className={styles.demoConnector} />
         <SlackChat elapsed={elapsed} />
@@ -317,17 +328,26 @@ function Header() {
       <div className="container">
         <div className={styles.heroCenter}>
           <img src={useBaseUrl("img/kwatch-logo.svg")} className={styles.heroLogo} alt="kwatch" />
-          <p className={clsx("hero__subtitle", styles.subtitle)}>
-            Crash. <span className={styles.highlight}>Root cause. Next step.</span>
-          </p>
+          <h1 className={clsx("hero__subtitle", styles.subtitle)}>
+            See what broke. Understand why. <span className={styles.highlight}>Know what to do next.</span> 👀🧠⚡
+          </h1>
           <p className={styles.description}>
-            kwatch watches your Kubernetes cluster 24/7.
-            Every crash comes with the root cause and fix —{" "}
-            <span className={styles.shimmerText}>straight to your team chat</span>.
+            👋 New to Kubernetes? It runs your apps in containers. kwatch watches
+            those apps and sends a simple alert when something needs attention.
           </p>
+          <div className={styles.howItWorks} aria-label="How kwatch works">
+            <span className={styles.howItWorksStep}>👀 Watch</span>
+            <span className={styles.howItWorksArrow} aria-hidden="true">→</span>
+            <span className={styles.howItWorksStep}>🧠 Explain</span>
+            <span className={styles.howItWorksArrow} aria-hidden="true">→</span>
+            <span className={styles.howItWorksStep}>📣 Alert</span>
+          </div>
           <p className={styles.tagline}>
             <span className={styles.sparkle}>✨</span>{' '}
-            <span className={clsx(styles.cyclingTagline, taglineVisible ? styles.cyclingIn : styles.cyclingOut)}>
+            <span
+              className={clsx(styles.cyclingTagline, taglineVisible ? styles.cyclingIn : styles.cyclingOut)}
+              aria-live="polite"
+            >
               {taglines[taglineIndex]}
             </span>
           </p>
@@ -363,6 +383,9 @@ function Header() {
               title="GitHub Stars"
             />
           </div>
+          <a className={styles.exploreLink} href="#monitors">
+            Explore what kwatch watches <span aria-hidden="true">↓</span>
+          </a>
         </div>
       </div>
     </header>

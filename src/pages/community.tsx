@@ -1,6 +1,6 @@
 import React from 'react';
+import type { ReactElement } from 'react';
 import clsx from 'clsx';
-import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 
@@ -30,10 +30,12 @@ const channels = [
   },
 ];
 
-export default function Community(): JSX.Element {
-  const {siteConfig} = useDocusaurusContext();
+export default function Community(): ReactElement {
   return (
-    <Layout title="Community" description="Where to ask questions and get in touch">
+    <Layout
+      title="Community"
+      description="Join the kwatch community for Kubernetes monitoring help, bug reports, and open-source discussions."
+    >
       <header id="hero" className={clsx("hero", styles.banner)}>
         <div className="container">
           <h1 className="hero__title">Community</h1>
@@ -45,8 +47,8 @@ export default function Community(): JSX.Element {
       <main>
         <div className="container">
           <div className="row margin-vert--lg">
-            {channels.map((channel, idx) => (
-              <div className="col col--4 text--center padding-vert--md" key={idx}>
+            {channels.map((channel) => (
+              <div className="col col--4 text--center padding-vert--md" key={channel.title}>
                 <div className="card">
                   <div className="card__header">
                     <i className={clsx(styles.icon, channel.icon)}></i>

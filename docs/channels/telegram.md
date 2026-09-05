@@ -1,13 +1,13 @@
 ---
 sidebar_position: 9
 title: Telegram
-description: Send Kubernetes crash alerts to Telegram — configure bot token and chat ID for kwatch notifications
-keywords: [kwatch, telegram, kubernetes crash alerts, pod monitoring, k8s notifications]
+description: Send clear Kubernetes incident alerts to Telegram — configure bot token and chat ID for kwatch notifications
+keywords: [kwatch, telegram, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
 pagination_prev: null
 ---
 
-# Telegram
+# ✈️ Telegram
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -23,15 +23,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  telegram-token: "replace-me"
   config.yaml: |
     alert:
       telegram:
-        token: "YOUR_BOT_TOKEN"
+        token: "${file:/config/telegram-token}"
         chatId: "YOUR_CHAT_ID"
 ```
 
@@ -40,7 +41,7 @@ data:
 ```yaml
 alert:
   telegram:
-    token: "YOUR_BOT_TOKEN"
+    token: "${file:/config/telegram-token}"
     chatId: "YOUR_CHAT_ID"
     routes:
       - namespaces: ["production"]
@@ -53,7 +54,7 @@ alert:
 ```yaml
 alert:
   telegram:
-    token: "YOUR_BOT_TOKEN"
+    token: "${file:/config/telegram-token}"
     chatId: "YOUR_CHAT_ID"
     retry:
       maxAttempts: 5
@@ -65,7 +66,7 @@ alert:
 ```yaml
 alert:
   telegram:
-    token: "YOUR_BOT_TOKEN"
+    token: "${file:/config/telegram-token}"
     chatId: "YOUR_CHAT_ID"
     fallback: <another_provider>
 ```
@@ -75,7 +76,7 @@ alert:
 ```yaml
 alert:
   telegram:
-    token: "YOUR_BOT_TOKEN"
+    token: "${file:/config/telegram-token}"
     chatId: "YOUR_CHAT_ID"
     compact: true
 ```

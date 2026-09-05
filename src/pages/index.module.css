@@ -27,6 +27,66 @@
   }
 }
 
+/* ─── At-a-glance proof strip ─── */
+
+.signalStrip {
+  padding: 1.25rem 0 !important;
+  background: var(--ifm-background-surface-color);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.signalGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.signalItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 14px;
+  background: var(--ifm-card-background-color);
+}
+
+.signalValue {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: var(--kwatch-gradient-light);
+  font-size: 1.1rem;
+}
+
+.signalItem strong,
+.signalItem small {
+  display: block;
+}
+
+.signalItem strong {
+  color: var(--ifm-heading-color);
+  font-size: 0.88rem;
+}
+
+.signalItem small {
+  margin-top: 0.15rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+@media screen and (max-width: 996px) {
+  .signalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ─── Not a platform ─── */
 
 .notPlatform {
@@ -122,6 +182,21 @@
     border-color: var(--ifm-color-primary);
     transform: translateY(-3px);
     box-shadow: 0 8px 20px rgba(14, 165, 233, 0.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notPlatformTitle,
+  .notPlatform p,
+  .channelsTitle,
+  .channelsSubtitle,
+  .channelsGrid,
+  .usersTitle,
+  .usersSubtitle,
+  .userLogos,
+  .usersNote,
+  .channelCard {
+    animation: none;
   }
 }
 

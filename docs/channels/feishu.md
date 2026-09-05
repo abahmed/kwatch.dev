@@ -1,13 +1,13 @@
 ---
 sidebar_position: 14
 title: FeiShu
-description: Route Kubernetes crash alerts to FeiShu (Lark) — configure webhook URL for kwatch notifications
-keywords: [kwatch, feishu, lark, kubernetes crash alerts, k8s notifications, devops]
+description: Route clear Kubernetes incident alerts to FeiShu (Lark) — configure webhook URL for kwatch
+keywords: [kwatch, feishu, lark, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
 pagination_prev: null
 ---
 
-# FeiShu (Lark)
+# 🐦 FeiShu (Lark)
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -23,15 +23,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  feishu-webhook: "replace-me"
   config.yaml: |
     alert:
       feishu:
-        webhook: WEBHOOK_URL
+        webhook: "${file:/config/feishu-webhook}"
         title: "optional customized title"
 ```
 
@@ -40,7 +41,7 @@ data:
 ```yaml
 alert:
   feishu:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/feishu-webhook}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -52,7 +53,7 @@ alert:
 ```yaml
 alert:
   feishu:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/feishu-webhook}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -63,7 +64,7 @@ alert:
 ```yaml
 alert:
   feishu:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/feishu-webhook}"
     fallback: <another_provider>
 ```
 
@@ -72,7 +73,7 @@ alert:
 ```yaml
 alert:
   feishu:
-    webhook: WEBHOOK_URL
+    webhook: "${file:/config/feishu-webhook}"
     compact: true
 ```
 

@@ -7,7 +7,10 @@ pagination_prev: architecture/packages-overview
 pagination_next: architecture/infrastructure-packages
 ---
 
-# Correlation & Alerting
+# 🔔 Correlation and alerting
+
+This page explains how kwatch turns many raw signals into one useful incident,
+then delivers it reliably to your configured provider.
 
 ## 9. `internal/correlation/` — Correlation Engine
 
@@ -312,7 +315,7 @@ func (e *Engine) Analyze(inc *model.Incident) *Insight
 - **`impact.go`** — walks *downstream* and counts what else would break:
   pods on the node, services and ingresses pointing at the failing workload,
   pods referencing the same PVC.
-- **`changes.go`** — checks the `context.ChangeTracker` for updates to the
+- **`changes.go`** — checks the `graphcontext.ChangeTracker` for updates to the
   same resource in the recent window ("Deployment updated 3m before this
   incident — likely a rollout").
 - **`patterns.go`** — recognises repeated failure signatures (repeating OOM /

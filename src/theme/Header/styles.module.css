@@ -13,6 +13,7 @@
   @media screen and (max-width: 966px) {
     padding: 3rem 1rem;
     min-height: auto;
+    align-items: flex-start;
   }
 }
 
@@ -262,11 +263,13 @@ html[data-theme="light"] .terminalCursor {
   @media screen and (max-width: 1099px) {
     max-width: 540px;
     margin: 0 auto;
+    padding-top: 1rem;
   }
 
   @media screen and (max-width: 480px) {
     max-width: 100%;
     width: 100%;
+    padding-top: 0;
   }
 }
 
@@ -275,6 +278,13 @@ html[data-theme="light"] .terminalCursor {
   max-width: 128px;
   margin: 0 auto 1.5rem;
   animation: fadeUp 0.8s ease 0.1s both;
+}
+
+@media screen and (max-width: 966px) {
+  .heroLogo {
+    max-width: 104px;
+    margin-bottom: 1rem;
+  }
 }
 
 .buttons {
@@ -315,20 +325,45 @@ html[data-theme="dark"] .subtitle {
 .description {
   margin: 0 auto 1rem;
   font-size: 1.15rem;
-  max-width: 640px;
+  max-width: 560px;
   line-height: 1.7;
   color: var(--ifm-color-emphasis-700);
   animation: fadeUp 0.8s ease 0.3s both;
 }
 
-.shimmerText {
-  background: linear-gradient(90deg, var(--ifm-color-primary), #8b5cf6, var(--ifm-color-primary));
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: shimmer 3s linear infinite;
+.howItWorks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin: 0 auto 1.15rem;
+  font-size: 0.9rem;
   font-weight: 700;
+  color: var(--ifm-color-emphasis-700);
+  animation: fadeUp 0.8s ease 0.4s both;
+}
+
+.howItWorksStep {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 999px;
+  background: var(--ifm-card-background-color);
+}
+
+.howItWorksArrow {
+  color: var(--ifm-color-primary);
+  font-size: 1.1rem;
+}
+
+@media screen and (max-width: 480px) {
+  .howItWorks {
+    gap: 0.25rem;
+    font-size: 0.78rem;
+  }
+
+  .howItWorksStep {
+    padding: 0.3rem 0.45rem;
+  }
 }
 
 .tagline {
@@ -791,4 +826,21 @@ html[data-theme="dark"] .slackAiSummary {
   overflow: hidden;
 }
 
+.exploreLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 1.25rem;
+  color: var(--ifm-color-emphasis-600);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease, transform 0.2s ease;
+  animation: fadeUp 0.8s ease 0.9s both;
+}
 
+.exploreLink:hover {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  transform: translateY(2px);
+}

@@ -1,13 +1,13 @@
 ---
 sidebar_position: 7
 title: PagerDuty
-description: Route Kubernetes crash alerts to PagerDuty — configure integration key and severity routing for kwatch
-keywords: [kwatch, pagerduty, kubernetes crash alerts, incident response, k8s monitoring]
+description: Route clear Kubernetes incident alerts to PagerDuty — configure integration key and severity routing for kwatch
+keywords: [kwatch, pagerduty, kubernetes incident alerts, incident response, k8s monitoring]
 pagination_next: null
 pagination_prev: null
 ---
 
-# PagerDuty
+# 🚨 PagerDuty
 
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
@@ -22,15 +22,16 @@ metadata:
   name: kwatch
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: kwatch
   namespace: kwatch
-data:
+stringData:
+  pagerduty-integration-key: "replace-me"
   config.yaml: |
     alert:
       pagerduty:
-        integrationKey: YOUR_INTEGRATION_KEY
+        integrationKey: "${file:/config/pagerduty-integration-key}"
 ```
 
 ### Routing
@@ -38,7 +39,7 @@ data:
 ```yaml
 alert:
   pagerduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/pagerduty-integration-key}"
     routes:
       - namespaces: ["production"]
         severities: ["high", "critical"]
@@ -50,7 +51,7 @@ alert:
 ```yaml
 alert:
   pagerduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/pagerduty-integration-key}"
     retry:
       maxAttempts: 5
       delay: 5s
@@ -61,7 +62,7 @@ alert:
 ```yaml
 alert:
   pagerduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/pagerduty-integration-key}"
     fallback: <another_provider>
 ```
 
@@ -70,7 +71,7 @@ alert:
 ```yaml
 alert:
   pagerduty:
-    integrationKey: YOUR_INTEGRATION_KEY
+    integrationKey: "${file:/config/pagerduty-integration-key}"
     compact: true
 ```
 

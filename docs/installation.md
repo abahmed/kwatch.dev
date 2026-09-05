@@ -1,244 +1,112 @@
 ---
 sidebar_position: 2
 title: Installation
-description: a complete guide to deploy kwatch on your Kubernetes cluster
-keywords: [kwatch, kubernetes, install, deploy, cluster, monitoring, helm, kubectl]
-pagination_next: null
-pagination_prev: null
+description: install and manage kwatch on Kubernetes with the interactive kwatch.sh manager and Secret-backed credentials
+keywords: [kwatch, kubernetes installation, kwatch.sh, Kubernetes monitoring, cluster alerts, Kubernetes Secret]
+pagination_next: kwatch-manager
+pagination_prev: getting-started
 ---
 
-# Installation
+# 🚀 Installation
 
-## Prerequisites
+> 🧭 **Supported path:** use `kwatch.sh` for installation, upgrades, configuration,
+> and removal. It creates the Secret, applies the matching release resources,
+> enables the namespace security labels, and verifies the workload posture.
+> Do not apply `deploy.yaml` or `config.yaml` manually.
 
-- A Kubernetes cluster (v1.21+)
-- `kubectl` configured with cluster access
-- (Optional) Helm 3+ for Helm installation
+For the normal lifecycle, use the manager:
 
-kwatch needs the following RBAC permissions (all included in the deploy manifest):
+| You want to... | Use |
+| --- | --- |
+| Try kwatch with the fewest decisions | 🧭 [Interactive manager](#-interactive-manager-recommended) |
+| Need to inspect the generated resources | 🔍 [Release artifacts](https://github.com/abahmed/kwatch/tree/main/deploy) |
 
-| Resource | Verbs | Purpose |
-|----------|-------|---------|
-| `pods`, `pods/log`, `events`, `nodes`, `nodes/proxy`, `persistentvolumeclaims` | get, watch, list | Monitor resources |
-| `namespaces` | get, list, watch | Multi-namespace support |
-| `daemonsets`, `statefulsets`, `deployments`, `replicasets` | get, watch, list | Owner resolution |
-| `horizontalpodautoscalers` | get, watch, list | HPA monitoring |
-| `jobs`, `cronjobs` | get, watch, list | Job/CronJob monitoring |
-| `configmaps` | get, create, update, patch | State persistence |
-| `secrets` | get, list, watch | TLS monitoring (optional, uncomment) |
-| `kwatchconfigs` | get, watch, list | CRD live reload (optional, uncomment) |
+## ✅ Before you begin
 
----
+You need:
 
-## 📦 Method 1: Helm (recommended)
+- A supported Kubernetes cluster.
+- `kubectl` configured for that cluster.
+- `curl` for the manager.
 
-### Add the repository
-
-```shell
-helm repo add kwatch https://kwatch.dev/charts
-helm repo update
-```
-
-### Create a values file
-
-```yaml
-# values.yaml
-config:
-  alert:
-    slack:
-      webhook: "https://hooks.slack.com/services/..."
-  app:
-    clusterName: "production-us-east"
-```
-
-### Install
-
-```shell
-helm install kwatch kwatch/kwatch \
-  --namespace kwatch \
-  --create-namespace \
-  --values values.yaml \
-  --version 0.11.0-rc.6
-```
-
-> ⚠️ **Release candidates have no Helm chart** — only the stable release publishes to the
-> `kwatch/kwatch` chart repo. As of the current preview build, `0.11.0` is still a release
-> candidate; for it, use the kubectl method below. This Helm command is documented for the
-> stable release (e.g. `0.10.5`) once the RC ships.
-
-### Verify
-
-```shell
-kubectl get pods -n kwatch
-# NAME                      READY   STATUS    RESTARTS   AGE
-# kwatch-6f9b7c9d8f-abc12   1/1     Running   0          30s
-```
-
-> The pod runs a single container, `kwatch` — one small pod, no storage.
-
-### Upgrade
-
-```shell
-helm repo update
-helm upgrade kwatch kwatch/kwatch \
-  --namespace kwatch \
-  --values values.yaml
-```
-
-### Uninstall
-
-```shell
-helm uninstall kwatch --namespace kwatch
-```
-
----
-
-## 🐙 Method 2: kubectl (manual)
-
-### Step 1: Create the configuration
-
-Download the example config:
+Check access before installing:
 
 ```bash
-curl -L https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/config.yaml -o config.yaml
+kubectl cluster-info
 ```
 
-Edit `config.yaml` and configure at least one alert provider:
+kwatch runs as one small pod and reads cluster resources through Kubernetes
+RBAC. The official manifests include the required read-only permissions. TLS
+monitoring needs additional Secret access and is off by default.
 
-```yaml
-data:
-  config.yaml: |
-    alert:
-      slack:
-        webhook: "https://hooks.slack.com/services/..."
-```
+## 🧭 Interactive manager (recommended)
 
-Remove or comment out providers you don't use. See
-[Channels](/docs/channels) for all supported providers.
-
-Apply the config:
+Run one command:
 
 ```bash
-kubectl apply -f config.yaml
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-### Step 2: Deploy kwatch
+The manager will:
+
+1. 🔎 Check the cluster and your permissions.
+2. 🎯 Ask where alerts should go.
+3. 🔐 Store notification credentials in a Secret.
+4. 🧱 Install the CRD and kwatch workload.
+5. ✅ Wait for kwatch to become ready.
+
+Run the same command later to configure, upgrade, check status, or uninstall.
+Read the [kwatch.sh manager guide](/docs/kwatch-manager) for every menu option,
+recovery behavior, and advanced usage.
+
+The release artifacts below are for inspection only. The supported lifecycle is
+through `kwatch.sh`; do not apply or delete the files directly.
+
+## 📦 Release artifacts (inspection only)
+
+The repository contains the CRD, Deployment, RBAC, chart, and catalog files so
+that users can audit exactly what the manager applies. They are not a second
+supported installation path. Do not apply or delete these files directly: the
+manager owns namespace safety, Secret references, upgrades, rollback behavior,
+and ownership-aware cleanup.
+
+Use `kwatch.sh status`, `kwatch.sh configure`, and `kwatch.sh uninstall` for
+the lifecycle of every manager-created installation. If a deployment must be
+customized beyond the manager's options, treat it as an unsupported fork and
+keep it separate from a `kwatch.sh`-managed release.
+
+The main environment variables inside the workload are:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `CONFIG_FILE` | `/config/config.yaml` | Config file path |
+| `POD_NAMESPACE` | detected from the Pod | Namespace for persisted state |
+| `GOMEMLIMIT` | based on the resource limit | Soft Go memory limit |
+
+## 🔎 Troubleshooting
+
+### The pod is not ready
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/deploy.yaml
-```
-
-### Step 3: Verify
-
-```bash
-kubectl get pods -n kwatch
-# NAME                      READY   STATUS    RESTARTS   AGE
-# kwatch-6f9b7c9d8f-abc12   1/1     Running   0          30s
-
+kubectl describe pod -n kwatch -l app=kwatch
 kubectl logs -n kwatch deployment/kwatch
-# I0629 10:00:00.000000       1 main.go:79] "kwatch v0.11.0-rc.6 ..."
 ```
 
-### Step 4: Test it
+Look for an invalid provider credential, a missing permission, or a Kubernetes
+API access problem.
+
+### Check the health endpoint
 
 ```bash
-# Port-forward the health endpoint
 kubectl port-forward -n kwatch deployment/kwatch 8060:8060
-
-# Send a test alert
-curl -X POST http://localhost:8060/test-alert
-```
-
-If everything is set up correctly, you should receive a test notification
-on your configured channel.
-
-> 💡 `/test-alert` (and `/incidents`, `/deadletters`) require
-> `healthCheck.diagnostics: true` in your config.
-
----
-
-## 🔧 Method 3: Custom deployment
-
-You can customize the deployment by downloading and editing the manifest:
-
-```bash
-curl -L https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/deploy.yaml -o deploy.yaml
-# Edit deploy.yaml (change resources, env vars, etc.)
-kubectl apply -f config.yaml
-kubectl apply -f deploy.yaml
-```
-
-### Environment variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CONFIG_FILE` | `/config/config.yaml` | Path to the config file |
-| `POD_NAMESPACE` | (field ref) | Used for ConfigMap state access |
-| `GOMEMLIMIT` | (resource field ref) | Go memory limit (soft) |
-
----
-
-## ✅ Verifying the installation
-
-### Check pod status
-
-```bash
-kubectl get pods -n kwatch -o wide
-```
-
-The container (`kwatch`) should be `Running` and `Ready 1/1`.
-
-### Check health endpoint
-
-```bash
-kubectl port-forward -n kwatch deployment/kwatch 8060:8060 &
 curl http://localhost:8060/healthz
-# ok
 curl http://localhost:8060/readyz
-# ok
-curl http://localhost:8060/health
-# {"status": "ok"}
 ```
 
-### View active incidents
+Both endpoints should return `ok`.
 
-```bash
-# Requires diagnostics: true in config
-curl http://localhost:8060/incidents
-# []  (empty array = all clear)
-```
+### Change configuration safely
 
-### Check Prometheus metrics
-
-```bash
-curl http://localhost:8060/metrics | grep kwatch
-```
-
----
-
-## ⬆️ Upgrading
-
-### Upgrading within a release line
-
-1. Check the [changelog](https://github.com/abahmed/kwatch/releases) and the
-   [release notes](https://github.com/abahmed/kwatch/blob/main/RELEASES.md)
-2. Update config if needed (deprecated `Ignore*` fields → `silences`)
-3. Upgrade via Helm or re-apply `deploy.yaml`
-
----
-
-## 🧹 Clean up
-
-### Helm
-
-```shell
-helm uninstall kwatch --namespace kwatch
-kubectl delete namespace kwatch
-```
-
-### kubectl
-
-```shell
-kubectl delete -f https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/config.yaml
-kubectl delete -f https://raw.githubusercontent.com/abahmed/kwatch/v0.11.0-rc.6/deploy/deploy.yaml
-```
+Run `kwatch lint` before applying a changed config. Use `kwatch lint --check`
+when you also want to test credentials for providers that support checks. See the [configuration
+reference](/docs/general-configuration).

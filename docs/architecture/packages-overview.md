@@ -7,7 +7,10 @@ pagination_prev: architecture/overview
 pagination_next: architecture/correlation-and-alerting
 ---
 
-# Core Packages
+# 🧩 Core packages
+
+This page maps the main Go packages to the job they do. You do not need to know
+all of them to run kwatch; use it as a guide when changing the code.
 
 ## 1. `cmd/kwatch/main.go` — Entry Point
 
@@ -20,8 +23,8 @@ otherwise starts the server through `internal/app.Run()`:
 |------|-----------|-------------|
 | **Runtime** | `kwatch` | Load config and run the full controller (`app.Run()`) |
 | **Version** | `kwatch --version` | Print the build version and exit |
-| **Lint** | `kwatch lint [--strict] [--check]` | Validate config; optionally verify provider credentials |
-| **Replay** | `kwatch replay < events.jsonl` | Replay a JSONL of events through the stack without a cluster |
+| **Lint** | `kwatch lint [--strict] [--check]` | Validate config; optionally verify supported provider credentials |
+| **Replay** | `kwatch replay [--dry-run] < events.jsonl` | Send or preview JSONL events without a live cluster |
 
 Only one mode runs at a time; the runtime mode is the default.
 
@@ -51,7 +54,7 @@ Only one mode runs at a time; the runtime mode is the default.
 |------|-------------|
 | `--version` | Print version and exit |
 | `--strict` (lint) | Strict YAML unmarshal (catches typos) |
-| `--check` (lint) | Validate config + test provider credentials |
+| `--check` (lint) | Validate config + test credentials for supported providers |
 
 ---
 
@@ -62,9 +65,10 @@ Only one mode runs at a time; the runtime mode is the default.
 ### Role
 
 The central configuration system. Defines the full `Config` struct, applies
-defaults, performs semantic validation, and supports `${VAR}` env-var
-expansion. It also builds the suppression index from `silences` and the
-legacy `ignore*` fields.
+defaults, performs semantic validation, and resolves Secret-backed
+`${file:/absolute/path}` values. `${VAR}` expansion is limited to
+non-sensitive strings. It also builds the suppression index from `silences`
+and the legacy `ignore*` fields.
 
 ### Key types
 
@@ -159,12 +163,13 @@ provider is silently skipped.
 ### Loading flow
 
 1. `LoadConfig()` reads YAML from `CONFIG_FILE`
-2. Expands `${VAR}` environment variables
-3. Merges defaults
-4. Runs semantic validation
-5. Builds the suppression index from `Silences` plus the deprecated `ignore*`
+2. Rejects plain credentials and non-absolute secret references
+3. Expands `${VAR}` for non-sensitive strings and resolves `${file:/path}`
+4. Merges defaults
+5. Runs semantic validation
+6. Builds the suppression index from `Silences` plus the deprecated `ignore*`
    fields (folded into synthetic `SilenceRule`s)
-6. The `*Config` is passed to every component
+7. The `*Config` is passed to every component
 
 There is no storm-digest or LLM configuration: kwatch ships exactly one kind
 of notification pipeline.
@@ -188,8 +193,8 @@ a `startWorkers` flag that gates both worker startup and baseline seeding.
 type Controller struct {
     // one pipeline per watched resource kind
     pipelines map[string]*resourcePipeline
-    graph     *context.ResourceGraph
-    tracker   *context.ChangeTracker
+    graph     *graphcontext.ResourceGraph
+    tracker   *graphcontext.ChangeTracker
     handler   *handler.Handler
     ...
 }

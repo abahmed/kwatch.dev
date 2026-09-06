@@ -2231,7 +2231,7 @@ EOF
     fi
   else
     case "$action" in
-      install|upgrade|status|uninstall) ;;
+      install|upgrade|uninstall) ;;
       *) maybe_load_catalog; migration_notice ;;
     esac
   fi

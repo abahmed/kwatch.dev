@@ -59,11 +59,6 @@ and, when available, the newest Release Candidate. Stable is selected by
 default; choose the RC interactively when you want to test preview changes.
 No version argument or manual manifest application is required.
 
-Official release images send a small pseudonymous adoption heartbeat once a
-week by default. It contains an installation ID and kwatch version only; no
-feature usage or cluster inventory is collected. Disable it later from the
-manager's **Configure settings** menu with `telemetry.enabled: false`.
-
 The default namespace is `kwatch`. Set `KWATCH_NAMESPACE` when you want a
 different namespace:
 

@@ -61,7 +61,8 @@ Most monitors are enabled by default:
 | 🏛️ Control plane | API server and platform health signals |
 
 TLS certificate monitoring and heartbeat notifications are **opt-in**. See the
-[configuration reference](/docs/general-configuration) for the complete list.
+[configuration guide](/docs/general-configuration) or the [complete configuration
+reference](/docs/configuration-reference) for every available key.
 
 ## 🚀 Install in three steps
 

@@ -43,8 +43,10 @@ The most common providers have a step-by-step page:
 | [FeiShu](/docs/channels/feishu) | `feishu` | Webhook URL |
 | [Custom Webhook](/docs/channels/webhook) | `webhook` | Endpoint URL |
 
-The [provider reference in the kwatch repository](https://github.com/abahmed/kwatch/blob/main/docs/providers.md)
-lists every supported provider and its fields.
+The [complete provider reference](/docs/channels/providers) lists every supported
+provider, every catalog field, its type, whether it is required, and whether it
+must come from a Secret. It is generated from the same provider catalog used by
+`kwatch.sh`.
 
 ## 🧩 Basic configuration
 

@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         'channels/dingtalk',
         'channels/feishu',
         'channels/webhook',
+        'channels/providers',
       ],
     },
     {
@@ -35,6 +36,7 @@ const sidebars: SidebarsConfig = {
       label: '🎯 Monitors',
       items: [
         'general-configuration',
+        'configuration-reference',
         'rollout-monitor-configuration',
         'daemonset-monitor-configuration',
         'job-monitor-configuration',

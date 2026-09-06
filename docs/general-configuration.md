@@ -22,6 +22,7 @@ alert channel; the defaults already cover the common Kubernetes failures.
 | Group related incidents | [Correlation](#-correlation--incident-lifecycle) |
 | Add a runbook link | [Custom templates and runbooks](#-custom-templates--runbooks) |
 | Keep credentials safe | [Secret-backed credentials](#-secret-backed-credentials-are-required) |
+| See every accepted key | [Complete configuration reference](/docs/configuration-reference) |
 
 ### ✅ A safe change checklist
 
@@ -322,8 +323,9 @@ structured JSON line — feed it to your log pipeline for a searchable history.
 | `maintenance.annotation` | `string` | `kwatch.io/maintenance` | Annotation used to mark deliberate maintenance. |
 | `maintenance.untilAnnotation` | `string` | `kwatch.io/maintenance-until` | Optional annotation containing the maintenance expiry time. |
 
-For maintenance behavior and examples, see the [maintenance section in the
-repository reference](https://github.com/abahmed/kwatch/blob/main/docs/configuration.md#-maintenance-mode).
+For maintenance behavior and examples, keep the annotations in the Pod template
+and use the [`maintenance.annotation`](#-operations-and-security) and
+`maintenance.untilAnnotation` keys above.
 
 ---
 
@@ -678,9 +680,10 @@ alert:
     port: <smtp-port>
 ```
 
-The full list of all 56 integrations — with every parameter and example — is in
-[`docs/providers.md`](https://github.com/abahmed/kwatch/blob/main/docs/providers.md) in the
-kwatch repository, and the dedicated pages under [Channels](/docs/channels).
+The [complete provider reference](/docs/channels/providers) lists all 56
+integrations and every catalog field. The [complete configuration reference](/docs/configuration-reference)
+lists every accepted configuration key, type, default, category, and status.
+Both pages are generated from the versioned catalogs shipped with `kwatch.sh`.
 
 ### Routes
 

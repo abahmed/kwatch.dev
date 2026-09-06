@@ -324,7 +324,7 @@ structured JSON line — feed it to your log pipeline for a searchable history.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `telemetry.enabled` | `bool` | `true` | Send a small anonymous adoption heartbeat. |
+| `telemetry.enabled` | `bool` | `true` | Send a weekly adoption heartbeat containing only a random installation ID and the kwatch version. |
 | `maintenance.enabled` | `bool` | `true` | Honor maintenance annotations. |
 | `maintenance.annotation` | `string` | `kwatch.io/maintenance` | Annotation used to mark deliberate maintenance. |
 | `maintenance.untilAnnotation` | `string` | `kwatch.io/maintenance-until` | Optional annotation containing the maintenance expiry time. |

@@ -64,6 +64,7 @@ const sidebars: SidebarsConfig = {
       label: '📚 Reference & trust',
       items: [
         'kubernetes-coverage',
+        'feature-reference',
         'release-integrity',
         'licensing',
         'third-party-notices',

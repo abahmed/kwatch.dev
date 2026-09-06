@@ -1,0 +1,86 @@
+---
+sidebar_position: 11
+title: Feature catalog
+description: Complete kwatch capability reference generated from the current feature catalog.
+keywords: [kwatch features, Kubernetes monitoring capabilities, feature catalog]
+---
+
+# 🧩 Feature catalog
+
+The current release exposes **70 capabilities** through `kwatch.sh features`. This table is generated from the versioned `feature-catalog.tsv` shipped with the release artifacts.
+
+The catalog describes what the installed release can do; it is not a license tier or a remote feature flag. Capabilities are compiled into the release and may be marked `runtime` or `startup` depending on when they are initialized.
+
+| Capability | Phase | Description | Parent |
+|:--|:--|:--|:--|
+| `core.detection.pods` | `runtime` | Detect pod and container failures | `—` |
+| `core.pods.scheduling` | `runtime` | Detect pod scheduling failures | `core.detection.pods` |
+| `core.pods.pending` | `runtime` | Detect pods stuck Pending | `core.detection.pods` |
+| `core.pods.oom` | `runtime` | Detect repeated out-of-memory failures | `core.detection.pods` |
+| `core.pods.readiness` | `runtime` | Detect sustained pod readiness failures | `core.detection.pods` |
+| `core.pods.restarts` | `runtime` | Detect excessive container restarts | `core.detection.pods` |
+| `core.detection.workloads` | `runtime` | Detect workload rollout and execution failures | `—` |
+| `core.workloads.deployment-rollout` | `runtime` | Detect stuck Deployment rollouts | `core.detection.workloads` |
+| `core.workloads.statefulset-rollout` | `runtime` | Detect stuck StatefulSet rollouts | `core.detection.workloads` |
+| `core.workloads.daemonset-rollout` | `runtime` | Detect stuck DaemonSet rollouts | `core.detection.workloads` |
+| `core.workloads.job-failures` | `runtime` | Detect failed and suspended Jobs | `core.detection.workloads` |
+| `core.workloads.cronjob-failures` | `runtime` | Detect failed and missed CronJobs | `core.detection.workloads` |
+| `core.workloads.pdb-violations` | `runtime` | Detect PodDisruptionBudget violations | `core.detection.workloads` |
+| `core.workloads.hpa-diagnostics` | `runtime` | Diagnose HorizontalPodAutoscaler failures | `core.detection.workloads` |
+| `core.detection.nodes` | `runtime` | Detect node readiness and resource failures | `—` |
+| `core.nodes.conditions` | `runtime` | Detect node conditions and lifecycle failures | `core.detection.nodes` |
+| `core.nodes.resources` | `runtime` | Detect node resource pressure | `core.detection.nodes` |
+| `core.detection.storage` | `runtime` | Detect persistent storage failures | `—` |
+| `core.storage.pvc-usage` | `runtime` | Detect PVC usage and volume failures | `core.detection.storage` |
+| `core.detection.network` | `runtime` | Detect service and network failures | `—` |
+| `core.network.service-endpoints` | `runtime` | Detect Service and EndpointSlice failures | `core.detection.network` |
+| `core.network.ingress-backends` | `runtime` | Detect Ingress backend failures | `core.detection.network` |
+| `core.network.policies` | `runtime` | Detect NetworkPolicy failures | `core.detection.network` |
+| `core.detection.security` | `runtime` | Detect security and admission failures | `—` |
+| `core.security.admission-webhooks` | `runtime` | Detect admission webhook failures | `core.detection.security` |
+| `core.cluster-resources.status` | `runtime` | Detect cluster resource status failures | `—` |
+| `core.security.tls` | `runtime` | Detect TLS certificate expiry | `core.detection.security` |
+| `intelligence.diagnosis.direct` | `runtime` | Explain the most likely direct cause | `—` |
+| `intelligence.diagnosis.dependency-graph` | `runtime` | Trace related Kubernetes dependencies | `intelligence.diagnosis.direct` |
+| `intelligence.diagnosis.impact` | `runtime` | Estimate affected resources and blast radius | `intelligence.diagnosis.dependency-graph` |
+| `intelligence.diagnosis.change-diff` | `runtime` | Relate incidents to recent changes | `intelligence.diagnosis.direct` |
+| `intelligence.diagnosis.timeline` | `runtime` | Keep a compact incident timeline | `—` |
+| `intelligence.diagnosis.confidence` | `runtime` | Show confidence and supporting evidence | `intelligence.diagnosis.direct` |
+| `intelligence.diagnosis.feedback` | `runtime` | Persist operator feedback for RCA improvement | `intelligence.diagnosis.direct` |
+| `incidents.lifecycle.cooldown` | `runtime` | Suppress repeated notifications during cooldown | `—` |
+| `incidents.lifecycle.grouping` | `runtime` | Group related incidents into one narrative | `—` |
+| `incidents.lifecycle.mass-failure` | `runtime` | Reduce noise during broad failures | `incidents.lifecycle.grouping` |
+| `incidents.lifecycle.cascade-suppression` | `runtime` | Suppress symptoms after a root cause is known | `intelligence.diagnosis.dependency-graph` |
+| `incidents.persistence.active` | `startup` | Restore active incident lifecycle after restart | `—` |
+| `incidents.persistence.baseline` | `startup` | Persist startup baseline state | `—` |
+| `incidents.persistence.change-history` | `runtime` | Persist recent change history | `—` |
+| `telemetry.kubelet.summary` | `runtime` | Read built-in kubelet summary telemetry | `—` |
+| `telemetry.cpu.usage` | `runtime` | Detect CPU usage pressure | `telemetry.kubelet.summary` |
+| `telemetry.cpu.throttling` | `runtime` | Detect container CPU throttling | `telemetry.kubelet.summary` |
+| `telemetry.memory.usage` | `runtime` | Detect memory pressure and overuse | `telemetry.kubelet.summary` |
+| `telemetry.storage.usage` | `runtime` | Detect ephemeral storage and inode pressure | `telemetry.kubelet.summary` |
+| `telemetry.pressure` | `runtime` | Detect cgroup pressure signals | `telemetry.kubelet.summary` |
+| `telemetry.network.errors` | `runtime` | Detect kubelet-observed network errors | `telemetry.kubelet.summary` |
+| `telemetry.runtime.errors` | `runtime` | Detect container runtime error rates | `telemetry.kubelet.summary` |
+| `telemetry.metrics-api` | `runtime` | Read the optional Kubernetes metrics API | `—` |
+| `telemetry.adaptive-baseline` | `runtime` | Adapt bounded thresholds to observed usage | `—` |
+| `probes.http` | `runtime` | Run configured HTTP checks | `—` |
+| `probes.tcp` | `runtime` | Run configured TCP checks | `—` |
+| `probes.dns` | `runtime` | Run configured DNS checks | `—` |
+| `probes.services.automatic` | `runtime` | Derive safe probe targets from services | `—` |
+| `probes.latency` | `runtime` | Detect probe latency regressions | `—` |
+| `control-plane.pods` | `runtime` | Observe control-plane component pods | `—` |
+| `control-plane.api.health` | `runtime` | Check Kubernetes API health endpoints | `—` |
+| `control-plane.api.latency` | `runtime` | Measure Kubernetes API latency | `control-plane.api.health` |
+| `control-plane.scheduler` | `runtime` | Observe scheduler health | `control-plane.pods` |
+| `control-plane.controller-manager` | `runtime` | Observe controller-manager health | `control-plane.pods` |
+| `control-plane.etcd` | `runtime` | Observe etcd health signals | `control-plane.api.health` |
+| `cluster-resources.status` | `runtime` | Observe status conditions on cluster resources | `core.cluster-resources.status` |
+| `cluster-resources.crd-discovery` | `startup` | Discover supported custom resources dynamically | `—` |
+| `security.rbac.audit` | `runtime` | Report missing permissions and RBAC drift | `—` |
+| `security.tls` | `runtime` | Monitor configured Kubernetes TLS secrets | `—` |
+| `security.audit-log` | `runtime` | Write structured incident audit records | `—` |
+| `delivery.escalation` | `runtime` | Escalate incidents through alert tiers | `—` |
+| `delivery.templates` | `runtime` | Render operator-selected alert templates | `—` |
+| `delivery.runbooks` | `runtime` | Attach reason-aware runbook links | `—` |
+

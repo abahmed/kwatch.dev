@@ -5,11 +5,15 @@ authors: [abahmed]
 tags: [kwatch, kubernetes, devops, monitoring, release]
 keywords: [kwatch, kubernetes, devops, monitoring, release, cluster, crash, v0.4.0]
 description: kwatch v0.4.0 released — new features including PVC monitoring, custom webhook support, and improved Slack notifications for Kubernetes crash alerts
+image: /img/kwatch-logo-full.png
 pagination_prev: null
 ---
 
 We are glad to announce that [v0.4.0](https://github.com/abahmed/kwatch/releases/tag/v0.4.0) of kwatch is released! :tada::tada::tada:
 <!--truncate-->
+
+> This is a historical release note. For current installations and upgrades,
+> use the [interactive `kwatch.sh` manager](/docs/kwatch-manager).
 
 ## 🚀 What's New
 * Support Mattermost for alerts by [@abahmed](https://github.com/abahmed) in https://github.com/abahmed/kwatch/pull/53
@@ -28,11 +32,10 @@ We are glad to announce that [v0.4.0](https://github.com/abahmed/kwatch/releases
 
 ## ⬆️ How to Upgrade
 
-There are no breaking changes, just deploy the new version from any previous version using
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.4.0/deploy/deploy.yaml
-```
+For a current installation, run the manager again and choose **Upgrade**. It
+selects the release, verifies the workload, and preserves the Secret-backed
+configuration. The old manifest-based workflow from this release is
+intentionally not used by the current supported workflow.
 
 ## 🌟 New Contributors
 

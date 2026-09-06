@@ -1,13 +1,52 @@
 ---
 slug: what-is-kwatch
-title: What is kwatch?
+title: What is kwatch? Kubernetes incidents, explained
 authors: [abahmed]
-tags: [kwatch, kubernetes]
-description: kwatch is a Kubernetes crash monitoring tool that explains pod failures and sends clear alerts to Slack, Discord, PagerDuty, and more
-keywords: [kwatch, kubernetes, crash monitoring, pod crashes, devops, alerts]
+tags: [kwatch, kubernetes, monitoring, alerting]
+description: See what broke, understand why, and know what to do next with open-source Kubernetes incident monitoring from kwatch.
+keywords: [kwatch, kubernetes incident monitoring, Kubernetes alerts, pod crash monitoring, DevOps]
+image: /img/kwatch-logo-full.png
 ---
 
-[kwatch](https://github.com/abahmed/kwatch) helps you monitor all changes in your Kubernetes(K8s) cluster,
-detects crashes in your running apps in realtime,
-and publishes notifications to your channels (Slack, Discord, etc.) instantly
+**See what broke. Understand why. Know what to do next. 👀🧠⚡**
+
+Kubernetes gives teams a powerful way to run applications, but a failed pod or
+stalled rollout can leave you with a short status such as `CrashLoopBackOff` and
+not enough context to act quickly.
+
+kwatch watches Kubernetes resources, events, and recent logs. When something
+needs attention, it groups related symptoms and sends an alert with the likely
+cause, impact, evidence, and a practical next step.
+
 <!--truncate-->
+
+## What kwatch watches
+
+- Pod crashes, restart loops, and containers that are not ready
+- Nodes, scheduling delays, rollouts, StatefulSets, DaemonSets, Jobs, and CronJobs
+- HPA pressure, PVC usage, service endpoints, ingress backends, and control-plane signals
+- Optional TLS expiry checks, active probes, heartbeat notifications, and runtime telemetry
+
+It runs as a small workload inside your cluster. You do not need Prometheus or
+a separate dashboard to receive the first useful alert.
+
+## What an alert contains
+
+Instead of only receiving `OOMKilled`, a notification can explain which
+workload was affected, include recent evidence, connect related symptoms, and
+point to the next thing to check. Alerts can be delivered to Slack, PagerDuty,
+Discord, email, webhooks, and dozens of other providers.
+
+## Try it
+
+The supported installation path is the interactive [`kwatch.sh`](/docs/kwatch-manager)
+manager. It creates the Kubernetes Secret, configures the selected provider,
+and installs the matching release resources:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+```
+
+Read the [getting started guide](/docs) for the shortest path to a working
+cluster, or explore the [complete configuration reference](/docs/configuration-reference)
+when you want to tune monitors and alert routing.

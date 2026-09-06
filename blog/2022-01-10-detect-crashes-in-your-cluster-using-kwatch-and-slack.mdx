@@ -1,112 +1,94 @@
 ---
 slug: detect-crashes-in-your-cluster-using-kwatch-and-slack
-title: Detect crashes in your Kubernetes cluster using kwatch and Slack
+title: Detect Kubernetes crashes with kwatch and Slack
 authors: [andrew]
-tags: [kwatch, kubernetes, devops, monitoring, slack]
-keywords: [kwatch, kubernetes, devops, monitoring, slack, cluster, webhook, crash]
-description: monitor all changes in your Kubernetes cluster & detects crashes in your running apps in real time with Slack
+tags: [kwatch, kubernetes, monitoring, alerting, slack]
+keywords: [Kubernetes crash alerts, Slack Kubernetes alerts, pod monitoring, kwatch, webhook]
+description: Set up kwatch with Slack to receive clear Kubernetes incident alerts with the cause, evidence, and next step.
+image: /img/kwatch-logo-full.png
 pagination_prev: null
 ---
 
-## What is kwatch?
+When a Kubernetes workload restarts, a Slack notification is useful only if it
+helps you decide what to do next. kwatch turns crash signals, events, and recent
+logs into a focused incident message.
 
-kwatch is an open-source project that started late in 2021.
-It aims to help you monitor all changes in your Kubernetes(K8s) cluster,
-detect crashes in your running apps, and publish notifications to your favorite channels (Slack, Discord, etc.) in real-time.
-
-**In this tutorial, I will help you setup and deploy kwatch on your Kubernetes cluster.**
-**Plus, integrate with Slack to get notified on a channel when there is a crash in your apps.**
+This guide shows how to connect Slack and install kwatch with the supported
+interactive manager. The manager keeps the webhook in a Kubernetes Secret; do
+not paste it directly into `config.yaml`.
 
 <!--truncate-->
 
-## Configure kwatch with Slack
+## 1. Create a Slack incoming webhook
 
-First of all, we need to get the webhook URL of the channel you want the notification to be received on it.
-
-*If you know how to generate the webhook URL you can escape this part and go to the configuration section.*
-
-**Step 1: create a new slack channel (if you don't have one already)**
-
+Create or choose the channel where you want incidents to arrive, then create an
+incoming webhook from the [Slack API app settings](https://api.slack.com/messaging/webhooks).
+The screenshots below follow the Slack setup flow used by the original guide.
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/1.png" />
+  <img src="/img/blog/kwatch-slack/1.png" alt="Create a Slack channel" />
 </p>
-
-**Step 2: Go to https://api.slack.com/apps and create an app from scratch and connect it with your workplace**
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/2.png" />
+  <img src="/img/blog/kwatch-slack/2.png" alt="Create a Slack app" />
 </p>
-
-**Step 3: Create an incoming webhook and activate it**
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/3.png" />
+  <img src="/img/blog/kwatch-slack/3.png" alt="Enable an incoming webhook" />
 </p>
-
-**Step 4: Connect it to you channel**
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/4.png" />
+  <img src="/img/blog/kwatch-slack/4.png" alt="Choose the Slack channel for the webhook" />
 </p>
 
-Finally we have the webhook URL for the channel!
+Copy the webhook URL. Treat it as a credential and keep it out of shell history,
+Git, and plain YAML files.
 
+## 2. Install kwatch with `kwatch.sh`
 
-**Step 5: Get Configuration**
-
-Get the configuration template
+Run the manager from a machine with `kubectl` access to your cluster:
 
 ```bash
-curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/config.yaml -o config.yaml
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-**Step 6: Edit config.yaml with the corresponding configs**
+Choose **Configure notification**, select Slack, and paste the webhook when the
+manager asks for it. It writes a Secret-backed file reference such as:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    alert:
-      slack:
-        webhook: WEBHOOK_URL
+alert:
+  slack:
+    webhook: "${file:/config/slack-webhook}"
 ```
 
-**Step 7: Apply Configuration**
+The manager then installs the release, waits for the workload to become ready,
+and sends a startup notification. Use `kwatch.sh status` whenever you want to
+inspect the managed installation.
 
-```bash
-kubectl apply -f config.yaml
-```
+## 3. Test the notification
 
-## Deploy kwatch
-
-Deploy kwatch on your cluster with one command
-
-```bash
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/deploy.yaml
-```
-
-After deploying you will get notified on the channel that kwatch has started successfully. Now, kwatch is monitoring your apps!
+Use `kwatch lint --check` for provider validation where supported. For a real
+message, enable `healthCheck.diagnostics` in the configuration and call the
+`/test-alert` endpoint. See the [Slack channel guide](/docs/channels/slack) for
+bot-token mode, routing, retry, and fallback options.
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/5.png" />
+  <img src="/img/blog/kwatch-slack/5.png" alt="kwatch startup notification in Slack" />
 </p>
 
-Here is an example of kwatch messages when a crash is detected.
+When a workload fails, kwatch sends the incident reason and available evidence
+to the configured channel:
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-slack/6.png" />
+  <img src="/img/blog/kwatch-slack/6.png" alt="kwatch Kubernetes crash alert in Slack" />
 </p>
 
-*If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)!*
+## Next steps
 
-*We are happy to hear feedback from you and if you have any request, or suggestion don't hesitate to ping us on our channels ([Discord](https://discord.gg/kzJszdKmJ7), [GitHub](https://github.com/abahmed/kwatch))*
+Add routes if Slack should receive only production or high-severity incidents,
+or configure a fallback provider for delivery failures. The [complete provider
+reference](/docs/channels/providers) lists every supported alert field.
+
+If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)
+and share feedback in [Discord](https://discord.gg/kzJszdKmJ7) or the
+[issue tracker](https://github.com/abahmed/kwatch/issues).

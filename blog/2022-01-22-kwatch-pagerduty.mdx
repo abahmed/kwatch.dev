@@ -1,59 +1,68 @@
 ---
 slug: detect-crashes-in-your-cluster-using-kwatch-and-pagerduty
-title: Detect crashes in your Kubernetes cluster using kwatch and PagerDuty
+title: Send Kubernetes incident alerts to PagerDuty with kwatch
 authors: [amgadramses]
-tags: [kwatch, kubernetes, devops, monitoring, pagerduty]
-keywords: [kwatch, kubernetes, devops, monitoring, pagerduty, cluster, crash]
-description: monitor all changes in your Kubernetes cluster & detects crashes in your running apps in real time with PagerDuty
+tags: [kwatch, kubernetes, monitoring, alerting, pagerduty]
+keywords: [Kubernetes PagerDuty alerts, incident response, pod crash monitoring, kwatch]
+description: Connect kwatch to PagerDuty so Kubernetes incidents arrive with a clear reason, evidence, and next step.
+image: /img/kwatch-logo-full.png
 pagination_prev: null
 ---
 
-In this article you will learn how to setup and deploy kwatch in your Kubernetes (K8s) cluster to monitor and receive real time crash alerts through PagerDuty
+PagerDuty is a good destination when a Kubernetes failure needs an on-call
+response. kwatch adds the Kubernetes context before it sends the incident: the
+affected workload, likely cause, recent evidence, and what to investigate next.
+
 <!--truncate-->
-### Configure PagerDuty
-#### Step 1: Create a new service
-![1](/img/blog/kwatch-pagerduty/1.png)
-#### Step 2: Give your service a Name and a Description
-![2](/img/blog/kwatch-pagerduty/2.png)
-#### Step 3: Add an [Escalation Policy](https://support.pagerduty.com/docs/escalation-policies)
-![3](/img/blog/kwatch-pagerduty/3.png)
-#### Step 4: Make sure to add the [Events API V2](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODI2Nw-send-an-event-to-pager-duty) Integration
-![4](/img/blog/kwatch-pagerduty/4.png)
-#### Step 5: Navigate to your service and copy the Integration Key
-![5](/img/blog/kwatch-pagerduty/5.png)
-### Configure kwatch
-#### Step 1: Get the configuration template
-```shell
-curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/config.yaml -o config.yaml
-```
-#### Step 2: Edit `config.yaml` file and add the Integration Key
-```yml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    alert:
-      pagerduty:
-        integrationKey: <integration_key>
-```
-#### Step 3: Apply the configuration
-```shell
-kubectl apply -f config.yaml
-```
-### Deploy kwatch
-```shell
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.3.0/deploy/deploy.yaml
+
+## 1. Create a PagerDuty integration
+
+Create a service, choose an escalation policy, and add the **Events API v2**
+integration. PagerDuty's [escalation policy guide](https://support.pagerduty.com/docs/escalation-policies)
+and [Events API reference](https://developer.pagerduty.com/api-reference/b3A6Mjc0ODI2Nw-send-an-event-to-pager-duty)
+show the current UI and integration options.
+
+![Create a PagerDuty service](/img/blog/kwatch-pagerduty/1.png)
+![Configure the service](/img/blog/kwatch-pagerduty/2.png)
+![Choose an escalation policy](/img/blog/kwatch-pagerduty/3.png)
+![Add the Events API v2 integration](/img/blog/kwatch-pagerduty/4.png)
+
+Copy the service's **integration key**. It is a credential and must be stored
+in a Kubernetes Secret, never as a plain value in a ConfigMap or Git repository.
+
+## 2. Install kwatch with `kwatch.sh`
+
+Run the supported interactive installer:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-**You will now start receiving PagerDuty alerts whenever there is a pod crash in your Kubernetes (K8s) cluster!**
-![6](/img/blog/kwatch-pagerduty/6.png)
+Choose **Configure notification**, select PagerDuty, and provide the
+integration key. The generated configuration uses a Secret-backed file:
 
-_If you like kwatch, give it a star on [GitHub](https://github.com/abahmed/kwatch)_!
+```yaml
+alert:
+  pagerduty:
+    integrationKey: "${file:/config/pagerduty-integration-key}"
+```
+
+The manager installs the matching release and waits for readiness. It also
+handles future configuration changes and upgrades; do not apply old release
+manifests from this historical article.
+
+## 3. Verify delivery
+
+Run `kwatch lint --check` where PagerDuty credential checks are supported, or
+use the diagnostics `/test-alert` endpoint for an end-to-end notification.
+The [PagerDuty channel guide](/docs/channels/pagerduty) covers routing, retry,
+fallback, and compact delivery options.
+
+![Copy the PagerDuty integration key](/img/blog/kwatch-pagerduty/5.png)
+
+You should now receive a PagerDuty incident when kwatch detects a configured
+Kubernetes failure:
+
+![PagerDuty incident from kwatch](/img/blog/kwatch-pagerduty/6.png)
+
+For more destinations, browse the [complete provider reference](/docs/channels/providers).

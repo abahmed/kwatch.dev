@@ -1,92 +1,74 @@
 ---
 slug: monitor-pvc-usage
-title: Monitor Persistent Volumes in your cluster using kwatch
+title: Monitor Kubernetes PVC usage with kwatch
 authors: [abahmed]
-tags: [kwatch, kubernetes, monitoring, pvc]
-keywords: [kwatch, kubernetes, devops, monitoring, pvc, cluster, usage, persistent, volume]
-description: Monitor Kubernetes Persistent Volume (PV) disk usage with kwatch — get alerts when PVCs approach capacity, with Slack and Discord notifications
+tags: [kwatch, kubernetes, monitoring, alerting, pvc]
+keywords: [Kubernetes PVC monitoring, persistent volume alerts, disk usage, kwatch]
+description: Monitor Kubernetes PersistentVolumeClaims with kwatch and receive alerts before storage pressure becomes an incident.
+image: /img/kwatch-logo-full.png
 pagination_prev: null
 ---
 
-In this tutorial, I will help you set up and deploy kwatch on your Kubernetes
-cluster to monitor Persistent Volumes (PV) usage and detect crashes in your running apps.
-
-Plus, integrate with Teams to get notified on a channel when volume usage is higher than a threshold.
-
-You can integrate with your favorite channel as
-[kwatch](https://github.com/abahmed/kwatch) supports integrations with (Slack,
-Discord, Email, PagerDuty, Telegram, Rocket Chat, Mattermost, Opsgenie, Matrix,
-DingTalk, FeiShu, And Custom webhook).
+A full PersistentVolumeClaim can take an application down even when every pod
+looks healthy. kwatch's PVC monitor watches usage and sends a warning or critical
+alert before the volume reaches capacity.
 
 <!--truncate-->
 
-### Configure kwatch with Teams
+## Configure PVC monitoring
 
-**Step 1: Get webhook**
-
-First of all, we need to get the webhook URL of the channel you want the notification to be received on it.
-([Here](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook?tabs=dotnet#create-incoming-webhooks-1)
-is how to get it)
-
-**Step 2: Get Configuration**
-
-Get the configuration template
+The interactive manager is the supported installation and configuration path:
 
 ```bash
-curl  -L https://raw.githubusercontent.com/abahmed/kwatch/v0.10.5/deploy/config.yaml -o config.yaml
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-**Step 3: Edit config.yaml with the corresponding config**
+Choose **Configure settings**, then enable or tune the PVC monitor. The
+equivalent settings are:
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kwatch
-  namespace: kwatch
-data:
-  config.yaml: |
-    alert:
-      teams:
-        webhook: WEBHOOK_URL
-    pvcMonitor:
-      enabled: true
-      interval: 5
-      threshold: 70
+pvcMonitor:
+  enabled: true
+  interval: 5
+  threshold: 80
+  criticalThreshold: 90
+  clearThreshold: 75
 ```
 
-For more configurations check [here](/docs/general-configuration#-pvc-monitor)
+`threshold` starts a warning, `criticalThreshold` raises severity for a more
+serious condition, and `clearThreshold` prevents a flapping alert from
+resolving too quickly. See the [PVC monitor section](/docs/general-configuration#-pvc-monitor)
+for the full setting reference.
 
-**Step 4: Apply Configuration**
+## Choose an alert channel
 
-```bash
-kubectl apply -f config.yaml
+The manager can configure Teams, Slack, PagerDuty, email, webhooks, and other
+destinations. Every credential is stored in a Kubernetes Secret and referenced
+from the config file, for example:
+
+```yaml
+alert:
+  teams:
+    webhook: "${file:/config/teams-webhook}"
 ```
 
-### Deploy kwatch
+Use the [channel guides](/docs/channels) to choose a provider and the
+[complete provider reference](/docs/channels/providers) to see every field.
 
-Deploy kwatch on your cluster with one command
+## Verify the alert
 
-```bash
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.10.5/deploy/deploy.yaml
-```
-
-After deploying you will get notified on the channel that kwatch has started
-successfully. Now, kwatch is monitoring your volumes and apps!
+After the manager reports the workload as ready, check the PVC monitor metrics
+and wait for the next configured sweep. The example screenshots show the
+original Teams notification flow:
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-pvc/1.png" />
+  <img src="/img/blog/kwatch-pvc/1.png" alt="Configure PVC monitoring for kwatch" />
 </p>
-
-Here is an example of kwatch messages when volume usage exceeds the threshold
 
 <p align="center">
-    <img src="./../../img/blog/kwatch-pvc/2.png" />
+  <img src="/img/blog/kwatch-pvc/2.png" alt="kwatch PVC usage alert" />
 </p>
 
-*We are happy to hear feedback from you and if you have any request, or suggestion don't hesitate to ping us on our channels ([Discord](https://discord.gg/kzJszdKmJ7), [GitHub](https://github.com/abahmed/kwatch))*
+You can validate the configuration with `kwatch lint`. Keep thresholds below
+your storage provider's hard limit and pair PVC alerts with a runbook explaining
+how your team expands or cleans up the volume.

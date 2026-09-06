@@ -5,11 +5,15 @@ authors: [abahmed]
 tags: [kwatch, kubernetes, devops, monitoring, release]
 keywords: [kwatch, kubernetes, devops, monitoring, release, cluster, crash, v0.6.0]
 description: kwatch v0.6.0 released — new features including HPA monitoring, TLS certificate expiry detection, and event correlation for Kubernetes crash alerts
+image: /img/kwatch-logo-full.png
 pagination_prev: null
 ---
 
 We are glad to announce that [v0.6.0](https://github.com/abahmed/kwatch/releases/tag/v0.6.0) of kwatch is released! :tada::tada::tada:
 <!--truncate-->
+
+> This is a historical release note. For current installations and upgrades,
+> use the [interactive `kwatch.sh` manager](/docs/kwatch-manager).
 
 ## 🚀 What's New
 
@@ -40,11 +44,9 @@ We are glad to announce that [v0.6.0](https://github.com/abahmed/kwatch/releases
 
 ## ⬆️ How to Upgrade
 
-There are no breaking changes, just deploy the new version from any previous version using
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/abahmed/kwatch/v0.6.0/deploy/deploy.yaml
-```
+For a current installation, run the manager again and choose **Upgrade**. It
+handles release selection, readiness checks, and the Secret-backed configuration
+for you.
 
 
 ## 🌟 New Contributors

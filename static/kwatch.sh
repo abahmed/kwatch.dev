@@ -570,7 +570,7 @@ CATALOG=(
   'auditLog.output|string|stdout|Operations|Audit output: stdout or a supported output sink.|active|'
   'templates|json|{}|Operations|JSON map of optional reason-specific message templates.|active|'
   'runbooks|json|{}|Operations|JSON map of reason-to-runbook URLs.|active|'
-  'silences|json|[]|Noise reduction|JSON array of scoped silence rules.|active|'
+  'silences|json|[]|Noise reduction|JSON array of scoped silence rules, including eventMessages substring matches for attached Kubernetes Events.|active|'
   'ignoreContainerNames|list|legacy|Compatibility|Legacy container suppression field.|deprecated|silences'
   'ignorePodNames|list|legacy|Compatibility|Legacy pod-name suppression field.|deprecated|silences'
   'ignoreLogPatterns|list|legacy|Compatibility|Legacy log suppression field.|deprecated|silences'
@@ -699,7 +699,7 @@ cache_catalog() {
 load_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/config-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_catalog_file "$tmp"; then
@@ -750,7 +750,7 @@ cache_feature_catalog() {
 load_feature_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/feature-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_feature_catalog_file "$tmp"; then
@@ -807,7 +807,7 @@ cache_provider_catalog() {
 load_provider_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/provider-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_provider_catalog_file "$tmp"; then
@@ -829,32 +829,31 @@ load_provider_catalog_for_version() {
 
 BACKUP_NAME=""
 backup_config() {
-  local spec timestamp
-  spec=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o jsonpath='{.spec}')
+  local resource timestamp
+  resource=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o json)
   timestamp=$(date -u +%Y%m%d%H%M%S)
   BACKUP_NAME="${RELEASE}-config-$timestamp"
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
-    --from-literal=spec.json="$spec" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    --from-literal=resource.json="$resource" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 }
 
 restore_backup() {
-  local encoded spec deployment
+  local encoded deployment backup_file
   [ -n "$BACKUP_NAME" ] || return 0
-  encoded=$(kubectl -n "$NAMESPACE" get secret "$BACKUP_NAME" -o jsonpath='{.data.spec\.json}')
-  if spec=$(printf '%s' "$encoded" | base64 -d 2>/dev/null); then
-    :
-  else
-    spec=$(printf '%s' "$encoded" | base64 -D)
+  encoded=$(kubectl -n "$NAMESPACE" get secret "$BACKUP_NAME" \
+    -o 'jsonpath={.data.resource\.json}')
+  [ -n "$encoded" ] || die "backup is missing resource.json; refusing to restore it"
+  backup_file=$(mktemp)
+  if ! decode_base64_file "$encoded" "$backup_file"; then
+    rm -f "$backup_file"
+    die "backup is not valid base64; refusing to restore it"
   fi
-  [ -n "$spec" ] || die "backup is empty; refusing to restore it"
-  kubectl -n "$NAMESPACE" apply -f - <<EOF >/dev/null
-apiVersion: kwatch.abahmed.dev/v1alpha1
-kind: KwatchConfig
-metadata:
-  name: $RELEASE
-  namespace: $NAMESPACE
-spec: $spec
-EOF
+  if ! kubectl -n "$NAMESPACE" apply -f "$backup_file" >/dev/null; then
+    rm -f "$backup_file"
+    die "backup resource could not be restored"
+  fi
+  rm -f "$backup_file"
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null
@@ -897,7 +896,7 @@ ensure_crd() {
   fi
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" || die "could not download the CRD for $version"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
@@ -1410,7 +1409,7 @@ configure_alert_flow() {
   local backup deployment
   preflight_alert_access
   backup=$(mktemp)
-  trap 'rm -f "$backup"' RETURN
+  trap 'if [ -n "${backup:-}" ]; then rm -f "$backup"; fi' RETURN
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" -o yaml >"$backup" 2>/dev/null || true
   write_config_secret
   deployment=$(deployment_name)
@@ -1724,7 +1723,7 @@ write_config_secret() {
   WRITTEN_CONFIG_SECTIONS="|"
   tmp_dir=$(mktemp -d)
   config_tmp="$tmp_dir/config.yaml"
-  trap 'rm -rf "$tmp_dir"' RETURN
+  trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
   OLD_CONFIG_PATH="$tmp_dir/old-config.yaml"
   encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml)
   if [ -n "$encoded" ] && decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
@@ -1885,7 +1884,7 @@ apply_manifests() {
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
-  trap 'rm -f "$tmp" "$tmp.bak" "$crd_tmp"' RETURN
+  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
   curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
   kubectl apply -f "$crd_tmp"

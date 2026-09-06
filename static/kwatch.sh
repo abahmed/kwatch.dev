@@ -1510,7 +1510,9 @@ configure_alert_flow() {
   write_config_secret
   deployment=$(deployment_name)
   if [ -n "$deployment" ] && ! restart_kwatch; then
+    ui_warn "⚠️ Notification rollout failed; restoring the previous configuration."
     kubectl apply -f "$backup" >/dev/null 2>&1 || true
+    restart_kwatch || true
     die "could not restart kwatch after changing the notification destination"
   fi
   echo "Notification destination updated."

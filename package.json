@@ -6,7 +6,7 @@
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
     "build": "docusaurus build --no-minify",
-    "test:manager": "bash tests/kwatch-manager-test.sh && bash tests/kwatch-provider-flow-test.sh",
+    "test:manager": "bash tests/kwatch-kubectl-wrapper-test.sh && bash tests/kwatch-manager-test.sh && bash tests/kwatch-provider-flow-test.sh",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

@@ -35,13 +35,16 @@ bash kwatch.sh
 The script is plain Bash and is published in
 [`kwatch.dev/static/kwatch.sh`](https://github.com/abahmed/kwatch.dev/blob/main/static/kwatch.sh).
 
-The manager checks the cluster, asks for one alert destination, stores the
-credential in a Kubernetes Secret, installs the CRD and hardened workload, and
+The manager checks the cluster, lets you configure zero, one, or several alert
+providers, stores credentials in a Kubernetes Secret, installs the CRD and
+hardened workload, and
 waits for the deployment to become ready. It also verifies restricted Pod
 Security labels, non-root/read-only execution, dropped capabilities,
 `RuntimeDefault` seccomp, and the `0400` Secret volume mode before reporting
 success. It applies the namespace's restricted Pod Security labels itself, so
 the normal install does not require a separate `kubectl apply` or label step.
+Choosing no provider is valid for a monitor-only installation; providers can be
+added later with `configure-alert`.
 
 This is the supported installation path. It downloads and applies the matching
 release resources itself; do not apply `deploy.yaml` or `config.yaml` manually,
@@ -68,13 +71,18 @@ bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- --help
 | Command | What it does |
 | --- | --- |
 | `install` | Install the latest stable release, or choose an available RC |
-| `configure-alert` | Change the alert provider and credential |
+| `configure-alert` | Add, remove, or change alert providers and credentials |
 | `configure` | Change settings from the generated catalog |
 | `upgrade` | Upgrade to the latest stable release, or choose an available RC |
 | `status` | Show the workload and manager state |
 | `features` | Show the capabilities of the installed release |
 | `uninstall` | Remove the workload and notification Secret |
 | `--help` | Show manager usage and exit |
+
+Running the manager without a command detects the managed Deployment,
+configuration resource, or Secret. That means **Configure** remains available
+even when the Deployment is temporarily missing; **Upgrade** can then repair
+the workload without discarding the saved configuration.
 
 ## 🔐 What the manager protects
 
@@ -95,7 +103,16 @@ cache entry when it is tagged for that exact release. There are no embedded
 catalog fallbacks in `kwatch.sh`; if the matching artifact and cache are both
 unavailable, catalog-dependent actions stop with an explicit error. The provider catalog covers
 every supported notification provider, defines each documented prompt, and
-marks whether its value must be stored as a Secret file.
+marks whether its value must be stored as a Secret file. The guided flow asks
+for the selected provider's authentication first, then required destinations,
+then optional presentation settings. You may intentionally choose no provider
+and add more than one provider in the same run.
+
+When an older kwatch Deployment is found, the manager reuses its mounted
+configuration Secret when one is present before writing changes. During an
+update it preserves the old immutable selector; if Kubernetes still rejects
+the workload, it
+recreates only that Deployment and keeps the configuration resource and Secret.
 
 The release workflow generates these catalogs from Go definitions. When a new
 setting or guided provider is added, update its source definition and regenerate

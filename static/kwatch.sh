@@ -699,7 +699,7 @@ cache_catalog() {
 load_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/config-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_catalog_file "$tmp"; then
@@ -750,7 +750,7 @@ cache_feature_catalog() {
 load_feature_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/feature-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_feature_catalog_file "$tmp"; then
@@ -807,7 +807,7 @@ cache_provider_catalog() {
 load_provider_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
       "$BASE_URL/$version/deploy/provider-catalog.tsv" -o "$tmp" 2>/dev/null \
       && load_provider_catalog_file "$tmp"; then
@@ -897,7 +897,7 @@ ensure_crd() {
   fi
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   tmp=$(mktemp)
-  trap 'rm -f "$tmp"' RETURN
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" || die "could not download the CRD for $version"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
@@ -1410,7 +1410,7 @@ configure_alert_flow() {
   local backup deployment
   preflight_alert_access
   backup=$(mktemp)
-  trap 'rm -f "$backup"' RETURN
+  trap 'if [ -n "${backup:-}" ]; then rm -f "$backup"; fi' RETURN
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" -o yaml >"$backup" 2>/dev/null || true
   write_config_secret
   deployment=$(deployment_name)
@@ -1724,7 +1724,7 @@ write_config_secret() {
   WRITTEN_CONFIG_SECTIONS="|"
   tmp_dir=$(mktemp -d)
   config_tmp="$tmp_dir/config.yaml"
-  trap 'rm -rf "$tmp_dir"' RETURN
+  trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
   OLD_CONFIG_PATH="$tmp_dir/old-config.yaml"
   encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml)
   if [ -n "$encoded" ] && decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
@@ -1885,7 +1885,7 @@ apply_manifests() {
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
-  trap 'rm -f "$tmp" "$tmp.bak" "$crd_tmp"' RETURN
+  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
   curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
   kubectl apply -f "$crd_tmp"

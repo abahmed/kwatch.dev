@@ -61,6 +61,16 @@ one cluster configured, it shows a list and asks you to choose one.
 During installation and upgrade, the manager shows the newest Stable release
 and, when available, the newest Release Candidate. Stable is selected by
 default; choose the RC interactively when you want to test preview changes.
+If a Stable release does not publish the catalogs required by the manager, it
+offers the available catalog-ready RC and asks before using it instead of
+continuing with an unusable Stable release.
+For an existing older installation whose release catalogs are no longer
+published, guided management uses the newest available RC catalog and leaves
+the workload version unchanged until you explicitly choose **Upgrade or repair
+workload**.
+The manager asks for confirmation before using an RC fallback, converting an
+explicit install/upgrade request, applying security labels to an existing
+namespace, or recreating an incompatible Deployment.
 No version argument or manual manifest application is required.
 
 The default namespace is `kwatch`. Set `KWATCH_NAMESPACE` when you want a
@@ -116,6 +126,17 @@ managed deployments are adopted during an upgrade: their mounted Secret is
 reused, and an incompatible immutable Deployment selector is repaired by
 recreating only that workload.
 
+When you edit notification providers, the manager shows the providers already
+configured. You can edit or add providers, keep all of them unchanged, or
+explicitly remove them. Providers you do not edit are preserved by default,
+and the current telemetry preference remains the default. Legacy plaintext
+credentials are moved into Secret-backed files during migration.
+
+For a pre-`v1.0.0` ConfigMap-based installation, upgrade migrates non-secret
+settings into `KwatchConfig` and creates the required configuration Secret
+before changing the workload. The old ConfigMap is preserved as a recovery
+copy.
+
 ## 📋 Commands
 
 Run the same command again after a `kwatch.sh`-managed installation. The menu will offer:
@@ -167,8 +188,8 @@ bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- status
   deployment is rolled back when possible.
 - Uninstall removes the kwatch workload and its manager-owned notification
   Secret. It preserves an unowned Secret with the same name, plus
-  the release's ClusterRole/ClusterRoleBinding, CRD, configuration resource,
-  backups, and namespace so data is not deleted by surprise. Managed namespace
+  the CRD, configuration resource, backups, and namespace so data is not
+  deleted by surprise. Manager-owned RBAC is removed. Managed namespace
   security labels are removed only when the manager created and marked that
   namespace.
 

@@ -108,11 +108,20 @@ for the selected provider's authentication first, then required destinations,
 then optional presentation settings. You may intentionally choose no provider
 and add more than one provider in the same run.
 
+When the latest Stable release does not publish the catalogs required by the
+manager, it offers a catalog-ready Release Candidate and asks before using it.
+The manager also confirms any conversion between install
+and upgrade or any Deployment recreation, before making the change.
+
 When an older kwatch Deployment is found, the manager reuses its mounted
 configuration Secret when one is present before writing changes. During an
 update it preserves the old immutable selector; if Kubernetes still rejects
 the workload, it
 recreates only that Deployment and keeps the configuration resource and Secret.
+For ConfigMap-based legacy installs, it migrates non-secret settings into
+`KwatchConfig`, moves credentials into Secret-backed files, and keeps the old
+ConfigMap as a recovery copy. Editing providers lists the current providers and
+preserves providers you did not edit unless you explicitly confirm removal.
 
 The release workflow generates these catalogs from Go definitions. When a new
 setting or guided provider is added, update its source definition and regenerate

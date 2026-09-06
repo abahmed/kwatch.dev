@@ -13,12 +13,12 @@ RELEASE=kwatch
 CONFIG_SECRET_NAME=kwatch-config
 CATALOG=('dummy|string|default|Test|Dummy setting|runtime|')
 PROVIDER_CATALOG=(
-  'slack|Slack|webhook|string|false|true|url||Slack webhook URL|authentication|choice:webhook'
-  'slack|Slack|channel|string|false|false|||Override channel||required-if:authentication=token'
-  'slack|Slack|title|string|false|false|||Custom title'
-  'slack|Slack|token|string|false|true|||Bot token (xoxb-...)|authentication|choice:token'
-  'telegram|Telegram|token|string|true|true|||Bot token'
-  'telegram|Telegram|chatId|string|true|false|signed-integer||Chat ID'
+  'alpha|Alpha|endpoint|string|false|true|url||Notification endpoint|authentication|choice:webhook'
+  'alpha|Alpha|channel|string|false|false|||Destination channel||required-if:authentication=token'
+  'alpha|Alpha|title|string|false|false|||Custom title'
+  'alpha|Alpha|token|string|false|true|||Provider token|authentication|choice:token'
+  'beta|Beta|token|string|true|true|||Provider token'
+  'beta|Beta|channelId|string|true|false|signed-integer||Channel ID'
 )
 
 SEARCH_MODE=false
@@ -32,7 +32,7 @@ ask() {
   local prompt="$1"
   if [ "$SEARCH_MODE" = true ]; then
     case "$prompt" in
-      *Provider\ name*) printf 'slack-' ; return ;;
+      *Provider\ name*) printf 'alpha-' ; return ;;
       *matching\ provider*) printf '2' ; return ;;
     esac
   fi
@@ -45,14 +45,14 @@ ask() {
       count=$((count + 1))
       printf '%s' "$count" >"$PROVIDER_COUNT_FILE"
       if [ "$count" -eq 1 ]; then
-        printf 'slack'
+        printf 'alpha'
       else
-        printf 'telegram'
+        printf 'beta'
       fi
       ;;
     *:*authentication\ option*) printf '2' ;;
-    *:*Override\ channel*) printf '#alerts' ;;
-    *:*Chat\ ID*) printf '%s' '-100123' ;;
+    *:*Destination\ channel*) printf '#alerts' ;;
+    *:*Channel\ ID*) printf '%s' '-100123' ;;
     *:*Add\ another\ notification\ provider*)
       count=$(cat "$ADD_COUNT_FILE" 2>/dev/null || printf '0')
       if [ "$FLOW" = multi ] && [ "$count" -eq 0 ]; then
@@ -98,13 +98,13 @@ kubectl() {
 }
 
 PROVIDER_CATALOG+=(
-  'slack-main|Slack Notifications|webhook|string|false|true|url||Primary Slack webhook'
-  'slack-ops|Slack Operations|webhook|string|false|true|url||Operations Slack webhook'
+  'alpha-main|Alpha Notifications|endpoint|string|false|true|url||Primary endpoint'
+  'alpha-ops|Alpha Operations|endpoint|string|false|true|url||Operations endpoint'
 )
 CONFIGURED_PROVIDERS='|'
 SEARCH_MODE=true
 choose_provider
-[ "$PROVIDER" = slack-ops ] || {
+[ "$PROVIDER" = alpha-ops ] || {
   echo "provider search did not use the short matching list" >&2
   exit 1
 }
@@ -112,17 +112,17 @@ SEARCH_MODE=false
 PROVIDER_CATALOG=("${PROVIDER_CATALOG[@]:0:6}")
 
 write_config_secret
-token_line=$(grep -n 'Bot token' "$PROMPT_LOG" | head -1 | cut -d: -f1)
-channel_line=$(grep -n 'Override channel' "$PROMPT_LOG" | head -1 | cut -d: -f1)
+token_line=$(grep -n 'Provider token' "$PROMPT_LOG" | head -1 | cut -d: -f1)
+channel_line=$(grep -n 'Destination channel' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 optional_line=$(grep -n 'optional settings' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 telemetry_line=$(grep -n 'anonymous usage' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 [ "$token_line" -lt "$channel_line" ] &&
-  [ "$channel_line" -lt "$telemetry_line" ] &&
-  [ "$telemetry_line" -lt "$optional_line" ] || {
+  [ "$channel_line" -lt "$optional_line" ] &&
+  [ "$optional_line" -lt "$telemetry_line" ] || {
   echo "provider authentication was not prompted before optional settings" >&2
   exit 1
 }
-grep -Fq "token: \"\${file:$CAPTURE_DIR/slack-token}\"" \
+grep -Fq "token: \"\${file:$CAPTURE_DIR/alpha-token}\"" \
   "$CAPTURE_DIR/last-config.yaml"
 grep -Fq 'channel: "#alerts"' "$CAPTURE_DIR/last-config.yaml"
 
@@ -133,7 +133,7 @@ grep -Fq 'alert: {}' "$CAPTURE_DIR/last-config.yaml"
 FLOW=multi
 rm -f "$PROVIDER_COUNT_FILE" "$ADD_COUNT_FILE"
 write_config_secret
-grep -Eq '^  slack:' "$CAPTURE_DIR/last-config.yaml"
-grep -Eq '^  telegram:' "$CAPTURE_DIR/last-config.yaml"
+grep -Eq '^  alpha:' "$CAPTURE_DIR/last-config.yaml"
+grep -Eq '^  beta:' "$CAPTURE_DIR/last-config.yaml"
 
 echo "kwatch provider flow test passed"

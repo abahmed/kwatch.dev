@@ -18,12 +18,12 @@ CONFIG_MOUNT_PATH="/config"
 
 # provider|display|field|type|required|secret|validation|default|description
 PROVIDER_CATALOG=(
-  'slack|Slack|webhook|string|false|true|url||Slack webhook URL'
-  'slack|Slack|channel|string|false|false|||Override channel'
+  'slack|Slack|webhook|string|false|true|url||Slack webhook URL|authentication|choice:webhook'
+  'slack|Slack|channel|string|false|false|||Override channel||required-if:authentication=token'
   'slack|Slack|title|string|false|false|||Custom title'
   'slack|Slack|text|string|false|false|||Custom text'
   'slack|Slack|compact|boolean|false|false|boolean|false|Single-line mode'
-  'slack|Slack|token|string|false|true|||Bot token (xoxb-...)'
+  'slack|Slack|token|string|false|true|||Bot token (xoxb-...)|authentication|choice:token'
   'discord|Discord|webhook|string|true|true|url||Discord webhook URL'
   'discord|Discord|title|string|false|false|||Custom title'
   'discord|Discord|text|string|false|false|||Custom text'
@@ -162,8 +162,8 @@ PROVIDER_CATALOG=(
   'sns|SNS|accessKeyId|string|true|true|||AWS access key ID'
   'sns|SNS|secretAccessKey|string|true|true|||AWS secret access key'
   'sns|SNS|region|string|false|false||us-east-1|AWS region (default: us-east-1)'
-  'sns|SNS|topicArn|string|false|false|||SNS topic ARN (or targetArn)'
-  'sns|SNS|targetArn|string|false|false|||SNS target ARN (alternative to topicArn).'
+  'sns|SNS|topicArn|string|false|false|||SNS topic ARN (or targetArn)|destination|choice:topic'
+  'sns|SNS|targetArn|string|false|false|||SNS target ARN (alternative to topicArn)|destination|choice:target'
   'sns|SNS|subject|string|false|false|||Optional subject (email subscriptions)'
   'jira|Jira|url|string|true|false|url||Jira base URL'
   'jira|Jira|user|string|true|false|||Email or username'
@@ -856,6 +856,7 @@ load_feature_catalog_for_version() {
 
 load_provider_catalog_file() {
   local file="$1" entry provider display field type required secret validation default description
+  local group condition
   local -a loaded=()
   while IFS= read -r entry || [ -n "$entry" ]; do
     if [[ "$entry" =~ ^#\ kwatch\ provider\ catalog\ v([0-9]+)$ ]]; then
@@ -863,7 +864,8 @@ load_provider_catalog_file() {
       continue
     fi
     [[ -z "$entry" || "$entry" = \#* ]] && continue
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     [ -n "$provider" ] && [ -n "$display" ] && [ -n "$field" ] && \
       case "$type" in
         string|integer|boolean|list|json|headers) ;;
@@ -873,6 +875,13 @@ load_provider_catalog_file() {
       { [ "$required" = true ] || [ "$required" = false ]; } && \
       { [ "$secret" = true ] || [ "$secret" = false ]; } && \
       [ -n "$description" ] || return 1
+    if [ -n "$condition" ]; then
+      case "$condition" in
+        choice:*) [ -n "$group" ] || return 1 ;;
+        required-if:*) [[ "$condition" = *"="* ]] || return 1 ;;
+        *) return 1 ;;
+      esac
+    fi
     loaded+=("$entry")
   done < "$file"
   [ "${#loaded[@]}" -gt 0 ] || return 1
@@ -1857,7 +1866,8 @@ choose_provider() {
   local validation default description seen="|" i provider_name display_name
   local -a providers=() displays=() matches=()
   for entry in "${PROVIDER_CATALOG[@]}"; do
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     case "$seen" in
       *"|$provider|"*) continue ;;
     esac
@@ -1929,28 +1939,89 @@ choose_tls_monitor() {
     "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
 }
 
-choose_slack_mode() {
-  local choice
-  while true; do
-    choice=$(ask "🔐 Slack authentication: 1) Incoming webhook 2) Bot token + channel" "1")
-    case "$choice" in
-      1) printf 'webhook'; return 0 ;;
-      2) printf 'token'; return 0 ;;
-      *) ui_warn "⚠️ Choose 1 for webhook or 2 for bot token mode." ;;
+provider_group_value() {
+  local group="$1" rest
+  rest="${PROVIDER_GROUP_SELECTIONS#*|$group=}"
+  [ "$rest" != "$PROVIDER_GROUP_SELECTIONS" ] || return 1
+  printf '%s' "${rest%%|*}"
+}
+
+set_provider_group_value() {
+  local group="$1" value="$2"
+  PROVIDER_GROUP_SELECTIONS="${PROVIDER_GROUP_SELECTIONS}${group}=${value}|"
+}
+
+select_provider_groups() {
+  local entry provider display field type required secret validation default
+  local description group condition choice value selected i
+  local seen="|"
+  local -a groups=() values=()
+  PROVIDER_GROUP_SELECTIONS="|"
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
+    [ "$provider" = "$PROVIDER" ] || continue
+    case "$condition" in
+      choice:*)
+        case "$seen" in
+          *"|$group|"*) ;;
+          *) groups+=("$group"); seen="${seen}${group}|" ;;
+        esac
+        ;;
     esac
+  done
+  for group in "${groups[@]}"; do
+    values=()
+    for entry in "${PROVIDER_CATALOG[@]}"; do
+      IFS='|' read -r provider display field type required secret validation default \
+        description entry_group condition <<<"$entry"
+      [ "$provider" = "$PROVIDER" ] || continue
+      [ "$entry_group" = "$group" ] || continue
+      case "$condition" in
+        choice:*) values+=("${condition#choice:}|$field|$description") ;;
+      esac
+    done
+    [ "${#values[@]}" -gt 0 ] || continue
+    echo >&2
+    printf '🔐 Choose %s:%s\n' "$group" >&2
+    i=1
+    for value in "${values[@]}"; do
+      IFS='|' read -r selected field description <<<"$value"
+      printf '  %d) %s (%s)\n' "$i" "$selected" "$field" >&2
+      i=$((i + 1))
+    done
+    while true; do
+      choice=$(ask "🎯 $group option" "1")
+      if [[ "$choice" =~ ^[0-9]+$ ]] &&
+        [ "$choice" -ge 1 ] && [ "$choice" -le "${#values[@]}" ]; then
+        value="${values[$((choice - 1))]}"
+        IFS='|' read -r selected field description <<<"$value"
+        set_provider_group_value "$group" "$selected"
+        break
+      fi
+      ui_warn "⚠️ Choose one of the listed $group options."
+    done
   done
 }
 
-choose_sns_mode() {
-  local choice
-  while true; do
-    choice=$(ask "📨 SNS destination: 1) Topic ARN 2) Target ARN" "1")
-    case "$choice" in
-      1) printf 'topic'; return 0 ;;
-      2) printf 'target'; return 0 ;;
-      *) ui_warn "⚠️ Choose 1 for topic ARN or 2 for target ARN." ;;
-    esac
-  done
+provider_condition_matches() {
+  local group="$1" condition="$2" selected expected expression
+  case "$condition" in
+    choice:*)
+      selected=$(provider_group_value "$group" || true)
+      expected="${condition#choice:}"
+      [ "$selected" = "$expected" ]
+      ;;
+    required-if:*)
+      expression="${condition#required-if:}"
+      group="${expression%%=*}"
+      expected="${expression#*=}"
+      selected=$(provider_group_value "$group" || true)
+      [ "$selected" = "$expected" ]
+      ;;
+    "") return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 prompt_provider_value() {
@@ -2034,9 +2105,7 @@ write_config_secret() {
   local tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
   local field_description
-  local configure_optional force_field slack_mode="" sns_mode=""
-  local slack_webhook="" slack_token="" slack_channel=""
-  local sns_topic_arn="" sns_target_arn=""
+  local configure_optional
   local old_provider encoded old_config_file
   SECRET_ARGS=()
   WRITTEN_PROVIDER_SECTIONS="|"
@@ -2052,11 +2121,7 @@ write_config_secret() {
     old_config_file=""
   fi
   choose_provider
-  if [ "$PROVIDER" = slack ]; then
-    slack_mode=$(choose_slack_mode)
-  elif [ "$PROVIDER" = sns ]; then
-    sns_mode=$(choose_sns_mode)
-  fi
+  select_provider_groups
   telemetry_enabled=$(ask_yes_no \
     "📊 Send anonymous usage data to help improve kwatch" "y")
   configure_optional=$(ask_yes_no \
@@ -2076,43 +2141,29 @@ write_config_secret() {
   printf 'crd:\n  enabled: true\ntelemetry:\n  enabled: %s\nalert:\n  %s:\n' \
     "$telemetry_enabled" "$PROVIDER" > "$config_tmp"
   for entry in "${PROVIDER_CATALOG[@]}"; do
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     [ "$provider" = "$PROVIDER" ] || continue
-    force_field=false
-    if [ "$provider" = slack ]; then
-      case "$slack_mode:$field" in
-        webhook:webhook|token:token|token:channel)
-          force_field=true
-          required=true
-          ;;
-        webhook:token|token:webhook) continue ;;
-      esac
-    elif [ "$provider" = sns ]; then
-      case "$sns_mode:$field" in
-        topic:topicArn|target:targetArn)
-          force_field=true
-          required=true
-          ;;
-        topic:targetArn|target:topicArn) continue ;;
-      esac
-    fi
+    case "$condition" in
+      choice:*)
+        provider_condition_matches "$group" "$condition" || continue
+        required=true
+        ;;
+      required-if:*)
+        provider_condition_matches "$group" "$condition" && required=true
+        ;;
+    esac
     if [ "$required" != true ] && [ "$configure_optional" = false ] &&
-      [ "$force_field" = false ]; then
+      [ -z "$condition" ]; then
       if [ "$secret" = true ] &&
         preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-        case "$field" in
-          webhook) slack_webhook=preserved ;;
-          token) slack_token=preserved ;;
-          topicArn) sns_topic_arn=preserved ;;
-          targetArn) sns_target_arn=preserved ;;
-        esac
+        :
       elif [ "$provider" = "$old_provider" ] &&
         preserve_provider_optional "$config_tmp" "$provider" "$field" \
         "$type" "$tmp_dir"; then
-        [ "$field" = channel ] && slack_channel=preserved
+        :
       elif [ -n "$default" ] && [ "$type" != headers ]; then
         write_provider_value "$config_tmp" "$field" "$type" "$default"
-        [ "$field" = channel ] && slack_channel="$default"
       fi
       continue
     fi
@@ -2131,12 +2182,6 @@ write_config_secret() {
       if [ -z "$value" ]; then
         if [ "$secret" = true ] &&
           preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-          case "$field" in
-            webhook) slack_webhook=preserved ;;
-            token) slack_token=preserved ;;
-            topicArn) sns_topic_arn=preserved ;;
-            targetArn) sns_target_arn=preserved ;;
-          esac
           break
         fi
         if [ "$required" = true ]; then
@@ -2150,32 +2195,9 @@ write_config_secret() {
       else
         write_provider_value "$config_tmp" "$field" "$type" "$value"
       fi
-      case "$field" in
-        webhook) slack_webhook="$value" ;;
-        token) slack_token="$value" ;;
-        channel) slack_channel="$value" ;;
-        topicArn) sns_topic_arn="$value" ;;
-        targetArn) sns_target_arn="$value" ;;
-      esac
       break
     done
   done
-  if [ "$PROVIDER" = slack ]; then
-    if [ -z "$slack_webhook" ] && [ -z "$slack_token" ]; then
-      die "Slack requires a webhook or bot token"
-    fi
-    if [ -n "$slack_token" ] && [ -z "$slack_channel" ]; then
-      while [ -z "$slack_channel" ]; do
-        slack_channel=$(ask "Slack channel for bot-token mode")
-        [ -n "$slack_channel" ] || ui_warn "⚠️ Slack channel cannot be empty in bot-token mode."
-      done
-      write_provider_value "$config_tmp" channel string "$slack_channel"
-    fi
-  fi
-  if [ "$PROVIDER" = sns ] && [ -z "$sns_topic_arn" ] &&
-    [ -z "$sns_target_arn" ]; then
-    die "SNS requires a topic ARN or target ARN"
-  fi
   for entry in "${CATALOG[@]}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue

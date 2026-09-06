@@ -45,7 +45,11 @@ one cluster configured, it shows a list and asks you to choose one.
 ## 🧩 What happens during installation?
 
 1. 🔎 The manager checks that Kubernetes is reachable.
-2. 🎯 You choose the cluster and notification destination.
+2. 🎯 You choose the cluster and zero, one, or several notification providers.
+   Each provider's authentication method and fields come from that release's
+   provider catalog.
+   Choosing none keeps monitoring enabled without sending notifications; you
+   can add providers later from **Configure notification providers**.
 3. 🔐 Credentials are stored as separate files in a Kubernetes Secret.
 4. 🧱 The manager installs the CRD and hardened kwatch workload.
 5. 🛡️ It applies restricted Pod Security labels, then verifies
@@ -106,18 +110,30 @@ destination groups are interpreted from the catalog, not hard-coded per
 provider. See the website's [complete provider reference](/docs/channels/providers)
 for the same catalog rendered as a field reference.
 
+Authentication is asked before optional presentation settings, so a provider
+such as Slack can use a bot token and channel instead of a webhook. Existing
+managed deployments are adopted during an upgrade: their mounted Secret is
+reused, and an incompatible immutable Deployment selector is repaired by
+recreating only that workload.
+
 ## 📋 Commands
 
 Run the same command again after a `kwatch.sh`-managed installation. The menu will offer:
 
 | Choice | Use it when you want to... |
 | --- | --- |
-| 🔔 Configure notification | Change any supported provider and its credentials |
+| 🔔 Configure notification | Add, remove, or change supported providers and their credentials |
 | ⚙️ Configure settings | Change monitors, thresholds, or filters |
 | ⬆️ Upgrade | Choose the latest stable or available release candidate |
 | 🔎 Show status | Check the deployment and manager state |
 | 🧰 Show capabilities | See features supported by the installed release |
 | 🧹 Uninstall | Remove the kwatch workload and notification Secret |
+
+The manager tracks the installation with labels on its resources and also
+recognizes legacy app-labelled Deployments. If a Deployment is temporarily
+missing but the managed configuration remains, the menu still opens so you can
+edit settings or choose **Upgrade or repair workload** instead of starting a
+new installation.
 
 If you installed kwatch with Helm or your own manifests, keep using that method
 to change its configuration. The manager is designed for installations it manages.

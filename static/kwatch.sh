@@ -415,6 +415,9 @@ ensure_config_resource() {
   if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
     kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
       "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
+    kubectl -n "$NAMESPACE" label kwatchconfig "$RELEASE" \
+      app.kubernetes.io/instance="$RELEASE" \
+      app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
     return 0
   fi
   kubectl -n "$NAMESPACE" apply -f - <<EOF >/dev/null
@@ -424,6 +427,8 @@ metadata:
   name: $RELEASE
   namespace: $NAMESPACE
   labels:
+    app.kubernetes.io/instance: "$RELEASE"
+    app.kubernetes.io/managed-by: kwatch.sh
     kwatch.dev/config-schema: "$CATALOG_VERSION"
 spec:
   crd:
@@ -583,16 +588,21 @@ write_config_secret_value() {
 }
 
 secret_data_base64() {
-  local secret_name="$1" key="$2"
-  kubectl -n "$NAMESPACE" get secret "$secret_name" \
-    -o "go-template={{index .data \"$key\"}}" 2>/dev/null || true
+  local secret_name="$1" key="$2" encoded
+  encoded=$(kubectl -n "$NAMESPACE" get secret "$secret_name" \
+    -o "go-template={{index .data \"$key\"}}" 2>/dev/null || true)
+  case "$encoded" in
+    ""|"<no value>"|null|\(null\)) return 0 ;;
+  esac
+  printf '%s' "$encoded"
 }
 
 decode_base64_file() {
   local encoded="$1" file="$2"
-  printf '%s' "$encoded" | base64 --decode >"$file" 2>/dev/null ||
-    printf '%s' "$encoded" | base64 -d >"$file" 2>/dev/null ||
-    printf '%s' "$encoded" | base64 -D >"$file"
+  [ -n "$encoded" ] || return 1
+  printf '%s' "$encoded" | base64 --decode >"$file" 2>/dev/null && return 0
+  printf '%s' "$encoded" | base64 -d >"$file" 2>/dev/null && return 0
+  printf '%s' "$encoded" | base64 -D >"$file" 2>/dev/null
 }
 
 preserve_secret_file() {
@@ -680,6 +690,15 @@ old_provider_section() {
     in_field && $0 ~ /^    [^ ]/ && index($0, field) != 1 { exit }
     in_field { print }
   ' "$old_file"
+}
+
+old_provider_exists() {
+  local provider="$1"
+  [ -s "${OLD_CONFIG_PATH:-}" ] || return 1
+  awk -v wanted="  $provider:" '
+    $0 == wanted { found=1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$OLD_CONFIG_PATH"
 }
 
 preserve_provider_optional() {
@@ -793,13 +812,21 @@ verify_runtime_tls_access() {
   subject="system:serviceaccount:$NAMESPACE:$service_account"
   for verb in get list watch; do
     result=$(kubectl auth can-i "$verb" secrets --all-namespaces --as="$subject" 2>/dev/null || true)
+    result=$(printf '%s\n' "$result" | awk '
+      { line=tolower($0); gsub(/^[[:space:]]+|[[:space:]]+$/, "", line) }
+      line == "yes" { answer="yes" }
+      line == "no" { answer="no" }
+      END { print answer }
+    ')
     case "$result" in
       yes) ;;
       no)
         echo "TLS monitoring needs the kwatch ServiceAccount to $verb Secrets; RBAC is missing." >&2
         return 1
         ;;
-      *) echo "Warning: could not verify TLS RBAC ($verb Secrets as $subject). TLS monitoring may stay unavailable." >&2 ;;
+      *)
+        ui_info "ℹ️ Could not preflight TLS RBAC for $verb; the runtime check remains authoritative."
+        ;;
     esac
   done
 }
@@ -880,6 +907,7 @@ migrate_legacy_silences() {
 }
 
 configure_flow() {
+  local deployment
   require_config_catalog
   ensure_crd
   preflight_access manage
@@ -951,10 +979,16 @@ configure_flow() {
         fi
         kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
           "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
-        if ! restart_kwatch; then
-          echo "Configuration failed validation; restoring backup." >&2
-          restore_backup
-          die "configuration update failed"
+        deployment=$(deployment_name || true)
+        if [ -n "$deployment" ]; then
+          if ! restart_kwatch; then
+            echo "Configuration failed validation; restoring backup." >&2
+            restore_backup
+            die "configuration update failed"
+          fi
+        else
+          ui_info "ℹ️ Configuration saved; no kwatch Deployment is currently running."
+          ui_info "🛠️ Choose 'Upgrade or repair workload' to activate it."
         fi
         echo "Updated $path."
         break
@@ -978,9 +1012,9 @@ configure_alert_flow() {
     ui_warn "⚠️ Notification rollout failed; restoring the previous configuration."
     kubectl apply -f "$backup" >/dev/null 2>&1 || true
     restart_kwatch || true
-    die "could not restart kwatch after changing the notification destination"
+    die "could not restart kwatch after changing notification providers"
   fi
-  echo "Notification destination updated."
+  echo "Notification providers updated."
 }
 
 configure_after_install() {
@@ -1019,6 +1053,9 @@ record_state() {
     --from-literal=context="$SELECTED_CONTEXT" \
     --from-literal=message="$message" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1 || true
+  kubectl -n "$NAMESPACE" label configmap "$STATE_CONFIGMAP_NAME" \
+    app.kubernetes.io/instance="$RELEASE" \
+    app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
 }
 
 previous_state() {
@@ -1043,10 +1080,25 @@ check_access() {
   else
     result=$(kubectl auth can-i "$verb" "$resource" 2>/dev/null || true)
   fi
+  # The kubectl wrapper keeps stderr with command output for retry diagnostics,
+  # so an authorization warning may surround the actual yes/no answer. Extract
+  # an exact answer instead of treating the warning text as the result.
+  result=$(printf '%s\n' "$result" | awk '
+    { line=tolower($0); gsub(/^[[:space:]]+|[[:space:]]+$/, "", line) }
+    line == "yes" { answer="yes" }
+    line == "no" { answer="no" }
+    END { print answer }
+  ')
   case "$result" in
-    yes) ;;
-    no) die "missing Kubernetes permission: $verb $resource${scope:+ in namespace $NAMESPACE}" ;;
-    *) echo "Warning: could not verify permission '$verb $resource'. The operation may fail later." >&2 ;;
+    yes|yes\ *) ;;
+    no|no\ *) die "missing Kubernetes permission: $verb $resource${scope:+ in namespace $NAMESPACE}" ;;
+    *)
+      # Some Kubernetes distributions reject a preflight SelfSubjectAccessReview
+      # for cluster resources even though the real operation is allowed. Do not
+      # turn that discovery limitation into a noisy false warning; the command
+      # below remains the authoritative check.
+      return 0
+      ;;
   esac
 }
 
@@ -1142,7 +1194,7 @@ select_release_version() {
 }
 
 deployment_name() {
-  local name
+  local name app
   name=$(kubectl -n "$NAMESPACE" get deployment \
     -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/managed-by=kwatch.sh" \
     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
@@ -1150,9 +1202,62 @@ deployment_name() {
     printf '%s' "$name"
     return
   fi
-  kubectl -n "$NAMESPACE" get deployment \
+  name=$(kubectl -n "$NAMESPACE" get deployment \
     -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
-      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  if [ -n "$name" ]; then
+    printf '%s' "$name"
+    return
+  fi
+  # Older releases did not add the managed-by label. The release name is the
+  # manager's ownership boundary, so discover that exact Deployment as a
+  # compatibility fallback and adopt its existing configuration Secret.
+  app=$(kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+    -o 'jsonpath={.metadata.labels.app}' 2>/dev/null || true)
+  [ "$app" = kwatch ] || return 0
+  kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+    -o jsonpath='{.metadata.name}' 2>/dev/null || true
+}
+
+managed_install_present() {
+  local deployment schema owner state_owner config_data namespace_marker
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] && return 0
+
+  schema=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+    -o 'jsonpath={.metadata.labels.kwatch\.dev/config-schema}' \
+    2>/dev/null || true)
+  if [ -z "$schema" ]; then
+    schema=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+      -o 'jsonpath={.metadata.annotations.kwatch\.dev/config-schema}' \
+      2>/dev/null || true)
+  fi
+  [ -n "$schema" ] && return 0
+
+  owner=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
+    2>/dev/null || true)
+  [ "$owner" = kwatch.sh ] && return 0
+
+  config_data=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    -o 'jsonpath={.data.config\.yaml}' 2>/dev/null || true)
+  [ -n "$config_data" ] && return 0
+
+  state_owner=$(kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
+    -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
+    2>/dev/null || true)
+  [ "$state_owner" = kwatch.sh ] && return 0
+
+  # Releases before Secret-backed configuration used a ConfigMap named after
+  # the release. Its config.yaml is a reliable legacy installation marker.
+  config_data=$(kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
+    -o 'jsonpath={.data.config\.yaml}' 2>/dev/null || true)
+  [ -n "$config_data" ] && return 0
+
+  namespace_marker=$(kubectl get namespace "$NAMESPACE" \
+    -o 'jsonpath={.metadata.annotations.kwatch\.dev/managed-namespace}' \
+    2>/dev/null || true)
+  [ "$namespace_marker" = true ]
 }
 
 adopt_existing_config_secret() {
@@ -1194,16 +1299,17 @@ resolve_action() {
   fi
   case "$requested" in
     install)
-      if [ -n "$existing_deployment" ]; then
-        ui_warn "🔄 An existing kwatch Deployment was found; treating install as upgrade to preserve it."
+      if [ -n "$existing_deployment" ] || [ "$has_config" = true ] ||
+        [ "$has_secret" = true ]; then
+        ui_warn "🔄 Existing kwatch resources were found; treating install as upgrade to preserve them."
         printf 'upgrade'
         return 0
       fi
       ;;
     upgrade)
       if [ -z "$existing_deployment" ] &&
-        { [ "$has_config" = true ] || [ "$has_secret" = true ]; }; then
-        ui_warn "🧭 Existing kwatch configuration was found without a Deployment; treating upgrade as install."
+        [ "$has_config" != true ] && [ "$has_secret" != true ]; then
+        ui_warn "🧭 No existing kwatch resources were found; treating upgrade as install."
         printf 'install'
         return 0
       fi
@@ -1213,7 +1319,7 @@ resolve_action() {
 }
 
 installed_version() {
-  local image tag
+  local image tag deployment
   image=$(kubectl -n "$NAMESPACE" get deployment \
     -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/managed-by=kwatch.sh" \
     -o jsonpath='{.items[0].spec.template.spec.containers[0].image}' \
@@ -1223,6 +1329,16 @@ installed_version() {
       -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
       -o jsonpath='{.items[0].spec.template.spec.containers[0].image}' \
       2>/dev/null || true)
+  fi
+  if [ -z "$image" ]; then
+    # Pre-catalog releases did not carry the manager labels. Reuse the same
+    # app-labelled compatibility lookup used for upgrades and cleanup.
+    deployment=$(deployment_name || true)
+    if [ -n "$deployment" ]; then
+      image=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+        -o jsonpath='{.spec.template.spec.containers[0].image}' \
+        2>/dev/null || true)
+    fi
   fi
   tag="${image##*:}"
   valid_release_version "$tag" && printf '%s' "$tag"
@@ -1286,9 +1402,23 @@ features_flow() {
   done
 }
 
+provider_available() {
+  local entry provider display field type required secret validation default
+  local description group condition
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
+    case "${CONFIGURED_PROVIDERS:-|}" in
+      *"|$provider|"*) continue ;;
+    esac
+    return 0
+  done
+  return 1
+}
+
 remove_namespaced_workload() {
   delete_owned() {
-    local scope="$1" kind="$2" name="$3" owner
+    local scope="$1" kind="$2" name="$3" owner app
     if [ "$scope" = namespace ]; then
       owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
         -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
@@ -1297,6 +1427,12 @@ remove_namespaced_workload() {
       owner=$(kubectl get "$kind" "$name" \
         -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
         2>/dev/null || true)
+    fi
+    if [ "$owner" != kwatch.sh ] && [ "$kind" = deployment ] &&
+      [ "$name" = "$RELEASE" ]; then
+      app=$(kubectl -n "$NAMESPACE" get deployment "$name" \
+        -o 'jsonpath={.metadata.labels.app}' 2>/dev/null || true)
+      [ "$app" = kwatch ] && owner=kwatch.sh
     fi
     [ "$owner" = kwatch.sh ] || return 0
     if [ "$scope" = namespace ]; then
@@ -1326,10 +1462,14 @@ rollback_deployment() {
 choose_provider() {
   local choice query normalized entry provider display field type required secret
   local validation default description seen="|" i provider_name display_name
+  local exact_match
   local -a providers=() displays=() matches=()
   for entry in "${PROVIDER_CATALOG[@]}"; do
     IFS='|' read -r provider display field type required secret validation default \
       description group condition <<<"$entry"
+    case "${CONFIGURED_PROVIDERS:-|}" in
+      *"|$provider|"*) continue ;;
+    esac
     case "$seen" in
       *"|$provider|"*) continue ;;
     esac
@@ -1356,18 +1496,34 @@ choose_provider() {
       ui_warn "⚠️ Provider number is out of range."
       continue
     fi
-    normalized=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]')
+    normalized=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]' |
+      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+    [ -n "$normalized" ] || continue
     matches=()
+    exact_match=-1
     for i in "${!providers[@]}"; do
       provider_name=$(printf '%s' "${providers[$i]}" |
         tr '[:upper:]' '[:lower:]')
       display_name=$(printf '%s' "${displays[$i]}" |
         tr '[:upper:]' '[:lower:]')
+      if [ "$provider_name" = "$normalized" ] ||
+        [ "$display_name" = "$normalized" ]; then
+        if [ "$exact_match" -eq -1 ]; then
+          exact_match=$i
+        else
+          exact_match=-2
+        fi
+      fi
       if [[ "$provider_name" == *"$normalized"* ]] ||
         [[ "$display_name" == *"$normalized"* ]]; then
         matches+=("$i")
       fi
     done
+    if [ "$exact_match" -ge 0 ]; then
+      PROVIDER="${providers[$exact_match]}"
+      ui_success "✅ Provider selected: ${displays[$exact_match]}"
+      return 0
+    fi
     if [ "${#matches[@]}" -eq 1 ]; then
       i="${matches[0]}"
       PROVIDER="${providers[$i]}"
@@ -1375,19 +1531,20 @@ choose_provider() {
       return 0
     fi
     if [ "${#matches[@]}" -gt 1 ]; then
-      echo "🔎 Matching providers:" >&2
+      echo "🔎 Matching providers for '$query':" >&2
+      local match_number=1
       for i in "${matches[@]}"; do
-        printf '  %d) %s\n' "$((i + 1))" "${displays[$i]}" >&2
+        printf '  %d) %s (%s)\n' "$match_number" \
+          "${displays[$i]}" "${providers[$i]}" >&2
+        match_number=$((match_number + 1))
       done
       choice=$(ask "🎯 Choose a matching provider number" "")
-      if [[ "$choice" =~ ^[0-9]+$ ]]; then
-        for i in "${matches[@]}"; do
-          if [ "$choice" -eq $((i + 1)) ]; then
-            PROVIDER="${providers[$i]}"
-            ui_success "✅ Provider selected: ${displays[$i]}"
-            return 0
-          fi
-        done
+      if [[ "$choice" =~ ^[0-9]+$ ]] &&
+        [ "$choice" -ge 1 ] && [ "$choice" -le "${#matches[@]}" ]; then
+        i="${matches[$((choice - 1))]}"
+        PROVIDER="${providers[$i]}"
+        ui_success "✅ Provider selected: ${displays[$i]}"
+        return 0
       fi
       ui_warn "⚠️ Choose one of the matching provider numbers."
       continue
@@ -1465,6 +1622,7 @@ select_provider_groups() {
         ;;
     esac
   done
+  [ "${#groups[@]}" -gt 0 ] || return 0
   for group in "${groups[@]}"; do
     values=()
     for entry in "${PROVIDER_CATALOG[@]}"; do
@@ -1590,129 +1748,191 @@ prompt_provider_value() {
 }
 
 apply_config_secret() {
-  kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
-    --from-file=config.yaml="$config_tmp" \
-    "${SECRET_ARGS[@]}" \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  if [ "${#SECRET_ARGS[@]}" -gt 0 ]; then
+    kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
+      --from-file=config.yaml="$config_tmp" \
+      "${SECRET_ARGS[@]}" \
+      --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  else
+    kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
+      --from-file=config.yaml="$config_tmp" \
+      --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  fi
+}
+
+write_provider_field() {
+  local entry="$1" mode="$2" configure_optional="$3" priority="$4"
+  local provider display field type required secret validation default description
+  local group condition field_description value field_required field_priority
+  IFS='|' read -r provider display field type required secret validation default \
+    description group condition <<<"$entry"
+  [ "$provider" = "$PROVIDER" ] || return 0
+  case "$condition" in
+    choice:*)
+      provider_condition_matches "$group" "$condition" || return 0
+      required=true
+      field_priority=1
+      ;;
+    required-if:*)
+      provider_condition_matches "$group" "$condition" || return 0
+      required=true
+      field_priority=2
+      ;;
+    at-least-one) field_priority=3 ;;
+    *) field_priority=3 ;;
+  esac
+  if [ "$mode" = group ] && [ "$condition" != at-least-one ]; then
+    return 0
+  fi
+  if [ "$mode" != group ] && [ "$condition" = at-least-one ]; then
+    return 0
+  fi
+  [ "$field_priority" = "$priority" ] || return 0
+  field_required="$required"
+  if [ "$condition" = at-least-one ] &&
+    ! provider_group_present "$group" &&
+    ! provider_group_has_later_field "$group" "$field"; then
+    field_required=true
+  fi
+  if [ "$mode" = required ] && [ "$field_required" != true ]; then
+    return 0
+  fi
+  if [ "$mode" = optional ] && [ "$field_required" = true ]; then
+    return 0
+  fi
+  if [ "$mode" = group ] && [ "$field_required" != true ] &&
+    provider_group_present "$group"; then
+    return 0
+  fi
+  if [ "$mode" = optional ] && [ "$configure_optional" = false ]; then
+    if [ "$secret" = true ] &&
+      preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+      mark_provider_group_present "$group"
+    elif [ -z "$condition" ] && old_provider_exists "$provider" &&
+      preserve_provider_optional "$config_tmp" "$provider" "$field" \
+      "$type" "$tmp_dir"; then
+      mark_provider_group_present "$group"
+    elif [ -n "$default" ] && [ "$type" != headers ]; then
+      write_provider_value "$config_tmp" "$field" "$type" "$default"
+    fi
+    return 0
+  fi
+  if [ "$type" = headers ]; then
+    write_webhook_headers "$config_tmp" "$tmp_dir"
+    return 0
+  fi
+  while true; do
+    field_description="$description"
+    [ "$field_required" = true ] ||
+      field_description="$description (optional; Enter to skip)"
+    value=$(prompt_provider_value "$field" "$type" "$secret" \
+      "$validation" "$default" "$field_description") || return 1
+    if [ -z "$value" ]; then
+      if [ "$secret" = true ] &&
+        preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+        mark_provider_group_present "$group"
+        break
+      fi
+      if old_provider_exists "$provider" &&
+        preserve_provider_optional "$config_tmp" "$provider" "$field" \
+        "$type" "$tmp_dir"; then
+        mark_provider_group_present "$group"
+        break
+      fi
+      if [ "$field_required" = true ]; then
+        ui_warn "⚠️ $field cannot be empty."
+        continue
+      fi
+      break
+    fi
+    if [ "$secret" = true ]; then
+      write_provider_secret "$config_tmp" "$field" "$value" "$tmp_dir"
+    else
+      write_provider_value "$config_tmp" "$field" "$type" "$value"
+    fi
+    mark_provider_group_present "$group"
+    break
+  done
+}
+
+write_provider_block() {
+  local entry mode configure_optional priority
+  WRITTEN_PROVIDER_SECTIONS="|"
+  PROVIDER_GROUP_PRESENCE="|"
+  printf '  %s:\n' "$PROVIDER" >>"$config_tmp"
+  # Authentication and other required fields are collected before optional
+  # presentation settings, regardless of catalog row order.
+  configure_optional=true
+  for priority in 1 2 3; do
+    for entry in "${PROVIDER_CATALOG[@]}"; do
+      write_provider_field "$entry" required "$configure_optional" \
+        "$priority" || return 1
+    done
+  done
+  # Keep at-least-one destination groups in catalog order. This lets the user
+  # choose the first destination without being forced into the last row.
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    write_provider_field "$entry" group true 3 || return 1
+  done
+  if [ "${TELEMETRY_ASKED:-false}" != true ]; then
+    telemetry_enabled=$(ask_yes_no \
+      "📊 Send anonymous usage data to help improve kwatch" "y")
+    TELEMETRY_ASKED=true
+  fi
+  configure_optional=$(ask_yes_no \
+    "Configure optional settings for $PROVIDER too?" "y")
+  for priority in 1 2 3; do
+    for entry in "${PROVIDER_CATALOG[@]}"; do
+      write_provider_field "$entry" optional "$configure_optional" \
+        "$priority" || return 1
+    done
+  done
 }
 
 write_config_secret() {
   local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
-  local tmp_dir config_tmp telemetry_enabled
-  local entry provider display field type required secret validation default description value
-  local field_description
-  local configure_optional
-  local old_provider encoded old_config_file
-  local field_required
+  local tmp_dir config_tmp telemetry_enabled configure_alerts
+  local add_provider
+  local entry path type default category description status replacement value
+  local encoded
   SECRET_ARGS=()
-  WRITTEN_PROVIDER_SECTIONS="|"
   WRITTEN_CONFIG_SECTIONS="|"
-  PROVIDER_GROUP_PRESENCE="|"
+  CONFIGURED_PROVIDERS="|"
+  TELEMETRY_ASKED=false
   tmp_dir=$(mktemp -d)
   config_tmp="$tmp_dir/config.yaml"
   trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
   OLD_CONFIG_PATH="$tmp_dir/old-config.yaml"
   encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml)
-  if [ -n "$encoded" ] && decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
-    old_config_file="$OLD_CONFIG_PATH"
-  else
-    old_config_file=""
+  if [ -n "$encoded" ]; then
+    if ! decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
+      : >"$OLD_CONFIG_PATH"
+    fi
   fi
-  choose_provider
-  select_provider_groups
-  telemetry_enabled=$(ask_yes_no \
-    "📊 Send anonymous usage data to help improve kwatch" "y")
-  configure_optional=$(ask_yes_no \
-    "Configure optional provider settings too?" "y")
-  old_provider=""
-  if [ -n "$old_config_file" ]; then
-    old_provider=$(awk '
-      /^alert:$/ { in_alert=1; next }
-      in_alert && /^  [^ ]+:/ {
-        sub(/^  /, "")
-        sub(/:.*/, "")
-        print
-        exit
-      }
-    ' "$old_config_file")
-  fi
-  printf 'crd:\n  enabled: true\ntelemetry:\n  enabled: %s\nalert:\n  %s:\n' \
-    "$telemetry_enabled" "$PROVIDER" > "$config_tmp"
-  for entry in "${PROVIDER_CATALOG[@]}"; do
-    IFS='|' read -r provider display field type required secret validation default \
-      description group condition <<<"$entry"
-    [ "$provider" = "$PROVIDER" ] || continue
-    case "$condition" in
-      choice:*)
-        provider_condition_matches "$group" "$condition" || continue
-        required=true
-        ;;
-      required-if:*)
-        provider_condition_matches "$group" "$condition" && required=true
-        ;;
-      at-least-one) ;;
-    esac
-    field_required="$required"
-    if [ "$condition" = at-least-one ] &&
-      ! provider_group_present "$group" &&
-      ! provider_group_has_later_field "$group" "$field"; then
-      field_required=true
-    fi
-    if [ "$required" != true ] && [ "$configure_optional" = false ] &&
-      [ -z "$condition" ]; then
-      if [ "$secret" = true ] &&
-        preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-        mark_provider_group_present "$group"
-        :
-      elif [ "$provider" = "$old_provider" ] &&
-        preserve_provider_optional "$config_tmp" "$provider" "$field" \
-        "$type" "$tmp_dir"; then
-        mark_provider_group_present "$group"
-        :
-      elif [ -n "$default" ] && [ "$type" != headers ]; then
-        write_provider_value "$config_tmp" "$field" "$type" "$default"
-      fi
-      continue
-    fi
-    if [ "$type" = headers ]; then
-      [ "$configure_optional" = true ] || continue
-      write_webhook_headers "$config_tmp" "$tmp_dir"
-      continue
-    fi
+  configure_alerts=$(ask_yes_no \
+    "📣 Configure notification providers now?" "y")
+  telemetry_enabled=true
+  if [ "$configure_alerts" = true ]; then
+    printf 'crd:\n  enabled: true\nalert:\n' >"$config_tmp"
     while true; do
-      field_description="$description"
-      if [ "$field_required" = false ]; then
-        field_description="$description (optional; Enter to skip)"
-      fi
-      value=$(prompt_provider_value "$field" "$type" "$secret" \
-        "$validation" "$default" "$field_description") || return 1
-      if [ -z "$value" ]; then
-        if [ "$secret" = true ] &&
-          preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-          mark_provider_group_present "$group"
-          break
-        fi
-        if [ "$provider" = "$old_provider" ] &&
-          preserve_provider_optional "$config_tmp" "$provider" "$field" \
-          "$type" "$tmp_dir"; then
-          mark_provider_group_present "$group"
-          break
-        fi
-        if [ "$field_required" = true ]; then
-          ui_warn "⚠️ $field cannot be empty."
-          continue
-        fi
+      choose_provider
+      select_provider_groups
+      write_provider_block || return 1
+      CONFIGURED_PROVIDERS="${CONFIGURED_PROVIDERS}${PROVIDER}|"
+      provider_available || break
+      add_provider=$(ask_yes_no "➕ Add another notification provider?" "n")
+      if [ "$add_provider" != true ]; then
         break
       fi
-      if [ "$secret" = true ]; then
-        write_provider_secret "$config_tmp" "$field" "$value" "$tmp_dir"
-      else
-        write_provider_value "$config_tmp" "$field" "$type" "$value"
-      fi
-      mark_provider_group_present "$group"
-      break
     done
-  done
+  else
+    printf 'crd:\n  enabled: true\nalert: {}\n' >"$config_tmp"
+  fi
+  if [ "$TELEMETRY_ASKED" != true ]; then
+    telemetry_enabled=$(ask_yes_no \
+      "📊 Send anonymous usage data to help improve kwatch" "y")
+  fi
+  printf 'telemetry:\n  enabled: %s\n' "$telemetry_enabled" >>"$config_tmp"
   for entry in "${CATALOG[@]}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
@@ -1960,6 +2180,9 @@ install_flow() {
   fi
   apply_operational_namespace_labels
   preflight_access install
+  # Adopt a legacy Deployment's mounted Secret before writing configuration so
+  # upgrades modify the Secret the workload actually uses.
+  adopt_existing_config_secret
   record_state preflight "$version" "cluster selected and reachable"
   ui_info "🚀 Installing kwatch $version..."
   record_state backup "$version" "creating notification Secret"
@@ -2059,28 +2282,41 @@ main() {
   require_tools
   select_context
   if [ -z "$action" ]; then
-    installed=$(deployment_name)
-    if [ -n "$installed" ]; then
+    installed=$(deployment_name || true)
+    if managed_install_present; then
       if ! maybe_load_catalog; then
         ui_warn "⚠️ Catalogs are unavailable; configuration actions will require a retry."
       fi
       migration_notice
+      if [ -n "$installed" ]; then
+        ui_success "✅ kwatch installation detected."
+      else
+        ui_info "🧭 kwatch configuration detected without a running Deployment."
+      fi
       cat >&2 <<'EOF'
 
-✅ kwatch is already installed:
-  1) Configure notification destination
+kwatch manager:
+  1) Configure notification providers
   2) Configure settings
-  3) Upgrade
+  3) Upgrade or repair workload
   4) Show status
   5) Show capabilities
   6) Uninstall
   7) Exit
 EOF
-      action=$(ask "Choice" "1")
-      case "$action" in
-        1) action=configure-alert ;; 2) action=configure ;; 3) action=upgrade ;;
-        4) action=status ;; 5) action=features ;; 6) action=uninstall ;; 7) exit 0 ;; *) die "unknown choice" ;;
-      esac
+      while true; do
+        action=$(ask "Choice" "1")
+        case "$action" in
+          1) action=configure-alert; break ;;
+          2) action=configure; break ;;
+          3) action=upgrade; break ;;
+          4) action=status; break ;;
+          5) action=features; break ;;
+          6) action=uninstall; break ;;
+          7) exit 0 ;;
+          *) ui_warn "⚠️ Choose a number from 1 to 7." ;;
+        esac
+      done
     else
       action=install
     fi

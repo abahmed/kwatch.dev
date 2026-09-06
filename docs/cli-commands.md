@@ -76,6 +76,10 @@ kwatch lint --check
 - `maxBaseline` doesn't exceed ConfigMap size limits
 - No unknown provider names
 
+The runtime can intentionally run in monitor-only mode with no alert providers;
+the `lint` command keeps the stricter requirement because it validates an
+alerting configuration.
+
 ## `kwatch replay` — replay saved events
 
 Reads JSONL-formatted events from stdin and sends them through the configured

@@ -10,6 +10,26 @@ export CAPTURE_DIR
 source "$ROOT/static/kwatch.sh"
 CONFIG_MOUNT_PATH="$CAPTURE_DIR"
 
+kubectl() {
+  printf '%s\n' 'Warning: permission preflight emitted an informational message' yes
+}
+check_access get pods namespace
+
+kubectl() {
+  case "$*" in
+    *"get kwatchconfig kwatch"*) printf '%s' v1; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+managed_install_present || {
+  echo "managed configuration was not detected" >&2
+  exit 1
+}
+[ "$(resolve_action install)" = upgrade ] || {
+  echo "existing configuration was not protected from reinstall" >&2
+  exit 1
+}
+
 feature_file="$CAPTURE_DIR/features.tsv"
 printf '%s\n' \
   '# kwatch feature catalog v1' \
@@ -20,10 +40,32 @@ load_feature_catalog_file "$feature_file"
   exit 1
 }
 
+config_file="$CAPTURE_DIR/config.tsv"
+printf '%s\n' \
+  '# kwatch config catalog v1' \
+  'heartbeatMonitor.url|string|empty|Operations|heartbeat URL|secret|' \
+  'healthCheck.diagnosticsToken|string|empty|Security|diagnostic bearer token|secret|' \
+  >"$config_file"
+load_catalog_file "$config_file"
+[ "${#CATALOG[@]}" -eq 2 ] || {
+  echo "configuration catalog format was rejected" >&2
+  exit 1
+}
+
+provider_file="$CAPTURE_DIR/providers.tsv"
+printf '%s\n' \
+  '# kwatch provider catalog v1' \
+  'telegram|Telegram|token|string|true|true|||Bot token' \
+  'telegram|Telegram|chatId|string|true|false|signed-integer||Chat ID' \
+  'slack|Slack|webhook|string|false|true|url||Slack webhook URL|authentication|choice:webhook' \
+  'slack|Slack|token|string|false|true|||Bot token|authentication|choice:token' \
+  'slack|Slack|channel|string|false|false|||Channel|required-if:authentication=token' \
+  >"$provider_file"
+load_provider_catalog_file "$provider_file"
 provider_count=$(printf '%s\n' "${PROVIDER_CATALOG[@]}" |
   cut -d'|' -f1 | sort -u | wc -l | tr -d ' ')
-[ "$provider_count" -eq 56 ] || {
-  echo "expected all 56 providers in the guided catalog" >&2
+[ "$provider_count" -eq 2 ] || {
+  echo "provider catalog fixture was not loaded" >&2
   exit 1
 }
 

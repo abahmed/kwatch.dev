@@ -1515,6 +1515,15 @@ configure_alert_flow() {
   echo "Notification destination updated."
 }
 
+configure_after_install() {
+  local choice
+  choice=$(ask_yes_no \
+    "🛠️ Configure additional kwatch settings now? This includes all catalog settings" \
+    "y")
+  [ "$choice" = true ] || return 0
+  configure_flow
+}
+
 preflight_alert_access() {
   check_access get deployments namespace
   check_access patch deployments namespace
@@ -2305,6 +2314,7 @@ install_flow() {
   fi
   record_state complete "$version" "installation verified"
   ui_success "✅ kwatch is ready."
+  configure_after_install
 }
 
 upgrade_flow() {

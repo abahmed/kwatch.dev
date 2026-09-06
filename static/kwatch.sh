@@ -1503,6 +1503,7 @@ configure_flow() {
 
 configure_alert_flow() {
   local backup deployment
+  adopt_existing_config_secret
   preflight_alert_access
   backup=$(mktemp)
   trap 'if [ -n "${backup:-}" ]; then rm -f "$backup"; fi' RETURN
@@ -1689,6 +1690,19 @@ deployment_name() {
   kubectl -n "$NAMESPACE" get deployment \
     -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+adopt_existing_config_secret() {
+  local deployment secret_name
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || return 0
+  secret_name=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.volumes[?(@.name=="config-volume")].secret.secretName}' \
+    2>/dev/null || true)
+  if [ -n "$secret_name" ]; then
+    CONFIG_SECRET_NAME="$secret_name"
+    ui_info "🔐 Using existing configuration Secret: $CONFIG_SECRET_NAME"
+  fi
 }
 
 restart_kwatch() {
@@ -2187,18 +2201,11 @@ write_config_secret() {
 
 apply_manifests() {
   local version="$1" tmp crd_tmp apply_tmp="" deployment existing_deployment
-  local manifest_to_apply existing_secret_name
+  local manifest_to_apply
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   existing_deployment=$(deployment_name || true)
   if [ -n "$existing_deployment" ]; then
-    existing_secret_name=$(kubectl -n "$NAMESPACE" get deployment \
-      "$existing_deployment" -o \
-      'jsonpath={.spec.template.spec.volumes[?(@.name=="config-volume")].secret.secretName}' \
-      2>/dev/null || true)
-    if [ -n "$existing_secret_name" ]; then
-      CONFIG_SECRET_NAME="$existing_secret_name"
-      ui_info "🔐 Preserving existing configuration Secret: $CONFIG_SECRET_NAME"
-    fi
+    adopt_existing_config_secret
   fi
   tmp=$(mktemp)
   crd_tmp=$(mktemp)

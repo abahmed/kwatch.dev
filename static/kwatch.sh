@@ -829,32 +829,31 @@ load_provider_catalog_for_version() {
 
 BACKUP_NAME=""
 backup_config() {
-  local spec timestamp
-  spec=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o jsonpath='{.spec}')
+  local resource timestamp
+  resource=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o json)
   timestamp=$(date -u +%Y%m%d%H%M%S)
   BACKUP_NAME="${RELEASE}-config-$timestamp"
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
-    --from-literal=spec.json="$spec" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    --from-literal=resource.json="$resource" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 }
 
 restore_backup() {
-  local encoded spec deployment
+  local encoded deployment backup_file
   [ -n "$BACKUP_NAME" ] || return 0
-  encoded=$(kubectl -n "$NAMESPACE" get secret "$BACKUP_NAME" -o jsonpath='{.data.spec\.json}')
-  if spec=$(printf '%s' "$encoded" | base64 -d 2>/dev/null); then
-    :
-  else
-    spec=$(printf '%s' "$encoded" | base64 -D)
+  encoded=$(kubectl -n "$NAMESPACE" get secret "$BACKUP_NAME" \
+    -o 'jsonpath={.data.resource\.json}')
+  [ -n "$encoded" ] || die "backup is missing resource.json; refusing to restore it"
+  backup_file=$(mktemp)
+  if ! decode_base64_file "$encoded" "$backup_file"; then
+    rm -f "$backup_file"
+    die "backup is not valid base64; refusing to restore it"
   fi
-  [ -n "$spec" ] || die "backup is empty; refusing to restore it"
-  kubectl -n "$NAMESPACE" apply -f - <<EOF >/dev/null
-apiVersion: kwatch.abahmed.dev/v1alpha1
-kind: KwatchConfig
-metadata:
-  name: $RELEASE
-  namespace: $NAMESPACE
-spec: $spec
-EOF
+  if ! kubectl -n "$NAMESPACE" apply -f "$backup_file" >/dev/null; then
+    rm -f "$backup_file"
+    die "backup resource could not be restored"
+  fi
+  rm -f "$backup_file"
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null

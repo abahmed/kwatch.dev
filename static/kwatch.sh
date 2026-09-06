@@ -1955,6 +1955,7 @@ prompt_provider_value() {
 write_config_secret() {
   local secret_name="${RELEASE}-config" tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
+  local field_description
   local configure_optional force_field slack_mode="" sns_mode=""
   local slack_webhook="" slack_token="" slack_channel=""
   local sns_topic_arn="" sns_target_arn=""
@@ -1981,7 +1982,7 @@ write_config_secret() {
   telemetry_enabled=$(ask_yes_no \
     "📊 Send anonymous usage data to help improve kwatch" "y")
   configure_optional=$(ask_yes_no \
-    "Configure optional provider settings too" "n")
+    "Configure optional provider settings too?" "y")
   old_provider=""
   if [ -n "$old_config_file" ]; then
     old_provider=$(awk '
@@ -2043,8 +2044,12 @@ write_config_secret() {
       continue
     fi
     while true; do
+      field_description="$description"
+      if [ "$required" = false ]; then
+        field_description="$description (optional; Enter to skip)"
+      fi
       value=$(prompt_provider_value "$field" "$type" "$secret" \
-        "$validation" "$default" "$description") || return 1
+        "$validation" "$default" "$field_description") || return 1
       if [ -z "$value" ]; then
         if [ "$secret" = true ] &&
           preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then

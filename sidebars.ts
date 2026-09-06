@@ -77,6 +77,7 @@ const sidebars: SidebarsConfig = {
         'contributing/contributing',
         'contributing/cloning-and-building',
         'contributing/github-workflow',
+        'contributing/release-process',
       ],
     },
   ],

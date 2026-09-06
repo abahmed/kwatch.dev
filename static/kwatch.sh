@@ -588,6 +588,7 @@ if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ]; then
   UI_RED=$'\033[31m'
   UI_DIM=$'\033[2m'
   UI_CLEAR=$'\033[K'
+  UI_CLEAR_LINE=$'\033[2K\r'
 else
   UI_RESET=""
   UI_BOLD=""
@@ -597,6 +598,7 @@ else
   UI_RED=""
   UI_DIM=""
   UI_CLEAR=""
+  UI_CLEAR_LINE=""
 fi
 
 ui_info() { printf '%s%s%s\n' "$UI_CYAN" "$*" "$UI_RESET" >&2; }
@@ -618,18 +620,18 @@ with_loading() {
   while kill -0 "$pid" 2>/dev/null; do
     index=$((frame % ${#spinner_frames[@]}))
     char="${spinner_frames[$index]}"
-    printf '\r%s⏳ %s %s%s' "$UI_CYAN" "$label" "$char" "$UI_CLEAR" >&2
+    printf '%s%s⏳ %s %s%s' "$UI_CLEAR_LINE" "$UI_CYAN" "$label" "$char" "$UI_CLEAR" >&2
     sleep 0.1
     frame=$((frame + 1))
   done
   if wait "$pid"; then
-    printf '\r%s✅ %s%s%s\n' "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+    printf '%s%s✅ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
     cat "$output_file"
     rm -f "$output_file"
     return 0
   fi
   rc=$?
-  printf '\r%s❌ %s%s%s\n' "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  printf '%s%s❌ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
   rm -f "$output_file"
   return "$rc"
 }
@@ -2042,7 +2044,7 @@ verify_operational_security() {
 }
 
 apply_operational_namespace_labels() {
-  local enforce audit warn managed
+  local enforce audit warn managed existing_workload existing_config
   enforce=$(kubectl get namespace "$NAMESPACE" \
     -o 'jsonpath={.metadata.labels.pod-security\.kubernetes\.io/enforce}' \
     2>/dev/null || true)
@@ -2055,11 +2057,22 @@ apply_operational_namespace_labels() {
   warn=$(kubectl get namespace "$NAMESPACE" \
     -o 'jsonpath={.metadata.labels.pod-security\.kubernetes\.io/warn}' \
     2>/dev/null || true)
+  existing_workload=$(deployment_name || true)
+  existing_config=false
+  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
+    existing_config=true
+  fi
   if { [ "$enforce" != restricted ] || [ "$audit" != restricted ] ||
     [ "$warn" != restricted ]; } && [ "$managed" != true ] &&
     [ "$NAMESPACE_CREATED" != true ] &&
+    [ -z "$existing_workload" ] && [ "$existing_config" != true ] &&
     [ "${KWATCH_ALLOW_NAMESPACE_LABELS:-false}" != true ]; then
     die "namespace '$NAMESPACE' already exists without restricted Pod Security labels; set KWATCH_ALLOW_NAMESPACE_LABELS=true only after reviewing the shared namespace"
+  fi
+  if { [ -n "$existing_workload" ] || [ "$existing_config" = true ]; } &&
+    { [ "$enforce" != restricted ] || [ "$audit" != restricted ] ||
+      [ "$warn" != restricted ]; }; then
+    ui_info "🔐 Existing kwatch resources found; applying restricted Pod Security labels."
   fi
   kubectl label namespace "$NAMESPACE" \
     pod-security.kubernetes.io/enforce=restricted \

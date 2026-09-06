@@ -101,7 +101,9 @@ enforce the same rule.
 The guided provider prompts come from the versioned provider catalog shipped
 with each kwatch release. Version 1 covers every supported notification
 provider and its documented fields; credentials are automatically stored as
-Secret-backed files. See the website's [complete provider reference](/docs/channels/providers)
+Secret-backed files. Choice groups, conditional fields, and at-least-one
+destination groups are interpreted from the catalog, not hard-coded per
+provider. See the website's [complete provider reference](/docs/channels/providers)
 for the same catalog rendered as a field reference.
 
 ## 📋 Commands

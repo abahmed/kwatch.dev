@@ -941,8 +941,7 @@ restore_backup() {
   rm -f "$backup_file"
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
-  kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m >/dev/null
+  restart_kwatch
 }
 
 config_value() {
@@ -1489,10 +1488,7 @@ configure_flow() {
         fi
         kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
           "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
-        if ! with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
-          rollout restart "deployment/$(deployment_name)" >/dev/null \
-          || ! with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
-          rollout status "deployment/$(deployment_name)" --timeout=5m; then
+        if ! restart_kwatch; then
           echo "Configuration failed validation; restoring backup." >&2
           restore_backup
           die "configuration update failed"
@@ -1513,20 +1509,9 @@ configure_alert_flow() {
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" -o yaml >"$backup" 2>/dev/null || true
   write_config_secret
   deployment=$(deployment_name)
-  if [ -n "$deployment" ] && ! with_loading "Restarting kwatch" \
-    kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null; then
+  if [ -n "$deployment" ] && ! restart_kwatch; then
     kubectl apply -f "$backup" >/dev/null 2>&1 || true
     die "could not restart kwatch after changing the notification destination"
-  fi
-  if [ -n "$deployment" ] && ! with_loading "Waiting for kwatch rollout" \
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m; then
-    echo "Notification update failed; restoring the previous credential and configuration." >&2
-    [ -s "$backup" ] && kubectl apply -f "$backup" >/dev/null
-    with_loading "Restoring kwatch" kubectl -n "$NAMESPACE" rollout restart \
-      "deployment/$deployment" >/dev/null
-    with_loading "Waiting for restored rollout" kubectl -n "$NAMESPACE" \
-      rollout status "deployment/$deployment" --timeout=5m >/dev/null
-    die "notification update failed"
   fi
   echo "Notification destination updated."
 }
@@ -1702,6 +1687,19 @@ deployment_name() {
   kubectl -n "$NAMESPACE" get deployment \
     -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+restart_kwatch() {
+  local deployment
+  deployment=$(deployment_name || true)
+  if [ -z "$deployment" ]; then
+    ui_error "❌ kwatch Deployment was not found; configuration was not activated."
+    return 1
+  fi
+  with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
+    rollout restart "deployment/$deployment" >/dev/null || return 1
+  with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
+    rollout status "deployment/$deployment" --timeout=5m || return 1
 }
 
 resolve_action() {
@@ -2185,12 +2183,14 @@ write_config_secret() {
 }
 
 apply_manifests() {
-  local version="$1" tmp crd_tmp deployment existing_deployment
+  local version="$1" tmp crd_tmp apply_tmp="" deployment existing_deployment
+  local manifest_to_apply
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   existing_deployment=$(deployment_name || true)
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
-  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
+  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" \
+    "${apply_tmp:-}" "${apply_tmp:-}.bak" 2>/dev/null || true' RETURN
   with_loading "Downloading CRD for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
@@ -2215,16 +2215,30 @@ apply_manifests() {
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
+  manifest_to_apply="$tmp"
   if [ -n "$existing_deployment" ]; then
     # Deployment selectors are immutable. Omit the selector on updates so
     # Kubernetes preserves the selector used by an older kwatch release.
+    apply_tmp=$(mktemp)
+    cp "$tmp" "$apply_tmp" || return 1
     sed -i.bak \
       -e '/^  selector:$/,/^  template:$/ { /^  template:$/!d; }' \
-      "$tmp"
+      "$apply_tmp"
+    manifest_to_apply="$apply_tmp"
   fi
-  if ! with_loading "Applying kwatch Deployment" kubectl apply -f "$tmp"; then
-    ui_error "❌ Could not apply the kwatch Deployment. Existing resources were preserved."
-    return 1
+  if ! with_loading "Applying kwatch Deployment" kubectl apply -f \
+    "$manifest_to_apply"; then
+    if [ -n "$existing_deployment" ] && recreate_deployment \
+      "$existing_deployment" "$tmp"; then
+      ui_success \
+        "🛠️ Recreated the kwatch Deployment" \
+        "while preserving configuration."
+    else
+      ui_error \
+        "❌ Could not apply the kwatch Deployment." \
+        "Existing configuration and Secrets were preserved."
+      return 1
+    fi
   fi
   if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
     enable_initial_tls_monitor
@@ -2236,6 +2250,21 @@ apply_manifests() {
   with_loading "Waiting for kwatch rollout" \
     kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
     --timeout=5m
+}
+
+recreate_deployment() {
+  local deployment="$1" manifest="$2"
+  ui_warn \
+    "⚠️ Existing Deployment could not be reconciled; recreating it" \
+    "while preserving KwatchConfig and Secrets."
+  with_loading "Removing invalid kwatch Deployment" kubectl -n "$NAMESPACE" \
+    delete deployment "$deployment" --ignore-not-found --wait=true || return 1
+  with_loading "Recreating kwatch Deployment" kubectl apply -f "$manifest" || {
+    ui_error \
+      "❌ Deployment recreation failed." \
+      "KwatchConfig and Secrets were not removed."
+    return 1
+  }
 }
 
 verify_operational_security() {

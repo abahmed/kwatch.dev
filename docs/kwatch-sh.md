@@ -53,14 +53,6 @@ If your kubeconfig has more than one context, the manager shows the contexts
 and asks you to choose one. It passes that context explicitly to `kubectl`; it
 does not change your current context.
 
-Use another namespace or release name with environment variables:
-
-```bash
-KWATCH_NAMESPACE=platform-monitoring \
-KWATCH_RELEASE=kwatch-prod \
-  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
-```
-
 ## 📋 Commands
 
 The same URL can run a command directly:
@@ -116,4 +108,3 @@ kubectl logs -n kwatch deployment/kwatch
 
 Run the manager again and choose **Show status**. For manual installation and
 Helm, see [Installation](/docs/installation).
-

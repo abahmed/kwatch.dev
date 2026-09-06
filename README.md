@@ -55,8 +55,9 @@ The kwatch release workflow updates `src/data/releases.json` automatically:
 - a stable release updates the stable install link and clears the preview; and
 - the website is built and deployed after the metadata commit.
 
-The release workflow also updates the main kwatch README. Keep version pins in
-the release-managed blocks only.
+The release workflow keeps manifest, chart, and catalog versions current. The
+main kwatch README is intentionally version-free; install and RC selection are
+handled by the interactive `kwatch.sh` manager.
 
 ### 🌐 Deployment
 

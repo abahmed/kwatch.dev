@@ -579,19 +579,74 @@ CATALOG=(
   'ignoreNodeMessages|list|legacy|Compatibility|Legacy node-message suppression field.|deprecated|silences'
 )
 
-die() { echo "Error: $*" >&2; exit 1; }
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ]; then
+  UI_RESET=$'\033[0m'
+  UI_BOLD=$'\033[1m'
+  UI_CYAN=$'\033[36m'
+  UI_GREEN=$'\033[32m'
+  UI_YELLOW=$'\033[33m'
+  UI_RED=$'\033[31m'
+  UI_DIM=$'\033[2m'
+  UI_CLEAR=$'\033[K'
+else
+  UI_RESET=""
+  UI_BOLD=""
+  UI_CYAN=""
+  UI_GREEN=""
+  UI_YELLOW=""
+  UI_RED=""
+  UI_DIM=""
+  UI_CLEAR=""
+fi
+
+ui_info() { printf '%s%s%s\n' "$UI_CYAN" "$*" "$UI_RESET" >&2; }
+ui_success() { printf '%s%s%s\n' "$UI_GREEN" "$*" "$UI_RESET" >&2; }
+ui_warn() { printf '%s%s%s\n' "$UI_YELLOW" "$*" "$UI_RESET" >&2; }
+ui_error() { printf '%s%s%s\n' "$UI_RED" "$*" "$UI_RESET" >&2; }
+
+with_loading() {
+  local label="$1"; shift
+  local output_file pid frame=0 index char rc
+  local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
+  if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
+    "$@" 2>/dev/null
+    return
+  fi
+  output_file=$(mktemp)
+  "$@" >"$output_file" 2>&1 &
+  pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    index=$((frame % ${#spinner_frames[@]}))
+    char="${spinner_frames[$index]}"
+    printf '\r%s⏳ %s %s%s' "$UI_CYAN" "$label" "$char" "$UI_CLEAR" >&2
+    sleep 0.1
+    frame=$((frame + 1))
+  done
+  if wait "$pid"; then
+    printf '\r%s✅ %s%s%s\n' "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+    cat "$output_file"
+    rm -f "$output_file"
+    return 0
+  fi
+  rc=$?
+  printf '\r%s❌ %s%s%s\n' "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  rm -f "$output_file"
+  return "$rc"
+}
+
+die() { ui_error "Error: $*"; exit 1; }
 need() { type -P "$1" >/dev/null 2>&1 || die "'$1' is required"; }
 require_tools() { need kubectl; need curl; }
 ask() {
   local prompt="$1" default="${2:-}" answer
   [ -n "$default" ] && prompt="$prompt [$default]"
-  printf '%s: ' "$prompt" >&2
+  printf '%s%s%s: ' "$UI_BOLD" "$prompt" "$UI_RESET" >&2
   IFS= read -r answer
   printf '%s' "${answer:-$default}"
 }
 ask_secret() {
   local prompt="$1" answer
-  printf '%s: ' "$prompt" >&2
+  printf '%s%s%s: ' "$UI_BOLD" "$prompt" "$UI_RESET" >&2
   IFS= read -r -s answer
   printf '\n' >&2
   printf '%s' "$answer"
@@ -628,7 +683,7 @@ kubectl() {
 }
 
 select_context() {
-  local current choice index context server
+  local current choice index context server default_choice=""
   local -a contexts=()
   while IFS= read -r context; do
     [ -n "$context" ] && contexts+=("$context")
@@ -641,15 +696,17 @@ select_context() {
   else
     [ -t 0 ] || die "multiple Kubernetes contexts found; an interactive terminal is required to choose one"
     echo >&2
-    echo "Select the Kubernetes cluster to manage:" >&2
+    ui_info "🧭 Select the Kubernetes cluster to manage:"
     for index in "${!contexts[@]}"; do
       if [ "${contexts[$index]}" = "$current" ]; then
         echo "  $((index + 1))) ${contexts[$index]} (current)" >&2
+        default_choice=$((index + 1))
       else
         echo "  $((index + 1))) ${contexts[$index]}" >&2
       fi
     done
-    choice=$(ask "Cluster number" "")
+    [ -n "$default_choice" ] || default_choice=1
+    choice=$(ask "Cluster number (Enter keeps current)" "$default_choice")
     [[ "$choice" =~ ^[0-9]+$ ]] || die "choose a cluster number"
     [ "$choice" -ge 1 ] && [ "$choice" -le "${#contexts[@]}" ] || die "cluster choice is out of range"
     SELECTED_CONTEXT="${contexts[$((choice - 1))]}"
@@ -658,8 +715,8 @@ select_context() {
   server=$(command kubectl --context "$SELECTED_CONTEXT" config view --minify \
     -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
   [ -n "$server" ] || die "could not read the Kubernetes server for context '$SELECTED_CONTEXT'"
-  echo "Selected cluster: $SELECTED_CONTEXT" >&2
-  echo "Kubernetes server: $server" >&2
+  ui_success "Selected cluster: $SELECTED_CONTEXT"
+  ui_info "Kubernetes server: $server"
 }
 
 catalog_entry() {
@@ -700,8 +757,9 @@ load_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
-      "$BASE_URL/$version/deploy/config-catalog.tsv" -o "$tmp" 2>/dev/null \
+  if [ -n "$version" ] && with_loading "Loading configuration catalog" \
+      curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
+      "$BASE_URL/$version/deploy/config-catalog.tsv" -o "$tmp" \
       && load_catalog_file "$tmp"; then
     CATALOG_SOURCE="release:$version"
     cache_catalog "$tmp"
@@ -751,8 +809,9 @@ load_feature_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
-      "$BASE_URL/$version/deploy/feature-catalog.tsv" -o "$tmp" 2>/dev/null \
+  if [ -n "$version" ] && with_loading "Loading feature catalog" \
+      curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
+      "$BASE_URL/$version/deploy/feature-catalog.tsv" -o "$tmp" \
       && load_feature_catalog_file "$tmp"; then
     FEATURE_CATALOG_SOURCE="release:$version"
     cache_feature_catalog "$tmp"
@@ -808,8 +867,9 @@ load_provider_catalog_for_version() {
   local version="${1:-}" tmp cached
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  if [ -n "$version" ] && curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
-      "$BASE_URL/$version/deploy/provider-catalog.tsv" -o "$tmp" 2>/dev/null \
+  if [ -n "$version" ] && with_loading "Loading provider catalog" \
+      curl -fsSL --location --retry 2 --retry-delay 1 --connect-timeout 8 \
+      "$BASE_URL/$version/deploy/provider-catalog.tsv" -o "$tmp" \
       && load_provider_catalog_file "$tmp"; then
     PROVIDER_CATALOG_SOURCE="release:$version"
     cache_provider_catalog "$tmp"
@@ -897,8 +957,10 @@ ensure_crd() {
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
-    "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" || die "could not download the CRD for $version"
+  with_loading "Downloading CRD for $version" curl -fsSL --location \
+    --retry 3 --retry-delay 2 --connect-timeout 10 \
+    "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" ||
+    die "could not download the CRD for $version"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
   kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" >/dev/null
   kubectl wait --for=condition=Established \
@@ -1536,7 +1598,8 @@ preflight_config_resource() {
 
 latest_version() {
   local response version
-  response=$(curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 "$RELEASES_URL") || return 1
+  response=$(with_loading "Checking stable release" curl -fsSL --location \
+    --retry 3 --retry-delay 2 --connect-timeout 10 "$RELEASES_URL") || return 1
   version=$(printf '%s' "$response" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
   valid_release_version "$version" || return 1
   printf '%s' "$version"
@@ -1544,8 +1607,8 @@ latest_version() {
 
 latest_release_candidate() {
   local response tag
-  response=$(curl -fsSL --location --retry 3 --retry-delay 2 \
-    --connect-timeout 10 "$RELEASES_LIST_URL") || return 1
+  response=$(with_loading "Checking release candidates" curl -fsSL --location \
+    --retry 3 --retry-delay 2 --connect-timeout 10 "$RELEASES_LIST_URL") || return 1
   while IFS= read -r tag; do
     if [[ "$tag" == *-rc.* ]] && valid_release_version "$tag"; then
       printf '%s' "$tag"
@@ -1566,9 +1629,9 @@ select_release_version() {
     printf '%s' "$stable"
     return 0
   fi
-  echo "Available kwatch releases:" >&2
-  echo "  1) Stable ($stable) [recommended]" >&2
-  echo "  2) Release candidate ($preview)" >&2
+  ui_info "📦 Available kwatch releases:"
+  echo "  1) ${UI_GREEN}✅ Stable ($stable)${UI_RESET} [recommended]" >&2
+  echo "  2) ${UI_YELLOW}🧪 Release candidate ($preview)${UI_RESET}" >&2
   choice=$(ask "Release channel" "1")
   case "$choice" in
     1) printf '%s' "$stable" ;;
@@ -1608,27 +1671,38 @@ installed_version() {
 }
 
 maybe_load_catalog() {
-  local version="${1:-}"
+  local version="${1:-}" catalog_version fallback_version
   if [ -z "$version" ]; then
     version=$(installed_version || true)
   fi
   if [ -z "$version" ]; then
     version=$(latest_version || true)
   fi
-  if load_catalog_for_version "$version"; then
-    echo "Configuration catalog: $CATALOG_SOURCE" >&2
+  catalog_version="$version"
+  if [ -n "$version" ] && load_catalog_for_version "$version"; then
+    ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($version)"
   else
-    echo "Configuration catalog: embedded fallback" >&2
+    fallback_version=$(latest_release_candidate || true)
+    if [ -n "$fallback_version" ] &&
+      [ "$fallback_version" != "$version" ] &&
+      load_catalog_for_version "$fallback_version"; then
+      catalog_version="$fallback_version"
+      ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($catalog_version)"
+    else
+      ui_warn "⚠️ Configuration catalog: embedded fallback"
+    fi
   fi
-  if load_feature_catalog_for_version "$version"; then
-    echo "Feature catalog: $FEATURE_CATALOG_SOURCE" >&2
+  if [ -n "$catalog_version" ] &&
+    load_feature_catalog_for_version "$catalog_version"; then
+    ui_success "🧩 Feature catalog: $FEATURE_CATALOG_SOURCE ($catalog_version)"
   else
-    echo "Feature catalog: unavailable (the running image still enforces its feature plan)" >&2
+    ui_warn "⚠️ Feature catalog: unavailable; feature enforcement remains in the image"
   fi
-  if load_provider_catalog_for_version "$version"; then
-    echo "Provider catalog: $PROVIDER_CATALOG_SOURCE" >&2
+  if [ -n "$catalog_version" ] &&
+    load_provider_catalog_for_version "$catalog_version"; then
+    ui_success "🔌 Provider catalog: $PROVIDER_CATALOG_SOURCE ($catalog_version)"
   else
-    echo "Provider catalog: embedded fallback" >&2
+    ui_warn "⚠️ Provider catalog: embedded fallback"
   fi
 }
 
@@ -1885,13 +1959,15 @@ apply_manifests() {
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
   trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
-  curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
+  with_loading "Downloading CRD for $version" curl -fsSL --location \
+    --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
   kubectl apply -f "$crd_tmp"
   kubectl wait --for=condition=Established \
     crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
   preflight_config_resource
-  curl -fsSL --location --retry 3 --retry-delay 2 --connect-timeout 10 \
+  with_loading "Downloading deployment for $version" curl -fsSL --location \
+    --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/deploy.yaml" -o "$tmp" || return 1
   grep -q '^kind: Deployment$' "$tmp" || return 1
   sed -i.bak \
@@ -2035,19 +2111,19 @@ install_flow() {
   apply_operational_namespace_labels
   preflight_access install
   record_state preflight "$version" "cluster selected and reachable"
-  echo "🚀 Installing kwatch $version..."
+  ui_info "🚀 Installing kwatch $version..."
   record_state backup "$version" "creating notification Secret"
   choose_tls_monitor
   write_config_secret
   record_state apply "$version" "applying CRD and Deployment"
   if ! apply_manifests "$version" || ! verify_operational_security; then
     record_state failed "$version" "installation failed; workload cleanup attempted"
-    echo "Installation failed; removing the workload resources that were created." >&2
+    ui_error "Installation failed; removing the workload resources that were created."
     remove_namespaced_workload
     die "installation failed; the CRD and any configuration resource were preserved"
   fi
   record_state complete "$version" "installation verified"
-  echo "✅ kwatch is ready."
+  ui_success "✅ kwatch is ready."
 }
 
 upgrade_flow() {
@@ -2055,7 +2131,7 @@ upgrade_flow() {
   confirm_resume
   version=$(select_release_version) || die "could not determine kwatch release from GitHub"
   maybe_load_catalog "$version"
-  echo "⬆️ Upgrading kwatch to $version..."
+  ui_info "⬆️ Upgrading kwatch to $version..."
   apply_operational_namespace_labels
   record_state preflight "$version" "upgrade started"
   ensure_crd "$version"
@@ -2079,7 +2155,7 @@ upgrade_flow() {
     die "upgrade failed"
   fi
   record_state complete "$version" "upgrade verified"
-  echo "✅ kwatch upgraded successfully."
+  ui_success "✅ kwatch upgraded successfully."
 }
 
 status_flow() {
@@ -2116,7 +2192,7 @@ uninstall_flow() {
 }
 
 main() {
-  local action="${1:-}"
+  local action="${1:-}" installed
   case "$action" in
     --help|-h)
       echo "Usage: kwatch.sh [install|configure-alert|configure|upgrade|status|features|uninstall]"
@@ -2130,10 +2206,11 @@ main() {
   esac
   require_tools
   select_context
-  maybe_load_catalog
-  migration_notice
   if [ -z "$action" ]; then
-    if [ -n "$(deployment_name)" ]; then
+    installed=$(deployment_name)
+    if [ -n "$installed" ]; then
+      maybe_load_catalog
+      migration_notice
       cat >&2 <<'EOF'
 
 ✅ kwatch is already installed:
@@ -2153,6 +2230,11 @@ EOF
     else
       action=install
     fi
+  else
+    case "$action" in
+      install|upgrade|uninstall) ;;
+      *) maybe_load_catalog; migration_notice ;;
+    esac
   fi
   case "$action" in
     install) install_flow ;; configure-alert) configure_alert_flow ;; configure) configure_flow ;; upgrade) upgrade_flow ;;

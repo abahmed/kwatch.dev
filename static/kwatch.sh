@@ -17,6 +17,7 @@ PROVIDER_CATALOG_SOURCE="embedded"
 CONFIG_MOUNT_PATH="/config"
 
 # provider|display|field|type|required|secret|validation|default|description
+# Optional trailing columns are group and condition metadata.
 PROVIDER_CATALOG=(
   'slack|Slack|webhook|string|false|true|url||Slack webhook URL|authentication|choice:webhook'
   'slack|Slack|channel|string|false|false|||Override channel||required-if:authentication=token'
@@ -75,8 +76,8 @@ PROVIDER_CATALOG=(
   'pushover|Pushover|priority|integer|false|false|integer||Priority (optional)'
   'pushover|Pushover|title|string|false|false|||Custom title'
   'webex|Webex|accessToken|string|true|true|||Bot access token'
-  'webex|Webex|roomId|string|false|false|||Room ID (optional)'
-  'webex|Webex|toPersonEmail|string|false|false|||Person email (optional)'
+  'webex|Webex|roomId|string|false|false|||Room ID (at least one destination required)|destination|at-least-one'
+  'webex|Webex|toPersonEmail|string|false|false|||Person email (at least one destination required)|destination|at-least-one'
   'github|GitHub|token|string|true|true|||Personal access token'
   'github|GitHub|owner|string|true|false|||Repository owner'
   'github|GitHub|repo|string|true|false|||Repository name'
@@ -878,6 +879,7 @@ load_provider_catalog_file() {
     if [ -n "$condition" ]; then
       case "$condition" in
         choice:*) [ -n "$group" ] || return 1 ;;
+        at-least-one) [ -n "$group" ] || return 1 ;;
         required-if:*) [[ "$condition" = *"="* ]] || return 1 ;;
         *) return 1 ;;
       esac
@@ -1282,7 +1284,8 @@ write_webhook_headers() {
     done
     while true; do
       value=$(ask_secret "Header $i value")
-      if [ -n "$value" ] && [[ ! "$value" =~ $'\n'|$'\r' ]]; then
+      if [ -n "$value" ] && [[ "$value" != *$'\n'* &&
+        "$value" != *$'\r'* ]]; then
         break
       fi
       ui_warn "⚠️ Header value must be a non-empty single line."
@@ -1951,6 +1954,39 @@ set_provider_group_value() {
   PROVIDER_GROUP_SELECTIONS="${PROVIDER_GROUP_SELECTIONS}${group}=${value}|"
 }
 
+provider_group_present() {
+  local group="$1"
+  case "${PROVIDER_GROUP_PRESENCE:-|}" in
+    *"|$group|"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+mark_provider_group_present() {
+  local group="$1"
+  [ -n "$group" ] || return 0
+  provider_group_present "$group" ||
+    PROVIDER_GROUP_PRESENCE="${PROVIDER_GROUP_PRESENCE:-|}${group}|"
+}
+
+provider_group_has_later_field() {
+  local target_group="$1" current_field="$2"
+  local entry provider display field type required secret validation default
+  local description group condition seen=false
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
+    [ "$provider" = "$PROVIDER" ] || continue
+    [ "$group" = "$target_group" ] || continue
+    [ "$condition" = at-least-one ] || continue
+    if [ "$seen" = true ]; then
+      return 0
+    fi
+    [ "$field" = "$current_field" ] && seen=true
+  done
+  return 1
+}
+
 select_provider_groups() {
   local entry provider display field type required secret validation default
   local description group condition choice value selected i
@@ -2012,6 +2048,7 @@ provider_condition_matches() {
       expected="${condition#choice:}"
       [ "$selected" = "$expected" ]
       ;;
+    at-least-one) return 0 ;;
     required-if:*)
       expression="${condition#required-if:}"
       group="${expression%%=*}"
@@ -2107,9 +2144,11 @@ write_config_secret() {
   local field_description
   local configure_optional
   local old_provider encoded old_config_file
+  local field_required
   SECRET_ARGS=()
   WRITTEN_PROVIDER_SECTIONS="|"
   WRITTEN_CONFIG_SECTIONS="|"
+  PROVIDER_GROUP_PRESENCE="|"
   tmp_dir=$(mktemp -d)
   config_tmp="$tmp_dir/config.yaml"
   trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
@@ -2152,15 +2191,24 @@ write_config_secret() {
       required-if:*)
         provider_condition_matches "$group" "$condition" && required=true
         ;;
+      at-least-one) ;;
     esac
+    field_required="$required"
+    if [ "$condition" = at-least-one ] &&
+      ! provider_group_present "$group" &&
+      ! provider_group_has_later_field "$group" "$field"; then
+      field_required=true
+    fi
     if [ "$required" != true ] && [ "$configure_optional" = false ] &&
       [ -z "$condition" ]; then
       if [ "$secret" = true ] &&
         preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+        mark_provider_group_present "$group"
         :
       elif [ "$provider" = "$old_provider" ] &&
         preserve_provider_optional "$config_tmp" "$provider" "$field" \
         "$type" "$tmp_dir"; then
+        mark_provider_group_present "$group"
         :
       elif [ -n "$default" ] && [ "$type" != headers ]; then
         write_provider_value "$config_tmp" "$field" "$type" "$default"
@@ -2174,7 +2222,7 @@ write_config_secret() {
     fi
     while true; do
       field_description="$description"
-      if [ "$required" = false ]; then
+      if [ "$field_required" = false ]; then
         field_description="$description (optional; Enter to skip)"
       fi
       value=$(prompt_provider_value "$field" "$type" "$secret" \
@@ -2182,9 +2230,16 @@ write_config_secret() {
       if [ -z "$value" ]; then
         if [ "$secret" = true ] &&
           preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+          mark_provider_group_present "$group"
           break
         fi
-        if [ "$required" = true ]; then
+        if [ "$provider" = "$old_provider" ] &&
+          preserve_provider_optional "$config_tmp" "$provider" "$field" \
+          "$type" "$tmp_dir"; then
+          mark_provider_group_present "$group"
+          break
+        fi
+        if [ "$field_required" = true ]; then
           ui_warn "⚠️ $field cannot be empty."
           continue
         fi
@@ -2195,6 +2250,7 @@ write_config_secret() {
       else
         write_provider_value "$config_tmp" "$field" "$type" "$value"
       fi
+      mark_provider_group_present "$group"
       break
     done
   done

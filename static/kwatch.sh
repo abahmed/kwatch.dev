@@ -36,7 +36,7 @@ PROVIDER_CATALOG=(
   'line|LINE|token|string|true|true|||LINE Notify access token'
   'pagerduty|PagerDuty|integrationKey|string|true|true|||PagerDuty integration key'
   'telegram|Telegram|token|string|true|true|||Bot token'
-  'telegram|Telegram|chatId|string|true|false|telegram-chat-id||Chat ID'
+  'telegram|Telegram|chatId|string|true|false|signed-integer||Chat ID'
   'teams|Teams|webhook|string|true|true|url||Webhook URL'
   'teams|Teams|title|string|false|false|||Custom title'
   'teams|Teams|text|string|false|false|||Custom text'
@@ -2094,9 +2094,9 @@ prompt_provider_value() {
           ui_warn "⚠️ $field must be an http or https URL."; continue;
         }
         ;;
-      telegram-chat-id)
+      signed-integer|telegram-chat-id)
         [[ "$value" =~ ^-?[0-9]+$ ]] || {
-          ui_warn "⚠️ $field must be a Telegram chat ID."; continue;
+          ui_warn "⚠️ $field must be a signed integer."; continue;
         }
         ;;
       port)

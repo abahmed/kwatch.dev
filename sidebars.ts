@@ -6,7 +6,7 @@ const sidebars: SidebarsConfig = {
     {
       type: 'category',
       label: '🚀 Install kwatch',
-      items: ['installation', 'kwatch-manager'],
+      items: ['installation', 'kwatch-manager', 'kwatch-sh'],
     },
     {
       type: 'category',
@@ -57,6 +57,17 @@ const sidebars: SidebarsConfig = {
         'architecture/infrastructure-packages',
         'architecture/data-flow',
         'architecture/design-decisions',
+      ],
+    },
+    {
+      type: 'category',
+      label: '📚 Reference & trust',
+      items: [
+        'kubernetes-coverage',
+        'release-integrity',
+        'licensing',
+        'third-party-notices',
+        'trademarks',
       ],
     },
     {

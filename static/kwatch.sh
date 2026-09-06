@@ -2133,8 +2133,9 @@ write_config_secret() {
 }
 
 apply_manifests() {
-  local version="$1" tmp crd_tmp deployment
+  local version="$1" tmp crd_tmp deployment existing_deployment
   valid_release_version "$version" || die "invalid kwatch release version: $version"
+  existing_deployment=$(deployment_name || true)
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
   trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
@@ -2145,6 +2146,7 @@ apply_manifests() {
   kubectl wait --for=condition=Established \
     crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
   preflight_config_resource
+  ensure_config_resource
   with_loading "Downloading deployment for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/deploy.yaml" -o "$tmp" || return 1
@@ -2159,8 +2161,17 @@ apply_manifests() {
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
-  kubectl apply -f "$tmp"
-  ensure_config_resource
+  if [ -n "$existing_deployment" ]; then
+    # Deployment selectors are immutable. Omit the selector on updates so
+    # Kubernetes preserves the selector used by an older kwatch release.
+    sed -i.bak \
+      -e '/^  selector:$/,/^  template:$/ { /^  template:$/!d; }' \
+      "$tmp"
+  fi
+  if ! kubectl apply -f "$tmp"; then
+    ui_error "❌ Could not apply the kwatch Deployment. Existing resources were preserved."
+    return 1
+  fi
   if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
     enable_initial_tls_monitor
   elif [ "$(config_value tlsMonitor.enabled)" = true ]; then

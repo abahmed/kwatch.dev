@@ -106,7 +106,7 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.telegram.token` | `string` | yes | yes | — | — | Bot token |
-| `alert.telegram.chatId` | `string` | yes | no | telegram-chat-id | — | Chat ID |
+| `alert.telegram.chatId` | `string` | yes | no | signed-integer | — | Chat ID |
 | `alert.telegram.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.telegram.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.telegram.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |

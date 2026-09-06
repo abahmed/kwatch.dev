@@ -153,7 +153,7 @@ an `Enabled` bool plus the monitor's own timing/threshold fields.
 | `Inhibition` | `nodeSuppressesPods` (default true) | Pod alerts suppressed while their node is down |
 | `HealthCheck` | `enabled`, `port` (default 8060), `pprof`, `diagnostics`, `diagnosticsToken` | Health server |
 | `AuditLogConfig` | `enabled`, `output` (`stdout` or file path) | Structured JSON audit log |
-| `SilenceRule` | `namespaces`, `reasons`, `podNamePatterns`, `logPatterns`, `nodeReasons`, ... | Alert suppression rules |
+| `SilenceRule` | `namespaces`, `reasons`, `podNamePatterns`, `logPatterns`, `containerMessages`, `eventMessages`, `nodeReasons`, ... | Alert suppression rules |
 | `AlertRoute` | `namespaces`, `severities`, `reasons` | Per-provider routing filters |
 
 `config.KnownProviders` is the canonical set of provider names (56). Both

@@ -198,6 +198,7 @@ Build rules from anything on the incident:
 | `containerNames` | `[]string` | Suppress matching container names. |
 | `logPatterns` | `[]string` | Regex patterns for log content. |
 | `containerMessages` | `[]string` | Substring match on container status message. |
+| `eventMessages` | `[]string` | Substring match on an attached Kubernetes Event message. |
 | `nodeReasons` | `[]string` | Suppress matching node reasons. |
 | `nodeMessages` | `[]string` | Substring match on node condition message. |
 
@@ -206,9 +207,14 @@ silences:
   - namespaces: ["kube-system"]
   - reasons: ["BackOff"]
   - podNamePatterns: ["my-fancy-pod-.*"]
+  - eventMessages: ["failed to sync configmap cache"]
   - nodeReasons: ["KubeletNotReady"]
     nodeMessages: ["kubelet has no node IP"]
 ```
+
+`eventMessages` uses a case-sensitive substring match against Events attached
+to the affected Pod. It suppresses the whole incident; `includeEvents` only
+controls whether those Events are shown in the notification.
 
 > **Deprecated top-level fields** (`ignoreContainerNames`, `ignorePodNames`,
 > `ignoreLogPatterns`, `ignoreContainerMessages`, `ignoreNodeReasons`,

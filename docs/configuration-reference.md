@@ -156,7 +156,7 @@ the chart and interactive installer enable it for you.
 | `auditLog.output` | `string` | `stdout` | Operations | Audit output: stdout or a supported output sink. | `active` | `—` |
 | `templates` | `json` | `{}` | Operations | JSON map of optional reason-specific message templates. | `active` | `—` |
 | `runbooks` | `json` | `{}` | Operations | JSON map of reason-to-runbook URLs. | `active` | `—` |
-| `silences` | `json` | `[]` | Noise reduction | JSON array of scoped silence rules. | `active` | `—` |
+| `silences` | `json` | `[]` | Noise reduction | JSON array of scoped silence rules, including `eventMessages` substring matches for attached Kubernetes Events. | `active` | `—` |
 | `ignoreContainerNames` | `list` | `legacy` | Compatibility | Legacy container suppression field. | `deprecated` | `silences` |
 | `ignorePodNames` | `list` | `legacy` | Compatibility | Legacy pod-name suppression field. | `deprecated` | `silences` |
 | `ignoreLogPatterns` | `list` | `legacy` | Compatibility | Legacy log suppression field. | `deprecated` | `silences` |

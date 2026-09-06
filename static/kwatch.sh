@@ -1685,7 +1685,38 @@ deployment_name() {
   fi
   kubectl -n "$NAMESPACE" get deployment \
     -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+resolve_action() {
+  local requested="$1" existing_deployment has_config has_secret
+  existing_deployment=$(deployment_name || true)
+  has_config=false
+  has_secret=false
+  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
+    has_config=true
+  fi
+  if kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" >/dev/null 2>&1; then
+    has_secret=true
+  fi
+  case "$requested" in
+    install)
+      if [ -n "$existing_deployment" ]; then
+        ui_warn "🔄 An existing kwatch Deployment was found; treating install as upgrade to preserve it."
+        printf 'upgrade'
+        return 0
+      fi
+      ;;
+    upgrade)
+      if [ -z "$existing_deployment" ] &&
+        { [ "$has_config" = true ] || [ "$has_secret" = true ]; }; then
+        ui_warn "🧭 Existing kwatch configuration was found without a Deployment; treating upgrade as install."
+        printf 'install'
+        return 0
+      fi
+      ;;
+  esac
+  printf '%s' "$requested"
 }
 
 installed_version() {
@@ -2433,6 +2464,7 @@ EOF
       action=install
     fi
   else
+    action=$(resolve_action "$action")
     case "$action" in
       install|upgrade|uninstall) ;;
       *) maybe_load_catalog; migration_notice ;;

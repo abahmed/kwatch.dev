@@ -15,7 +15,7 @@ Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Ku
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `token` | `string` | yes | yes | — | — | Bot token |
-| `chatId` | `string` | yes | no | telegram-chat-id | — | Chat ID |
+| `chatId` | `string` | yes | no | signed-integer | — | Chat ID |
 | `routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |

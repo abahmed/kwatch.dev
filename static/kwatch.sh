@@ -611,7 +611,7 @@ with_loading() {
   local output_file pid frame=0 index char rc
   local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
   if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
-    "$@" 2>/dev/null
+    "$@"
     return
   fi
   output_file=$(mktemp)
@@ -625,13 +625,20 @@ with_loading() {
     frame=$((frame + 1))
   done
   if wait "$pid"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  if [ "$rc" -eq 0 ]; then
     printf '%s%s✅ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
     cat "$output_file"
     rm -f "$output_file"
     return 0
   fi
-  rc=$?
   printf '%s%s❌ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  if [ -s "$output_file" ]; then
+    cat "$output_file" >&2
+  fi
   rm -f "$output_file"
   return "$rc"
 }
@@ -980,9 +987,12 @@ ensure_crd() {
     "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" ||
     die "could not download the CRD for $version"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
-  kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" >/dev/null
-  kubectl wait --for=condition=Established \
-    crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
+  with_loading "Applying CRD" \
+    kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" \
+    >/dev/null || die "could not apply the CRD for $version"
+  with_loading "Waiting for CRD readiness" kubectl wait \
+    --for=condition=Established crd/kwatchconfigs.kwatch.abahmed.dev \
+    --timeout=60s >/dev/null || die "CRD did not become ready"
 }
 
 json_escape() {
@@ -1479,8 +1489,10 @@ configure_flow() {
         fi
         kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
           "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
-        if ! kubectl -n "$NAMESPACE" rollout restart "deployment/$(deployment_name)" >/dev/null \
-          || ! kubectl -n "$NAMESPACE" rollout status "deployment/$(deployment_name)" --timeout=5m; then
+        if ! with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
+          rollout restart "deployment/$(deployment_name)" >/dev/null \
+          || ! with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
+          rollout status "deployment/$(deployment_name)" --timeout=5m; then
           echo "Configuration failed validation; restoring backup." >&2
           restore_backup
           die "configuration update failed"
@@ -1501,15 +1513,19 @@ configure_alert_flow() {
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" -o yaml >"$backup" 2>/dev/null || true
   write_config_secret
   deployment=$(deployment_name)
-  if [ -n "$deployment" ] && ! kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null; then
+  if [ -n "$deployment" ] && ! with_loading "Restarting kwatch" \
+    kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null; then
     kubectl apply -f "$backup" >/dev/null 2>&1 || true
     die "could not restart kwatch after changing the notification destination"
   fi
-  if [ -n "$deployment" ] && ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m; then
+  if [ -n "$deployment" ] && ! with_loading "Waiting for kwatch rollout" \
+    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m; then
     echo "Notification update failed; restoring the previous credential and configuration." >&2
     [ -s "$backup" ] && kubectl apply -f "$backup" >/dev/null
-    kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m >/dev/null
+    with_loading "Restoring kwatch" kubectl -n "$NAMESPACE" rollout restart \
+      "deployment/$deployment" >/dev/null
+    with_loading "Waiting for restored rollout" kubectl -n "$NAMESPACE" \
+      rollout status "deployment/$deployment" --timeout=5m >/dev/null
     die "notification update failed"
   fi
   echo "Notification destination updated."
@@ -1992,6 +2008,13 @@ prompt_provider_value() {
   done
 }
 
+apply_config_secret() {
+  kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
+    --from-file=config.yaml="$config_tmp" \
+    "${SECRET_ARGS[@]}" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
 write_config_secret() {
   local secret_name="${RELEASE}-config" tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
@@ -2153,10 +2176,8 @@ write_config_secret() {
       ui_warn "⚠️ $path must be a valid single-line secret value. Try again."
     done
   done
-  kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
-    --from-file=config.yaml="$config_tmp" \
-    "${SECRET_ARGS[@]}" \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  with_loading "Saving notification configuration" apply_config_secret ||
+    die "could not save the notification configuration"
   kubectl -n "$NAMESPACE" label secret "$secret_name" \
     app.kubernetes.io/instance="$RELEASE" \
     app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null
@@ -2173,9 +2194,11 @@ apply_manifests() {
   with_loading "Downloading CRD for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
-  kubectl apply -f "$crd_tmp"
-  kubectl wait --for=condition=Established \
-    crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
+  with_loading "Applying CRD" kubectl apply -f "$crd_tmp" >/dev/null ||
+    return 1
+  with_loading "Waiting for CRD readiness" kubectl wait \
+    --for=condition=Established crd/kwatchconfigs.kwatch.abahmed.dev \
+    --timeout=60s >/dev/null || return 1
   preflight_config_resource
   ensure_config_resource
   with_loading "Downloading deployment for $version" curl -fsSL --location \
@@ -2199,7 +2222,7 @@ apply_manifests() {
       -e '/^  selector:$/,/^  template:$/ { /^  template:$/!d; }' \
       "$tmp"
   fi
-  if ! kubectl apply -f "$tmp"; then
+  if ! with_loading "Applying kwatch Deployment" kubectl apply -f "$tmp"; then
     ui_error "❌ Could not apply the kwatch Deployment. Existing resources were preserved."
     return 1
   fi
@@ -2210,7 +2233,9 @@ apply_manifests() {
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m
+  with_loading "Waiting for kwatch rollout" \
+    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout=5m
 }
 
 verify_operational_security() {
@@ -2293,13 +2318,15 @@ apply_operational_namespace_labels() {
       [ "$warn" != restricted ]; }; then
     ui_info "🔐 Existing kwatch resources found; applying restricted Pod Security labels."
   fi
-  kubectl label namespace "$NAMESPACE" \
-    pod-security.kubernetes.io/enforce=restricted \
+  with_loading "Applying namespace security labels" kubectl label namespace \
+    "$NAMESPACE" pod-security.kubernetes.io/enforce=restricted \
     pod-security.kubernetes.io/audit=restricted \
-    pod-security.kubernetes.io/warn=restricted --overwrite >/dev/null
+    pod-security.kubernetes.io/warn=restricted --overwrite >/dev/null ||
+    die "could not apply namespace security labels"
   if [ "$NAMESPACE_CREATED" = true ]; then
-    kubectl annotate namespace "$NAMESPACE" \
-      kwatch.dev/managed-namespace=true --overwrite >/dev/null
+    with_loading "Marking managed namespace" kubectl annotate namespace \
+      "$NAMESPACE" kwatch.dev/managed-namespace=true --overwrite >/dev/null ||
+      die "could not mark the managed namespace"
   fi
 }
 
@@ -2329,7 +2356,8 @@ clear_managed_namespace_labels() {
 }
 
 install_flow() {
-  kubectl cluster-info >/dev/null || die "cannot reach the Kubernetes cluster"
+  with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
+    die "cannot reach the Kubernetes cluster"
   confirm_resume
   local version
   version=$(select_release_version) || die "could not determine kwatch release from GitHub"
@@ -2337,7 +2365,8 @@ install_flow() {
   if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
     NAMESPACE_CREATED=false
   else
-    kubectl create namespace "$NAMESPACE" >/dev/null
+    with_loading "Creating namespace $NAMESPACE" kubectl create namespace \
+      "$NAMESPACE" >/dev/null || die "could not create namespace $NAMESPACE"
     NAMESPACE_CREATED=true
   fi
   apply_operational_namespace_labels

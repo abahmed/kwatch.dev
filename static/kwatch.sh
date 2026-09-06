@@ -606,7 +606,8 @@ ui_error() { printf '%s%s%s\n' "$UI_RED" "$*" "$UI_RESET" >&2; }
 
 with_loading() {
   local label="$1"; shift
-  local output_file pid frame=0 index char rc spinner='|/-\\'
+  local output_file pid frame=0 index char rc
+  local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
   if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
     "$@" 2>/dev/null
     return
@@ -615,20 +616,20 @@ with_loading() {
   "$@" >"$output_file" 2>&1 &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
-    index=$((frame % 4))
-    char="${spinner:$index:1}"
-    printf '\r%s%s%s %s%s' "$UI_CYAN" "$label" "$UI_RESET" "$char" "$UI_CLEAR" >&2
+    index=$((frame % ${#spinner_frames[@]}))
+    char="${spinner_frames[$index]}"
+    printf '\r%s⏳ %s %s%s' "$UI_CYAN" "$label" "$char" "$UI_CLEAR" >&2
     sleep 0.1
     frame=$((frame + 1))
   done
   if wait "$pid"; then
-    printf '\r%s%s ✓%s%s\n' "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+    printf '\r%s✅ %s%s%s\n' "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
     cat "$output_file"
     rm -f "$output_file"
     return 0
   fi
   rc=$?
-  printf '\r%s%s ✗%s%s\n' "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  printf '\r%s❌ %s%s%s\n' "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
   rm -f "$output_file"
   return "$rc"
 }
@@ -695,7 +696,7 @@ select_context() {
   else
     [ -t 0 ] || die "multiple Kubernetes contexts found; an interactive terminal is required to choose one"
     echo >&2
-    ui_info "Select the Kubernetes cluster to manage:"
+    ui_info "🧭 Select the Kubernetes cluster to manage:"
     for index in "${!contexts[@]}"; do
       if [ "${contexts[$index]}" = "$current" ]; then
         echo "  $((index + 1))) ${contexts[$index]} (current)" >&2
@@ -1628,9 +1629,9 @@ select_release_version() {
     printf '%s' "$stable"
     return 0
   fi
-  ui_info "Available kwatch releases:"
-  echo "  1) ${UI_GREEN}Stable ($stable)${UI_RESET} [recommended]" >&2
-  echo "  2) ${UI_YELLOW}Release candidate ($preview)${UI_RESET}" >&2
+  ui_info "📦 Available kwatch releases:"
+  echo "  1) ${UI_GREEN}✅ Stable ($stable)${UI_RESET} [recommended]" >&2
+  echo "  2) ${UI_YELLOW}🧪 Release candidate ($preview)${UI_RESET}" >&2
   choice=$(ask "Release channel" "1")
   case "$choice" in
     1) printf '%s' "$stable" ;;
@@ -1679,29 +1680,29 @@ maybe_load_catalog() {
   fi
   catalog_version="$version"
   if [ -n "$version" ] && load_catalog_for_version "$version"; then
-    ui_success "Configuration catalog: $CATALOG_SOURCE ($version)"
+    ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($version)"
   else
     fallback_version=$(latest_release_candidate || true)
     if [ -n "$fallback_version" ] &&
       [ "$fallback_version" != "$version" ] &&
       load_catalog_for_version "$fallback_version"; then
       catalog_version="$fallback_version"
-      ui_success "Configuration catalog: $CATALOG_SOURCE ($catalog_version)"
+      ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($catalog_version)"
     else
-      ui_warn "Configuration catalog: embedded fallback"
+      ui_warn "⚠️ Configuration catalog: embedded fallback"
     fi
   fi
   if [ -n "$catalog_version" ] &&
     load_feature_catalog_for_version "$catalog_version"; then
-    ui_success "Feature catalog: $FEATURE_CATALOG_SOURCE ($catalog_version)"
+    ui_success "🧩 Feature catalog: $FEATURE_CATALOG_SOURCE ($catalog_version)"
   else
-    ui_warn "Feature catalog: unavailable; feature enforcement remains in the image"
+    ui_warn "⚠️ Feature catalog: unavailable; feature enforcement remains in the image"
   fi
   if [ -n "$catalog_version" ] &&
     load_provider_catalog_for_version "$catalog_version"; then
-    ui_success "Provider catalog: $PROVIDER_CATALOG_SOURCE ($catalog_version)"
+    ui_success "🔌 Provider catalog: $PROVIDER_CATALOG_SOURCE ($catalog_version)"
   else
-    ui_warn "Provider catalog: embedded fallback"
+    ui_warn "⚠️ Provider catalog: embedded fallback"
   fi
 }
 

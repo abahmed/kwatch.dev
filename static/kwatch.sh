@@ -653,6 +653,17 @@ ask_secret() {
   printf '\n' >&2
   printf '%s' "$answer"
 }
+ask_yes_no() {
+  local prompt="$1" default="$2" answer
+  while true; do
+    answer=$(ask "$prompt" "$default")
+    case "$answer" in
+      y|Y|yes|Yes) printf 'true'; return 0 ;;
+      n|N|no|No) printf 'false'; return 0 ;;
+      *) ui_warn "⚠️ Please answer yes or no." ;;
+    esac
+  done
+}
 valid_name() { [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; }
 valid_kubernetes_name() { [ "${#1}" -le 40 ] && valid_name "$1"; }
 valid_release_version() { [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; }
@@ -708,10 +719,15 @@ select_context() {
       fi
     done
     [ -n "$default_choice" ] || default_choice=1
-    choice=$(ask "Cluster number (Enter keeps current)" "$default_choice")
-    [[ "$choice" =~ ^[0-9]+$ ]] || die "choose a cluster number"
-    [ "$choice" -ge 1 ] && [ "$choice" -le "${#contexts[@]}" ] || die "cluster choice is out of range"
-    SELECTED_CONTEXT="${contexts[$((choice - 1))]}"
+    while true; do
+      choice=$(ask "Cluster number (Enter keeps current)" "$default_choice")
+      if [[ "$choice" =~ ^[0-9]+$ ]] &&
+        [ "$choice" -ge 1 ] && [ "$choice" -le "${#contexts[@]}" ]; then
+        SELECTED_CONTEXT="${contexts[$((choice - 1))]}"
+        break
+      fi
+      ui_warn "⚠️ Choose a number from 1 to ${#contexts[@]}."
+    done
   fi
 
   server=$(command kubectl --context "$SELECTED_CONTEXT" config view --minify \
@@ -1066,11 +1082,11 @@ write_config_secret_value() {
   local file="$1" path="$2" value="$3" tmp_dir="$4"
   local secret_key value_file parent child key
   case "$value" in
-    *$'\n'*|*$'\r'*) die "$path must be one line" ;;
+    *$'\n'*|*$'\r'*) return 1 ;;
   esac
   if [ "$path" = heartbeatMonitor.url ] &&
     [[ ! "$value" =~ ^https?:// ]]; then
-    die "heartbeatMonitor.url must be an http or https URL"
+    return 1
   fi
   secret_key="${RELEASE}-config-${path//./-}"
   value_file="$tmp_dir/$secret_key"
@@ -1233,18 +1249,26 @@ preserve_provider_optional() {
 
 write_webhook_headers() {
   local file="$1" tmp_dir="$2" count name value i secret_key value_file
-  count=$(ask "Number of custom webhook headers" "0")
-  [[ "$count" =~ ^[0-9]+$ ]] || die "header count must be a non-negative integer"
+  while true; do
+    count=$(ask "Number of custom webhook headers" "0")
+    [[ "$count" =~ ^[0-9]+$ ]] && break
+    ui_warn "⚠️ Header count must be a non-negative integer."
+  done
   [ "$count" -gt 0 ] || return 0
   printf '    headers:\n' >>"$file"
   for ((i = 1; i <= count; i++)); do
-    name=$(ask "Header $i name")
-    [ -n "$name" ] || die "header name cannot be empty"
-    value=$(ask_secret "Header $i value")
-    [ -n "$value" ] || die "header value cannot be empty"
-    case "$value" in
-      *$'\n'*|*$'\r'*) die "header value must be one line" ;;
-    esac
+    while true; do
+      name=$(ask "Header $i name")
+      [ -n "$name" ] && break
+      ui_warn "⚠️ Header name cannot be empty."
+    done
+    while true; do
+      value=$(ask_secret "Header $i value")
+      if [ -n "$value" ] && [[ ! "$value" =~ $'\n'|$'\r' ]]; then
+        break
+      fi
+      ui_warn "⚠️ Header value must be a non-empty single line."
+    done
     secret_key="${PROVIDER}-header-${i}"
     value_file="$tmp_dir/$secret_key"
     printf '%s' "$value" >"$value_file"
@@ -1262,9 +1286,9 @@ patch_config_value() {
     top="${path%%.*}"
     field="${path#*.}"
     case "$type" in
-      boolean) [[ "$value" = true || "$value" = false ]] || die "value must be true or false"; json_value="$value" ;;
-      integer) [[ "$value" =~ ^[0-9]+$ ]] || die "value must be a non-negative integer"; json_value="$value" ;;
-      float) [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "value must be a non-negative number"; json_value="$value" ;;
+      boolean) [[ "$value" = true || "$value" = false ]] || return 1; json_value="$value" ;;
+      integer) [[ "$value" =~ ^[0-9]+$ ]] || return 1; json_value="$value" ;;
+      float) [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || return 1; json_value="$value" ;;
       list) json_value="$(json_array "$value")" ;;
       json) json_value="$value" ;;
       *) json_value="\"$(json_escape "$value")\"" ;;
@@ -1273,9 +1297,9 @@ patch_config_value() {
       -p "{\"spec\":{\"$top\":{\"$field\":$json_value}}}" >/dev/null
   else
     case "$type" in
-      boolean) [[ "$value" = true || "$value" = false ]] || die "value must be true or false"; json_value="$value" ;;
-      integer) [[ "$value" =~ ^[0-9]+$ ]] || die "value must be a non-negative integer"; json_value="$value" ;;
-      float) [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "value must be a non-negative number"; json_value="$value" ;;
+      boolean) [[ "$value" = true || "$value" = false ]] || return 1; json_value="$value" ;;
+      integer) [[ "$value" =~ ^[0-9]+$ ]] || return 1; json_value="$value" ;;
+      float) [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || return 1; json_value="$value" ;;
       list) json_value="$(json_array "$value")" ;;
       json) json_value="$value" ;;
       *) json_value="\"$(json_escape "$value")\"" ;;
@@ -1444,7 +1468,7 @@ configure_flow() {
         if ! patch_config_value "$path" "$type" "$value"; then
           echo "Invalid configuration value; restoring the previous configuration." >&2
           restore_backup
-          die "configuration update failed"
+          continue
         fi
         if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
           if ! verify_runtime_tls_access; then
@@ -1491,6 +1515,15 @@ configure_alert_flow() {
   echo "Notification destination updated."
 }
 
+configure_after_install() {
+  local choice
+  choice=$(ask_yes_no \
+    "🛠️ Configure additional kwatch settings now? This includes all catalog settings" \
+    "y")
+  [ "$choice" = true ] || return 0
+  configure_flow
+}
+
 preflight_alert_access() {
   check_access get deployments namespace
   check_access patch deployments namespace
@@ -1532,15 +1565,12 @@ confirm_resume() {
   [ -n "$phase" ] && [ "$phase" != complete ] || return 0
   [ -t 0 ] || die "a previous kwatch operation is '$phase'; an interactive terminal is required to resume safely"
   echo "A previous kwatch operation stopped during: $phase" >&2
-  choice=$(ask "Continue and resume the operation" "y")
-  case "$choice" in
-    y|Y|yes|Yes) ;;
-    *) die "operation cancelled; no changes were made" ;;
-  esac
+  choice=$(ask_yes_no "Continue and resume the operation" "y")
+  [ "$choice" = true ] || die "operation cancelled; no changes were made"
 }
 
 check_access() {
-  local verb="$1" resource scope="${2:-}" result
+  local verb="$1" resource="$2" scope="${3:-}" result
   if [ -n "$scope" ]; then
     result=$(kubectl auth can-i "$verb" "$resource" --namespace "$NAMESPACE" 2>/dev/null || true)
   else
@@ -1634,12 +1664,14 @@ select_release_version() {
   ui_info "📦 Available kwatch releases:"
   echo "  1) ${UI_GREEN}✅ Stable ($stable)${UI_RESET} [recommended]" >&2
   echo "  2) ${UI_YELLOW}🧪 Release candidate ($preview)${UI_RESET}" >&2
-  choice=$(ask "Release channel" "1")
-  case "$choice" in
-    1) printf '%s' "$stable" ;;
-    2) printf '%s' "$preview" ;;
-    *) echo "Invalid release choice." >&2; return 1 ;;
-  esac
+  while true; do
+    choice=$(ask "Release channel (1 or 2)" "1")
+    case "$choice" in
+      1) printf '%s' "$stable"; return 0 ;;
+      2) printf '%s' "$preview"; return 0 ;;
+      *) ui_warn "⚠️ Choose 1 for stable or 2 for the release candidate." ;;
+    esac
+  done
 }
 
 deployment_name() {
@@ -1760,38 +1792,181 @@ rollback_deployment() {
 }
 
 choose_provider() {
-  local choice entry provider display field type required secret validation default description previous="" i=0
-  local -a providers=()
-  echo >&2
-  echo "📣 Where should kwatch send alerts?" >&2
+  local choice query normalized entry provider display field type required secret
+  local validation default description seen="|" i provider_name display_name
+  local -a providers=() displays=() matches=()
   for entry in "${PROVIDER_CATALOG[@]}"; do
     IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
-    [ "$provider" = "$previous" ] && continue
-    i=$((i + 1))
+    case "$seen" in
+      *"|$provider|"*) continue ;;
+    esac
     providers+=("$provider")
-    printf '  %d) %s\n' "$i" "$display" >&2
-    previous="$provider"
+    displays+=("$display")
+    seen="${seen}${provider}|"
   done
-  choice=$(ask "🎯 Provider" "1")
-  [[ "$choice" =~ ^[0-9]+$ ]] || die "unknown provider"
-  [ "$choice" -ge 1 ] && [ "$choice" -le "${#providers[@]}" ] || die "unknown provider"
-  PROVIDER="${providers[$((choice - 1))]}"
+  while true; do
+    echo >&2
+    echo "📣 Where should kwatch send alerts?" >&2
+    query=$(ask "🔎 Provider name, number, or search (Enter to browse)" "")
+    if [ -z "$query" ]; then
+      for i in "${!providers[@]}"; do
+        printf '  %d) %s\n' "$((i + 1))" "${displays[$i]}" >&2
+      done
+      query=$(ask "🎯 Choose provider number or name" "")
+    fi
+    if [[ "$query" =~ ^[0-9]+$ ]]; then
+      if [ "$query" -ge 1 ] && [ "$query" -le "${#providers[@]}" ]; then
+        PROVIDER="${providers[$((query - 1))]}"
+        ui_success "✅ Provider selected: ${displays[$((query - 1))]}"
+        return 0
+      fi
+      ui_warn "⚠️ Provider number is out of range."
+      continue
+    fi
+    normalized=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]')
+    matches=()
+    for i in "${!providers[@]}"; do
+      provider_name=$(printf '%s' "${providers[$i]}" |
+        tr '[:upper:]' '[:lower:]')
+      display_name=$(printf '%s' "${displays[$i]}" |
+        tr '[:upper:]' '[:lower:]')
+      if [[ "$provider_name" == *"$normalized"* ]] ||
+        [[ "$display_name" == *"$normalized"* ]]; then
+        matches+=("$i")
+      fi
+    done
+    if [ "${#matches[@]}" -eq 1 ]; then
+      i="${matches[0]}"
+      PROVIDER="${providers[$i]}"
+      ui_success "✅ Provider selected: ${displays[$i]}"
+      return 0
+    fi
+    if [ "${#matches[@]}" -gt 1 ]; then
+      echo "🔎 Matching providers:" >&2
+      for i in "${matches[@]}"; do
+        printf '  %d) %s\n' "$((i + 1))" "${displays[$i]}" >&2
+      done
+      choice=$(ask "🎯 Choose a matching provider number" "")
+      if [[ "$choice" =~ ^[0-9]+$ ]]; then
+        for i in "${matches[@]}"; do
+          if [ "$choice" -eq $((i + 1)) ]; then
+            PROVIDER="${providers[$i]}"
+            ui_success "✅ Provider selected: ${displays[$i]}"
+            return 0
+          fi
+        done
+      fi
+      ui_warn "⚠️ Choose one of the matching provider numbers."
+      continue
+    fi
+    ui_warn "⚠️ No provider matched '$query'. Try a name such as Slack, Telegram, or PagerDuty."
+  done
 }
 
 choose_tls_monitor() {
+  TLS_MONITOR_ENABLED=$(ask_yes_no \
+    "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
+}
+
+choose_slack_mode() {
   local choice
-  choice=$(ask "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
-  case "$choice" in
-    y|Y|yes|Yes) TLS_MONITOR_ENABLED=true ;;
-    n|N|no|No) TLS_MONITOR_ENABLED=false ;;
-    *) die "please answer yes or no for TLS certificate monitoring" ;;
-  esac
+  while true; do
+    choice=$(ask "🔐 Slack authentication: 1) Incoming webhook 2) Bot token + channel" "1")
+    case "$choice" in
+      1) printf 'webhook'; return 0 ;;
+      2) printf 'token'; return 0 ;;
+      *) ui_warn "⚠️ Choose 1 for webhook or 2 for bot token mode." ;;
+    esac
+  done
+}
+
+choose_sns_mode() {
+  local choice
+  while true; do
+    choice=$(ask "📨 SNS destination: 1) Topic ARN 2) Target ARN" "1")
+    case "$choice" in
+      1) printf 'topic'; return 0 ;;
+      2) printf 'target'; return 0 ;;
+      *) ui_warn "⚠️ Choose 1 for topic ARN or 2 for target ARN." ;;
+    esac
+  done
+}
+
+prompt_provider_value() {
+  local field="$1" type="$2" secret="$3" validation="$4"
+  local default="$5" description="$6" value
+  while true; do
+    if [ "$secret" = true ]; then
+      value=$(ask_secret "$description")
+    else
+      value=$(ask "$description" "$default")
+    fi
+    [ -n "$value" ] || { printf ''; return 0; }
+    case "$type" in
+      boolean)
+        [[ "$value" = true || "$value" = false ]] || {
+          ui_warn "⚠️ $field must be true or false."; continue;
+        }
+        ;;
+      integer)
+        [[ "$value" =~ ^[0-9]+$ ]] || {
+          ui_warn "⚠️ $field must be a non-negative integer."; continue;
+        }
+        ;;
+      json)
+        [[ "$value" = \[* || "$value" = \{* ]] || {
+          ui_warn "⚠️ $field must be a JSON object or array."; continue;
+        }
+        ;;
+    esac
+    case "$validation" in
+      url)
+        [[ "$value" =~ ^https?:// ]] || {
+          ui_warn "⚠️ $field must be an http or https URL."; continue;
+        }
+        ;;
+      telegram-chat-id)
+        [[ "$value" =~ ^-?[0-9]+$ ]] || {
+          ui_warn "⚠️ $field must be a Telegram chat ID."; continue;
+        }
+        ;;
+      port)
+        [[ "$value" =~ ^[0-9]+$ ]] || {
+          ui_warn "⚠️ $field must be a numeric port."; continue;
+        }
+        ;;
+      integer)
+        [[ "$value" =~ ^[0-9]+$ ]] || {
+          ui_warn "⚠️ $field must be a non-negative integer."; continue;
+        }
+        ;;
+      boolean)
+        [[ "$value" = true || "$value" = false ]] || {
+          ui_warn "⚠️ $field must be true or false."; continue;
+        }
+        ;;
+      json)
+        [[ "$value" = \[* || "$value" = \{* ]] || {
+          ui_warn "⚠️ $field must be a JSON object or array."; continue;
+        }
+        ;;
+      "") ;;
+      *)
+        ui_error "❌ Provider catalog has unknown validation: $validation"
+        return 1
+        ;;
+    esac
+    printf '%s' "$value"
+    return 0
+  done
 }
 
 write_config_secret() {
   local secret_name="${RELEASE}-config" tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
-  local configure_optional force_field slack_webhook="" slack_token="" slack_channel=""
+  local field_description
+  local configure_optional force_field slack_mode="" sns_mode=""
+  local slack_webhook="" slack_token="" slack_channel=""
   local sns_topic_arn="" sns_target_arn=""
   local old_provider encoded old_config_file
   SECRET_ARGS=()
@@ -1808,18 +1983,15 @@ write_config_secret() {
     old_config_file=""
   fi
   choose_provider
-  telemetry_enabled=$(ask "📊 Send anonymous usage data to help improve kwatch" "y")
-  case "$telemetry_enabled" in
-    y|Y|yes|Yes) telemetry_enabled=true ;;
-    n|N|no|No) telemetry_enabled=false ;;
-    *) die "please answer yes or no for anonymous usage data" ;;
-  esac
-  configure_optional=$(ask "Configure optional provider settings too" "n")
-  case "$configure_optional" in
-    y|Y|yes|Yes) configure_optional=true ;;
-    n|N|no|No) configure_optional=false ;;
-    *) die "please answer yes or no for optional provider settings" ;;
-  esac
+  if [ "$PROVIDER" = slack ]; then
+    slack_mode=$(choose_slack_mode)
+  elif [ "$PROVIDER" = sns ]; then
+    sns_mode=$(choose_sns_mode)
+  fi
+  telemetry_enabled=$(ask_yes_no \
+    "📊 Send anonymous usage data to help improve kwatch" "y")
+  configure_optional=$(ask_yes_no \
+    "Configure optional provider settings too?" "y")
   old_provider=""
   if [ -n "$old_config_file" ]; then
     old_provider=$(awk '
@@ -1837,24 +2009,23 @@ write_config_secret() {
   for entry in "${PROVIDER_CATALOG[@]}"; do
     IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
     [ "$provider" = "$PROVIDER" ] || continue
-    if [ "$provider" = slack ] && [ "$field" = token ] &&
-      [ -n "$slack_webhook" ]; then
-      continue
-    fi
     force_field=false
-    if [ "$provider" = slack ] && [ "$field" = webhook ]; then
-      force_field=true
-    elif [ "$provider" = slack ] && [ "$field" = token ] &&
-      [ -z "$slack_webhook" ]; then
-      force_field=true
-    elif [ "$provider" = sns ] && [ "$field" = topicArn ]; then
-      force_field=true
-    elif [ "$provider" = sns ] && [ "$field" = targetArn ] &&
-      [ -z "$sns_topic_arn" ]; then
-      force_field=true
-    elif [ "$provider" = sns ] && [ "$field" = targetArn ] &&
-      [ -n "$sns_topic_arn" ]; then
-      continue
+    if [ "$provider" = slack ]; then
+      case "$slack_mode:$field" in
+        webhook:webhook|token:token|token:channel)
+          force_field=true
+          required=true
+          ;;
+        webhook:token|token:webhook) continue ;;
+      esac
+    elif [ "$provider" = sns ]; then
+      case "$sns_mode:$field" in
+        topic:topicArn|target:targetArn)
+          force_field=true
+          required=true
+          ;;
+        topic:targetArn|target:topicArn) continue ;;
+      esac
     fi
     if [ "$required" != true ] && [ "$configure_optional" = false ] &&
       [ "$force_field" = false ]; then
@@ -1881,53 +2052,54 @@ write_config_secret() {
       write_webhook_headers "$config_tmp" "$tmp_dir"
       continue
     fi
-    if [ "$secret" = true ]; then
-      value=$(ask_secret "$description")
-    else
-      value=$(ask "$description" "$default")
-    fi
-    if [ -z "$value" ] && [ "$secret" = true ] &&
-      preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+    while true; do
+      field_description="$description"
+      if [ "$required" = false ]; then
+        field_description="$description (optional; Enter to skip)"
+      fi
+      value=$(prompt_provider_value "$field" "$type" "$secret" \
+        "$validation" "$default" "$field_description") || return 1
+      if [ -z "$value" ]; then
+        if [ "$secret" = true ] &&
+          preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
+          case "$field" in
+            webhook) slack_webhook=preserved ;;
+            token) slack_token=preserved ;;
+            topicArn) sns_topic_arn=preserved ;;
+            targetArn) sns_target_arn=preserved ;;
+          esac
+          break
+        fi
+        if [ "$required" = true ]; then
+          ui_warn "⚠️ $field cannot be empty."
+          continue
+        fi
+        break
+      fi
+      if [ "$secret" = true ]; then
+        write_provider_secret "$config_tmp" "$field" "$value" "$tmp_dir"
+      else
+        write_provider_value "$config_tmp" "$field" "$type" "$value"
+      fi
       case "$field" in
-        webhook) slack_webhook=preserved ;;
-        token) slack_token=preserved ;;
-        topicArn) sns_topic_arn=preserved ;;
-        targetArn) sns_target_arn=preserved ;;
+        webhook) slack_webhook="$value" ;;
+        token) slack_token="$value" ;;
+        channel) slack_channel="$value" ;;
+        topicArn) sns_topic_arn="$value" ;;
+        targetArn) sns_target_arn="$value" ;;
       esac
-      continue
-    fi
-    [ "$required" = false ] || [ -n "$value" ] || die "$field cannot be empty"
-    case "$validation" in
-      url) [[ "$value" =~ ^https?:// ]] || die "$field must be an http or https URL" ;;
-      telegram-chat-id) [[ "$value" =~ ^-?[0-9]+$ ]] || die "$field must be a Telegram chat ID" ;;
-      port) [[ "$value" =~ ^[0-9]+$ ]] || die "$field must be a numeric port" ;;
-      integer) [[ "$value" =~ ^[0-9]+$ ]] || die "$field must be a non-negative integer" ;;
-      boolean) [[ "$value" = true || "$value" = false ]] || die "$field must be true or false" ;;
-      json) [[ "$value" = \[* || "$value" = \{* ]] || die "$field must be a JSON object or array" ;;
-      "") ;;
-      *) die "provider catalog has unknown validation: $validation" ;;
-    esac
-    [ -n "$value" ] || continue
-    if [ "$secret" = true ]; then
-      write_provider_secret "$config_tmp" "$field" "$value" "$tmp_dir"
-    else
-      write_provider_value "$config_tmp" "$field" "$type" "$value"
-    fi
-    case "$field" in
-      webhook) slack_webhook="$value" ;;
-      token) slack_token="$value" ;;
-      channel) slack_channel="$value" ;;
-      topicArn) sns_topic_arn="$value" ;;
-      targetArn) sns_target_arn="$value" ;;
-    esac
+      break
+    done
   done
   if [ "$PROVIDER" = slack ]; then
     if [ -z "$slack_webhook" ] && [ -z "$slack_token" ]; then
       die "Slack requires a webhook or bot token"
     fi
     if [ -n "$slack_token" ] && [ -z "$slack_channel" ]; then
-      slack_channel=$(ask "Slack channel for bot-token mode")
-      [ -n "$slack_channel" ] || die "Slack channel cannot be empty in bot-token mode"
+      while [ -z "$slack_channel" ]; do
+        slack_channel=$(ask "Slack channel for bot-token mode")
+        [ -n "$slack_channel" ] || ui_warn "⚠️ Slack channel cannot be empty in bot-token mode."
+      done
       write_provider_value "$config_tmp" channel string "$slack_channel"
     fi
   fi
@@ -1938,12 +2110,17 @@ write_config_secret() {
   for entry in "${CATALOG[@]}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
-    value=$(ask_secret "$description (leave empty to skip)")
-    if [ -z "$value" ]; then
-      preserve_config_secret "$config_tmp" "$path" "$tmp_dir" || true
-      continue
-    fi
-    write_config_secret_value "$config_tmp" "$path" "$value" "$tmp_dir"
+    while true; do
+      value=$(ask_secret "$description (leave empty to skip)")
+      if [ -z "$value" ]; then
+        preserve_config_secret "$config_tmp" "$path" "$tmp_dir" || true
+        break
+      fi
+      if write_config_secret_value "$config_tmp" "$path" "$value" "$tmp_dir"; then
+        break
+      fi
+      ui_warn "⚠️ $path must be a valid single-line secret value. Try again."
+    done
   done
   kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
     --from-file=config.yaml="$config_tmp" \
@@ -2137,6 +2314,7 @@ install_flow() {
   fi
   record_state complete "$version" "installation verified"
   ui_success "✅ kwatch is ready."
+  configure_after_install
 }
 
 upgrade_flow() {

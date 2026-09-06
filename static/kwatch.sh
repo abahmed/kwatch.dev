@@ -2016,7 +2016,8 @@ apply_config_secret() {
 }
 
 write_config_secret() {
-  local secret_name="${RELEASE}-config" tmp_dir config_tmp telemetry_enabled
+  local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
+  local tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
   local field_description
   local configure_optional force_field slack_mode="" sns_mode=""
@@ -2186,9 +2187,19 @@ write_config_secret() {
 
 apply_manifests() {
   local version="$1" tmp crd_tmp apply_tmp="" deployment existing_deployment
-  local manifest_to_apply
+  local manifest_to_apply existing_secret_name
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   existing_deployment=$(deployment_name || true)
+  if [ -n "$existing_deployment" ]; then
+    existing_secret_name=$(kubectl -n "$NAMESPACE" get deployment \
+      "$existing_deployment" -o \
+      'jsonpath={.spec.template.spec.volumes[?(@.name=="config-volume")].secret.secretName}' \
+      2>/dev/null || true)
+    if [ -n "$existing_secret_name" ]; then
+      CONFIG_SECRET_NAME="$existing_secret_name"
+      ui_info "🔐 Preserving existing configuration Secret: $CONFIG_SECRET_NAME"
+    fi
+  fi
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
   trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" \

@@ -48,6 +48,9 @@ provider, every catalog field, its type, whether it is required, and whether it
 must come from a Secret. It is generated from the same provider catalog used by
 `kwatch.sh`.
 
+The sidebar's **All provider guides** section gives each provider its own page
+and minimal configuration example.
+
 ## 🧩 Basic configuration
 
 Put one or more providers under `alert:`. This example sends alerts to Slack:

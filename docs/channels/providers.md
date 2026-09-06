@@ -106,7 +106,7 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.telegram.token` | `string` | yes | yes | — | — | Bot token |
-| `alert.telegram.chatId` | `string` | yes | no | telegram-chat-id | — | Chat ID |
+| `alert.telegram.chatId` | `string` | yes | no | signed-integer | — | Chat ID |
 | `alert.telegram.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.telegram.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.telegram.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -276,8 +276,8 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.webex.accessToken` | `string` | yes | yes | — | — | Bot access token |
-| `alert.webex.roomId` | `string` | no | no | — | — | Room ID (optional) |
-| `alert.webex.toPersonEmail` | `string` | no | no | — | — | Person email (optional) |
+| `alert.webex.roomId` | `string` | no | no | — | — | Room ID (provide this or `toPersonEmail`) |
+| `alert.webex.toPersonEmail` | `string` | no | no | — | — | Person email (provide this or `roomId`) |
 | `alert.webex.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.webex.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.webex.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |

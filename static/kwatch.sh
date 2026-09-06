@@ -13,571 +13,13 @@ MAX_KUBECTL_ATTEMPTS=3
 SELECTED_CONTEXT=""
 FEATURE_CATALOG_SOURCE="unavailable"
 FEATURE_CATALOG=()
-PROVIDER_CATALOG_SOURCE="embedded"
+PROVIDER_CATALOG_SOURCE="unavailable"
+CATALOG_SOURCE="unavailable"
+CATALOG=()
+PROVIDER_CATALOG=()
 CONFIG_MOUNT_PATH="/config"
 
-# provider|display|field|type|required|secret|validation|default|description
-PROVIDER_CATALOG=(
-  'slack|Slack|webhook|string|false|true|url||Slack webhook URL'
-  'slack|Slack|channel|string|false|false|||Override channel'
-  'slack|Slack|title|string|false|false|||Custom title'
-  'slack|Slack|text|string|false|false|||Custom text'
-  'slack|Slack|compact|boolean|false|false|boolean|false|Single-line mode'
-  'slack|Slack|token|string|false|true|||Bot token (xoxb-...)'
-  'discord|Discord|webhook|string|true|true|url||Discord webhook URL'
-  'discord|Discord|title|string|false|false|||Custom title'
-  'discord|Discord|text|string|false|false|||Custom text'
-  'email|Email|from|string|true|false|||From address'
-  'email|Email|password|string|true|true|||From password'
-  'email|Email|host|string|true|false|||SMTP host'
-  'email|Email|port|string|true|false|port||SMTP port'
-  'email|Email|to|string|true|false|||Receiver email'
-  'line|LINE|token|string|true|true|||LINE Notify access token'
-  'pagerduty|PagerDuty|integrationKey|string|true|true|||PagerDuty integration key'
-  'telegram|Telegram|token|string|true|true|||Bot token'
-  'telegram|Telegram|chatId|string|true|false|telegram-chat-id||Chat ID'
-  'teams|Teams|webhook|string|true|true|url||Webhook URL'
-  'teams|Teams|title|string|false|false|||Custom title'
-  'teams|Teams|text|string|false|false|||Custom text'
-  'rocketchat|Rocket.Chat|webhook|string|true|true|url||Webhook URL'
-  'rocketchat|Rocket.Chat|text|string|false|false|||Custom text'
-  'mattermost|Mattermost|webhook|string|true|true|url||Webhook URL'
-  'mattermost|Mattermost|title|string|false|false|||Custom title'
-  'mattermost|Mattermost|text|string|false|false|||Custom text'
-  'opsgenie|Opsgenie|apiKey|string|true|true|||API Key'
-  'opsgenie|Opsgenie|title|string|false|false|||Custom title'
-  'opsgenie|Opsgenie|text|string|false|false|||Custom text'
-  'matrix|Matrix|homeServer|string|true|false|url||HomeServer URL'
-  'matrix|Matrix|accessToken|string|true|true|||Access token'
-  'matrix|Matrix|internalRoomId|string|true|false|||Room ID'
-  'matrix|Matrix|title|string|false|false|||Custom title'
-  'matrix|Matrix|text|string|false|false|||Custom text'
-  'dingtalk|Dingtalk|accessToken|string|true|true|||Access token'
-  'dingtalk|Dingtalk|secret|string|false|true|||Signing secret'
-  'dingtalk|Dingtalk|title|string|false|false|||Custom title'
-  'feishu|Feishu|webhook|string|true|true|url||Webhook URL'
-  'feishu|Feishu|title|string|false|false|||Custom title'
-  'zenduty|Zenduty|integrationKey|string|true|true|||Integration Key'
-  'zenduty|Zenduty|alertType|string|false|false||critical|Alert type (default: critical)'
-  'googlechat|Google Chat|webhook|string|true|true|url||Webhook URL'
-  'googlechat|Google Chat|text|string|false|false|||Custom text'
-  'gotify|Gotify|url|string|true|false|url||Gotify server URL'
-  'gotify|Gotify|token|string|true|true|||App token'
-  'gotify|Gotify|priority|integer|false|false|integer||Priority (optional)'
-  'gotify|Gotify|title|string|false|false|||Custom title'
-  'ntfy|ntfy|topic|string|true|true|||Topic to publish to'
-  'ntfy|ntfy|url|string|false|false|url|https://ntfy.sh|Server URL (default: https://ntfy.sh)'
-  'ntfy|ntfy|token|string|false|true|||Optional auth token'
-  'ntfy|ntfy|title|string|false|false|||Custom title'
-  'ntfy|ntfy|priority|integer|false|false|integer|4|Priority 1-5 (default: 4)'
-  'pushover|Pushover|token|string|true|true|||Application token'
-  'pushover|Pushover|user|string|true|true|||User or group key'
-  'pushover|Pushover|priority|integer|false|false|integer||Priority (optional)'
-  'pushover|Pushover|title|string|false|false|||Custom title'
-  'webex|Webex|accessToken|string|true|true|||Bot access token'
-  'webex|Webex|roomId|string|false|false|||Room ID (optional)'
-  'webex|Webex|toPersonEmail|string|false|false|||Person email (optional)'
-  'github|GitHub|token|string|true|true|||Personal access token'
-  'github|GitHub|owner|string|true|false|||Repository owner'
-  'github|GitHub|repo|string|true|false|||Repository name'
-  'github|GitHub|url|string|false|false|url||Optional endpoint override (e.g. GitHub Enterprise)'
-  'gitlab|GitLab|token|string|true|true|||Personal access token'
-  'gitlab|GitLab|projectId|string|true|false|||Project ID'
-  'gitlab|GitLab|url|string|false|false|url||Optional endpoint override (e.g. self-hosted GitLab)'
-  'gitea|Gitea|token|string|true|true|||Access token'
-  'gitea|Gitea|owner|string|true|false|||Repository owner'
-  'gitea|Gitea|repo|string|true|false|||Repository name'
-  'gitea|Gitea|url|string|false|false|url||Optional endpoint override (e.g. self-hosted Gitea)'
-  'zapier|Zapier|url|string|true|true|url||Zap webhook URL'
-  'zapier|Zapier|token|string|false|true|||Optional token'
-  'zapier|Zapier|title|string|false|false|||Custom title'
-  'n8n|n8n|url|string|true|true|url||Workflow webhook URL'
-  'n8n|n8n|token|string|false|true|||Optional auth header value'
-  'n8n|n8n|title|string|false|false|||Custom title'
-  'ifttt|IFTTT|key|string|true|true|||Webhooks key'
-  'ifttt|IFTTT|event|string|false|false||kwatch|Event name (default: kwatch)'
-  'teamsworkflow|Teams Workflow|webhook|string|true|true|url||Power Automate / Teams Workflow URL'
-  'zulip|Zulip|email|string|true|false|||Bot email'
-  'zulip|Zulip|token|string|true|true|||Bot API key'
-  'zulip|Zulip|channel|string|true|false|||Channel/stream to post to'
-  'zulip|Zulip|url|string|false|false|url|https://zulip.example.com/api/v1/messages|Server URL (default: https://zulip.example.com/api/v1/messages)'
-  'zulip|Zulip|title|string|false|false|||Custom title'
-  'homeassistant|Home Assistant|token|string|true|true|||Long-lived access token'
-  'homeassistant|Home Assistant|url|string|false|false|url|http://localhost:8123|Server URL (default: http://localhost:8123)'
-  'homeassistant|Home Assistant|service|string|false|false||notify|Notification service (default: notify)'
-  'splunk|Splunk|url|string|true|false|url||HEC endpoint URL'
-  'splunk|Splunk|token|string|true|true|||HEC token'
-  'splunk|Splunk|source|string|false|false|||Source name (optional)'
-  'splunk|Splunk|sourcetype|string|false|false|||Source type (optional)'
-  'splunk|Splunk|index|string|false|false|||Index name (optional)'
-  'splunk|Splunk|host|string|false|false|||Host name (optional)'
-  'datadog|Datadog|apiKey|string|true|true|||API key'
-  'datadog|Datadog|site|string|false|false||datadoghq.com|Datadog site (default: datadoghq.com)'
-  'datadog|Datadog|applicationKey|string|false|true|||Optional application key'
-  'datadog|Datadog|title|string|false|false|||Custom title'
-  'datadog|Datadog|alertType|string|false|false||error|Alert type (default: error)'
-  'datadog|Datadog|tags|list|false|false|list||Comma-separated tags'
-  'newrelic|New Relic|apiKey|string|true|true|||User API key'
-  'newrelic|New Relic|accountId|string|true|false|||Account ID'
-  'clickup|ClickUp|token|string|true|true|||Personal API token'
-  'clickup|ClickUp|listId|string|true|false|||List ID to create tasks in'
-  'clickup|ClickUp|priority|integer|false|false|integer||Optional task priority (1-4)'
-  'ilert|iLert|integrationKey|string|true|true|||Integration key'
-  'ilert|iLert|priority|integer|false|false|integer||Priority (LOW/HIGH/CRITICAL, default: HIGH)'
-  'incidentio|Incident.io|url|string|true|true|url||Incident.io URL'
-  'incidentio|Incident.io|apiKey|string|false|true|||Optional API key'
-  'squadcast|Squadcast|serviceKey|string|true|true|||Service key'
-  'signl4|SIGNL4|teamSecret|string|true|true|||Team secret'
-  'signl4|SIGNL4|title|string|false|false|||Custom title'
-  'signl4|SIGNL4|user|string|false|false|||Optional alerting user'
-  'signl4|SIGNL4|url|string|false|false|url||Optional endpoint override'
-  'twilio|Twilio|accountSid|string|true|true|||Account SID'
-  'twilio|Twilio|authToken|string|true|true|||Auth token'
-  'twilio|Twilio|from|string|true|false|||Sender phone number'
-  'twilio|Twilio|to|string|true|false|||Recipient phone number'
-  'vonage|Vonage|apiKey|string|true|true|||API key'
-  'vonage|Vonage|apiSecret|string|true|true|||API secret'
-  'vonage|Vonage|from|string|true|false|||Sender name/number'
-  'vonage|Vonage|to|string|true|false|||Recipient phone number'
-  'plivo|Plivo|authId|string|true|true|||Auth ID'
-  'plivo|Plivo|authToken|string|true|true|||Auth token'
-  'plivo|Plivo|from|string|true|false|||Sender number'
-  'plivo|Plivo|to|string|true|false|||Recipient phone number'
-  'messagebird|MessageBird|accessKey|string|true|true|||Access key'
-  'messagebird|MessageBird|from|string|true|false|||Sender number'
-  'messagebird|MessageBird|to|string|true|false|||Recipient phone number'
-  'signal|Signal|number|string|true|false|||Sender phone number'
-  'signal|Signal|to|string|true|false|||Recipient phone number'
-  'signal|Signal|url|string|false|false|url|http://localhost:8080|REST API URL (default: http://localhost:8080)'
-  'sendgrid|SendGrid|apiKey|string|true|true|||API key'
-  'sendgrid|SendGrid|from|string|true|false|||From address'
-  'sendgrid|SendGrid|to|list|true|false|list||Recipients (list of addresses)'
-  'sendgrid|SendGrid|subject|string|false|false|||Email subject'
-  'ses|SES|accessKeyId|string|true|true|||AWS access key ID'
-  'ses|SES|secretAccessKey|string|true|true|||AWS secret access key'
-  'ses|SES|region|string|false|false||us-east-1|AWS region (default: us-east-1)'
-  'ses|SES|from|string|true|false|||Verified sender address'
-  'ses|SES|to|string|true|false|||Recipients (comma-separated)'
-  'ses|SES|subject|string|false|false|||Email subject'
-  'sns|SNS|accessKeyId|string|true|true|||AWS access key ID'
-  'sns|SNS|secretAccessKey|string|true|true|||AWS secret access key'
-  'sns|SNS|region|string|false|false||us-east-1|AWS region (default: us-east-1)'
-  'sns|SNS|topicArn|string|false|false|||SNS topic ARN (or targetArn)'
-  'sns|SNS|targetArn|string|false|false|||SNS target ARN (alternative to topicArn).'
-  'sns|SNS|subject|string|false|false|||Optional subject (email subscriptions)'
-  'jira|Jira|url|string|true|false|url||Jira base URL'
-  'jira|Jira|user|string|true|false|||Email or username'
-  'jira|Jira|apiToken|string|true|true|||API token'
-  'jira|Jira|projectKey|string|true|false|||Project key'
-  'jira|Jira|issueType|string|false|false||Task|Issue type (default: Task)'
-  'wecom|WeCom|webhook|string|true|true|url||Group robot webhook URL'
-  'splunkoncall|Splunk On-Call|apiKey|string|true|true|||API key'
-  'splunkoncall|Splunk On-Call|routingKey|string|true|true|||Routing key'
-  'splunkoncall|Splunk On-Call|url|string|false|false|url||Optional endpoint override'
-  'mailgun|Mailgun|apiKey|string|true|true|||API key'
-  'mailgun|Mailgun|domain|string|true|false|||Sending domain'
-  'mailgun|Mailgun|from|string|true|false|||From address'
-  'mailgun|Mailgun|to|string|true|false|||Recipients (comma-separated)'
-  'mailgun|Mailgun|subject|string|false|false|||Email subject'
-  'mailgun|Mailgun|url|string|false|false|url||Optional endpoint override (e.g. EU region)'
-  'resend|Resend|apiKey|string|true|true|||API key'
-  'resend|Resend|from|string|true|false|||From address'
-  'resend|Resend|to|string|true|false|||Recipients (comma-separated)'
-  'resend|Resend|subject|string|false|false|||Email subject'
-  'goalert|GoAlert|url|string|false|false|url|https://goalert.example.com|GoAlert URL (default: https://goalert.example.com)'
-  'goalert|GoAlert|token|string|true|true|||API token'
-  'goalert|GoAlert|serviceId|string|true|false|||Service ID'
-  'alerta|Alerta|url|string|true|false|url||Alerta server URL'
-  'alerta|Alerta|apiKey|string|true|true|||API key'
-  'alerta|Alerta|environment|string|false|false||Production|Environment (default: Production)'
-  'alerta|Alerta|service|string|false|false||kwatch|Service name (default: kwatch)'
-  'threema|Threema|gatewayId|string|true|true|||Threema Gateway ID'
-  'threema|Threema|secret|string|true|true|||Gateway secret'
-  'threema|Threema|to|string|true|false|||Recipient Threema ID'
-  'flock|Flock|webhook|string|true|true|url||Incoming webhook URL'
-  'pushbullet|Pushbullet|accessToken|string|true|true|||Access token'
-  'sensugo|SensiGo|url|string|true|false|url||Sensu Go API URL'
-  'sensugo|SensiGo|apiKey|string|true|true|||API key'
-  'sensugo|SensiGo|namespace|string|false|false||default|Namespace (default: default)'
-  'sensugo|SensiGo|entity|string|false|false||kwatch|Entity name (default: kwatch)'
-  'webhook|Generic Webhook|url|string|true|true|url||Webhook URL'
-  'webhook|Generic Webhook|headers|headers|false|false|||Custom headers'
-  'webhook|Generic Webhook|basicAuth.username|string|false|false|||Basic-auth username.'
-  'webhook|Generic Webhook|basicAuth.password|string|false|true|||Basic-auth password.'
-  'slack|Slack|routes|json|false|false|json||Optional JSON route filters.'
-  'slack|Slack|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'slack|Slack|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'slack|Slack|fallback|string|false|false|||Optional fallback provider name.'
-  'discord|Discord|routes|json|false|false|json||Optional JSON route filters.'
-  'discord|Discord|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'discord|Discord|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'discord|Discord|fallback|string|false|false|||Optional fallback provider name.'
-  'email|Email|routes|json|false|false|json||Optional JSON route filters.'
-  'email|Email|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'email|Email|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'email|Email|fallback|string|false|false|||Optional fallback provider name.'
-  'line|LINE|routes|json|false|false|json||Optional JSON route filters.'
-  'line|LINE|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'line|LINE|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'line|LINE|fallback|string|false|false|||Optional fallback provider name.'
-  'pagerduty|PagerDuty|routes|json|false|false|json||Optional JSON route filters.'
-  'pagerduty|PagerDuty|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'pagerduty|PagerDuty|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'pagerduty|PagerDuty|fallback|string|false|false|||Optional fallback provider name.'
-  'telegram|Telegram|routes|json|false|false|json||Optional JSON route filters.'
-  'telegram|Telegram|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'telegram|Telegram|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'telegram|Telegram|fallback|string|false|false|||Optional fallback provider name.'
-  'teams|Teams|routes|json|false|false|json||Optional JSON route filters.'
-  'teams|Teams|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'teams|Teams|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'teams|Teams|fallback|string|false|false|||Optional fallback provider name.'
-  'rocketchat|Rocket.Chat|routes|json|false|false|json||Optional JSON route filters.'
-  'rocketchat|Rocket.Chat|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'rocketchat|Rocket.Chat|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'rocketchat|Rocket.Chat|fallback|string|false|false|||Optional fallback provider name.'
-  'mattermost|Mattermost|routes|json|false|false|json||Optional JSON route filters.'
-  'mattermost|Mattermost|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'mattermost|Mattermost|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'mattermost|Mattermost|fallback|string|false|false|||Optional fallback provider name.'
-  'opsgenie|Opsgenie|routes|json|false|false|json||Optional JSON route filters.'
-  'opsgenie|Opsgenie|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'opsgenie|Opsgenie|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'opsgenie|Opsgenie|fallback|string|false|false|||Optional fallback provider name.'
-  'matrix|Matrix|routes|json|false|false|json||Optional JSON route filters.'
-  'matrix|Matrix|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'matrix|Matrix|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'matrix|Matrix|fallback|string|false|false|||Optional fallback provider name.'
-  'dingtalk|Dingtalk|routes|json|false|false|json||Optional JSON route filters.'
-  'dingtalk|Dingtalk|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'dingtalk|Dingtalk|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'dingtalk|Dingtalk|fallback|string|false|false|||Optional fallback provider name.'
-  'feishu|Feishu|routes|json|false|false|json||Optional JSON route filters.'
-  'feishu|Feishu|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'feishu|Feishu|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'feishu|Feishu|fallback|string|false|false|||Optional fallback provider name.'
-  'zenduty|Zenduty|routes|json|false|false|json||Optional JSON route filters.'
-  'zenduty|Zenduty|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'zenduty|Zenduty|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'zenduty|Zenduty|fallback|string|false|false|||Optional fallback provider name.'
-  'googlechat|Google Chat|routes|json|false|false|json||Optional JSON route filters.'
-  'googlechat|Google Chat|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'googlechat|Google Chat|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'googlechat|Google Chat|fallback|string|false|false|||Optional fallback provider name.'
-  'gotify|Gotify|routes|json|false|false|json||Optional JSON route filters.'
-  'gotify|Gotify|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'gotify|Gotify|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'gotify|Gotify|fallback|string|false|false|||Optional fallback provider name.'
-  'ntfy|ntfy|routes|json|false|false|json||Optional JSON route filters.'
-  'ntfy|ntfy|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'ntfy|ntfy|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'ntfy|ntfy|fallback|string|false|false|||Optional fallback provider name.'
-  'pushover|Pushover|routes|json|false|false|json||Optional JSON route filters.'
-  'pushover|Pushover|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'pushover|Pushover|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'pushover|Pushover|fallback|string|false|false|||Optional fallback provider name.'
-  'webex|Webex|routes|json|false|false|json||Optional JSON route filters.'
-  'webex|Webex|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'webex|Webex|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'webex|Webex|fallback|string|false|false|||Optional fallback provider name.'
-  'github|GitHub|routes|json|false|false|json||Optional JSON route filters.'
-  'github|GitHub|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'github|GitHub|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'github|GitHub|fallback|string|false|false|||Optional fallback provider name.'
-  'gitlab|GitLab|routes|json|false|false|json||Optional JSON route filters.'
-  'gitlab|GitLab|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'gitlab|GitLab|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'gitlab|GitLab|fallback|string|false|false|||Optional fallback provider name.'
-  'gitea|Gitea|routes|json|false|false|json||Optional JSON route filters.'
-  'gitea|Gitea|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'gitea|Gitea|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'gitea|Gitea|fallback|string|false|false|||Optional fallback provider name.'
-  'zapier|Zapier|routes|json|false|false|json||Optional JSON route filters.'
-  'zapier|Zapier|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'zapier|Zapier|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'zapier|Zapier|fallback|string|false|false|||Optional fallback provider name.'
-  'n8n|n8n|routes|json|false|false|json||Optional JSON route filters.'
-  'n8n|n8n|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'n8n|n8n|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'n8n|n8n|fallback|string|false|false|||Optional fallback provider name.'
-  'ifttt|IFTTT|routes|json|false|false|json||Optional JSON route filters.'
-  'ifttt|IFTTT|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'ifttt|IFTTT|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'ifttt|IFTTT|fallback|string|false|false|||Optional fallback provider name.'
-  'teamsworkflow|Teams Workflow|routes|json|false|false|json||Optional JSON route filters.'
-  'teamsworkflow|Teams Workflow|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'teamsworkflow|Teams Workflow|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'teamsworkflow|Teams Workflow|fallback|string|false|false|||Optional fallback provider name.'
-  'zulip|Zulip|routes|json|false|false|json||Optional JSON route filters.'
-  'zulip|Zulip|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'zulip|Zulip|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'zulip|Zulip|fallback|string|false|false|||Optional fallback provider name.'
-  'homeassistant|Home Assistant|routes|json|false|false|json||Optional JSON route filters.'
-  'homeassistant|Home Assistant|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'homeassistant|Home Assistant|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'homeassistant|Home Assistant|fallback|string|false|false|||Optional fallback provider name.'
-  'splunk|Splunk|routes|json|false|false|json||Optional JSON route filters.'
-  'splunk|Splunk|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'splunk|Splunk|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'splunk|Splunk|fallback|string|false|false|||Optional fallback provider name.'
-  'datadog|Datadog|routes|json|false|false|json||Optional JSON route filters.'
-  'datadog|Datadog|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'datadog|Datadog|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'datadog|Datadog|fallback|string|false|false|||Optional fallback provider name.'
-  'newrelic|New Relic|routes|json|false|false|json||Optional JSON route filters.'
-  'newrelic|New Relic|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'newrelic|New Relic|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'newrelic|New Relic|fallback|string|false|false|||Optional fallback provider name.'
-  'clickup|ClickUp|routes|json|false|false|json||Optional JSON route filters.'
-  'clickup|ClickUp|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'clickup|ClickUp|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'clickup|ClickUp|fallback|string|false|false|||Optional fallback provider name.'
-  'ilert|iLert|routes|json|false|false|json||Optional JSON route filters.'
-  'ilert|iLert|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'ilert|iLert|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'ilert|iLert|fallback|string|false|false|||Optional fallback provider name.'
-  'incidentio|Incident.io|routes|json|false|false|json||Optional JSON route filters.'
-  'incidentio|Incident.io|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'incidentio|Incident.io|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'incidentio|Incident.io|fallback|string|false|false|||Optional fallback provider name.'
-  'squadcast|Squadcast|routes|json|false|false|json||Optional JSON route filters.'
-  'squadcast|Squadcast|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'squadcast|Squadcast|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'squadcast|Squadcast|fallback|string|false|false|||Optional fallback provider name.'
-  'signl4|SIGNL4|routes|json|false|false|json||Optional JSON route filters.'
-  'signl4|SIGNL4|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'signl4|SIGNL4|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'signl4|SIGNL4|fallback|string|false|false|||Optional fallback provider name.'
-  'twilio|Twilio|routes|json|false|false|json||Optional JSON route filters.'
-  'twilio|Twilio|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'twilio|Twilio|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'twilio|Twilio|fallback|string|false|false|||Optional fallback provider name.'
-  'vonage|Vonage|routes|json|false|false|json||Optional JSON route filters.'
-  'vonage|Vonage|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'vonage|Vonage|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'vonage|Vonage|fallback|string|false|false|||Optional fallback provider name.'
-  'plivo|Plivo|routes|json|false|false|json||Optional JSON route filters.'
-  'plivo|Plivo|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'plivo|Plivo|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'plivo|Plivo|fallback|string|false|false|||Optional fallback provider name.'
-  'messagebird|MessageBird|routes|json|false|false|json||Optional JSON route filters.'
-  'messagebird|MessageBird|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'messagebird|MessageBird|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'messagebird|MessageBird|fallback|string|false|false|||Optional fallback provider name.'
-  'signal|Signal|routes|json|false|false|json||Optional JSON route filters.'
-  'signal|Signal|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'signal|Signal|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'signal|Signal|fallback|string|false|false|||Optional fallback provider name.'
-  'sendgrid|SendGrid|routes|json|false|false|json||Optional JSON route filters.'
-  'sendgrid|SendGrid|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'sendgrid|SendGrid|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'sendgrid|SendGrid|fallback|string|false|false|||Optional fallback provider name.'
-  'ses|SES|routes|json|false|false|json||Optional JSON route filters.'
-  'ses|SES|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'ses|SES|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'ses|SES|fallback|string|false|false|||Optional fallback provider name.'
-  'sns|SNS|routes|json|false|false|json||Optional JSON route filters.'
-  'sns|SNS|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'sns|SNS|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'sns|SNS|fallback|string|false|false|||Optional fallback provider name.'
-  'jira|Jira|routes|json|false|false|json||Optional JSON route filters.'
-  'jira|Jira|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'jira|Jira|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'jira|Jira|fallback|string|false|false|||Optional fallback provider name.'
-  'wecom|WeCom|routes|json|false|false|json||Optional JSON route filters.'
-  'wecom|WeCom|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'wecom|WeCom|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'wecom|WeCom|fallback|string|false|false|||Optional fallback provider name.'
-  'splunkoncall|Splunk On-Call|routes|json|false|false|json||Optional JSON route filters.'
-  'splunkoncall|Splunk On-Call|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'splunkoncall|Splunk On-Call|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'splunkoncall|Splunk On-Call|fallback|string|false|false|||Optional fallback provider name.'
-  'mailgun|Mailgun|routes|json|false|false|json||Optional JSON route filters.'
-  'mailgun|Mailgun|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'mailgun|Mailgun|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'mailgun|Mailgun|fallback|string|false|false|||Optional fallback provider name.'
-  'resend|Resend|routes|json|false|false|json||Optional JSON route filters.'
-  'resend|Resend|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'resend|Resend|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'resend|Resend|fallback|string|false|false|||Optional fallback provider name.'
-  'goalert|GoAlert|routes|json|false|false|json||Optional JSON route filters.'
-  'goalert|GoAlert|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'goalert|GoAlert|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'goalert|GoAlert|fallback|string|false|false|||Optional fallback provider name.'
-  'alerta|Alerta|routes|json|false|false|json||Optional JSON route filters.'
-  'alerta|Alerta|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'alerta|Alerta|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'alerta|Alerta|fallback|string|false|false|||Optional fallback provider name.'
-  'threema|Threema|routes|json|false|false|json||Optional JSON route filters.'
-  'threema|Threema|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'threema|Threema|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'threema|Threema|fallback|string|false|false|||Optional fallback provider name.'
-  'flock|Flock|routes|json|false|false|json||Optional JSON route filters.'
-  'flock|Flock|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'flock|Flock|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'flock|Flock|fallback|string|false|false|||Optional fallback provider name.'
-  'pushbullet|Pushbullet|routes|json|false|false|json||Optional JSON route filters.'
-  'pushbullet|Pushbullet|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'pushbullet|Pushbullet|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'pushbullet|Pushbullet|fallback|string|false|false|||Optional fallback provider name.'
-  'sensugo|SensiGo|routes|json|false|false|json||Optional JSON route filters.'
-  'sensugo|SensiGo|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'sensugo|SensiGo|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'sensugo|SensiGo|fallback|string|false|false|||Optional fallback provider name.'
-  'webhook|Generic Webhook|routes|json|false|false|json||Optional JSON route filters.'
-  'webhook|Generic Webhook|retry.maxAttempts|integer|false|false|integer||Optional maximum retry attempts.'
-  'webhook|Generic Webhook|retry.delay|string|false|false|||Optional retry delay, for example 5s.'
-  'webhook|Generic Webhook|fallback|string|false|false|||Optional fallback provider name.'
-)
 
-# path|type|default|category|description|status|replacement
-CATALOG=(
-  'workers|integer|1|Performance|Number of Kubernetes work queues processed in parallel.|active|'
-  'resyncSeconds|integer|0|Performance|Periodic safety resync interval in seconds; zero keeps event-driven mode.|active|'
-  'maxRecentLogLines|integer|50|Alerts|Maximum recent log lines attached to an incident.|active|'
-  'containerRestartThreshold|integer|0|Alerts|Alert when a container reaches this cumulative restart count; zero disables it.|active|'
-  'includeEvents|boolean|true|Alerts|Include recent Kubernetes events in incident messages.|active|'
-  'includeLogs|boolean|true|Alerts|Include recent container logs in incident messages.|active|'
-  'namespaces|list|all|Scope|Comma-separated namespaces to watch; leave empty to watch every namespace.|active|'
-  'namespaceSelector|string|empty|Scope|Kubernetes label selector used to choose namespaces.|active|'
-  'reasons|list|all|Scope|Comma-separated event reasons to allow or exclude with a leading !.|active|'
-  'ignoreFailedGracefulShutdown|boolean|true|Noise reduction|Ignore forceful container termination during an intentional shutdown.|active|'
-  'ignoreDisruptionTerminations|boolean|true|Noise reduction|Ignore pods being deliberately evicted, preempted, or disrupted.|active|'
-  'adaptiveThresholds|boolean|true|Noise reduction|Add bounded grace during normal partial rollouts.|active|'
-  'reportStartupBaseline|boolean|true|Noise reduction|Summarize issues that already existed when kwatch started.|active|'
-  'correlation.window|integer|10|Incident memory|Minutes in which related signals are correlated.|active|'
-  'correlation.lifecycleInterval|integer|1|Incident memory|Minutes between lifecycle and resolution sweeps.|active|'
-  'correlation.resolveHoldDown|integer|300|Incident memory|Seconds a signal must stay healthy before resolving.|active|'
-  'correlation.cooldownMinutes|integer|10|Incident memory|Minimum minutes before the same incident can notify again.|active|'
-  'correlation.maxBaseline|integer|5000|Incident memory|Maximum persisted baseline entries.|active|'
-  'correlation.escalation|json|{"enabled":true,"tiers":[3,10]}|Incident memory|JSON object controlling restart-count severity escalation.|active|'
-  'correlation.renotify|json|{"maxPerIncident":3}|Incident memory|JSON object controlling periodic re-notification.|active|'
-  'severityByOwnerKind|json|{}|Alerts|JSON map overriding severity by workload owner kind.|active|'
-  'severityByReason|json|{}|Alerts|JSON map overriding severity by detected reason.|active|'
-  'smartGrouping.windowSeconds|integer|60|Noise reduction|Seconds for grouping related failures into one notification.|active|'
-  'smartGrouping.namespaceFanOutThreshold|integer|3|Noise reduction|Owners failing alike before a namespace fan-out incident is created.|active|'
-  'inhibition.nodeSuppressesPods|boolean|true|Noise reduction|Suppress pod symptoms while their node has an active incident.|active|'
-  'nodeMonitor.enabled|boolean|true|Monitors|Watch node readiness and pressure conditions.|active|'
-  'nodeMonitor.sustainedMinutes|integer|3|Monitors|Minutes a node condition must persist before alerting.|active|'
-  'pvcMonitor.enabled|boolean|true|Monitors|Watch mounted PVC usage and storage pressure.|active|'
-  'pvcMonitor.interval|integer|5|Monitors|Minutes between PVC usage checks.|active|'
-  'pvcMonitor.threshold|float|80|Monitors|PVC usage percentage that creates a warning.|active|'
-  'pvcMonitor.criticalThreshold|float|90|Monitors|PVC usage percentage that creates a high-severity alert.|active|'
-  'pvcMonitor.clearThreshold|float|75|Monitors|PVC usage percentage below which an alert resolves.|active|'
-  'rolloutMonitor.enabled|boolean|true|Monitors|Watch Deployments for stuck rollouts.|active|'
-  'rolloutMonitor.sustainedMinutes|integer|5|Monitors|Minutes a Deployment may remain unavailable before alerting.|active|'
-  'statefulSetMonitor.enabled|boolean|true|Monitors|Watch StatefulSets for stuck updates.|active|'
-  'statefulSetMonitor.sustainedMinutes|integer|5|Monitors|Minutes a StatefulSet may remain unavailable before alerting.|active|'
-  'daemonSetMonitor.enabled|boolean|true|Monitors|Watch DaemonSets for unavailable pods and scheduling failures.|active|'
-  'daemonSetMonitor.sustainedMinutes|integer|5|Monitors|Minutes a DaemonSet may remain unavailable before alerting.|active|'
-  'jobMonitor.enabled|boolean|true|Monitors|Watch Jobs for failures and deadline problems.|active|'
-  'cronJobMonitor.enabled|boolean|true|Monitors|Watch CronJobs for missed or suspended work.|active|'
-  'cronJobMonitor.sustainedMinutes|integer|5|Monitors|Minutes a CronJob condition must persist before alerting.|active|'
-  'hpaMonitor.enabled|boolean|true|Monitors|Watch HPAs that remain constrained or maxed out.|active|'
-  'hpaMonitor.sustainedMinutes|integer|20|Monitors|Minutes an HPA must remain constrained before alerting.|active|'
-  'serviceMonitor.enabled|boolean|true|Monitors|Watch Services with no ready backends.|active|'
-  'ingressMonitor.enabled|boolean|true|Monitors|Watch Ingress backend availability.|active|'
-  'networkPolicyMonitor.enabled|boolean|true|Monitors|Detect evidence of restrictive NetworkPolicies.|active|'
-  'admissionWebhookMonitor.enabled|boolean|true|Monitors|Watch admission webhook availability and failures.|active|'
-  'controlPlaneMonitor.enabled|boolean|true|Monitors|Watch API server and control-plane health signals.|active|'
-  'clusterResourceMonitor.enabled|boolean|true|Monitors|Watch quota, namespace, and lease lifecycle failures.|active|'
-  'clusterResourceMonitor.sustainedMinutes|integer|10|Monitors|Minutes a terminating namespace or quota condition must persist before alerting.|active|'
-  'clusterResourceMonitor.nodeLeaseStaleSeconds|integer|90|Monitors|Seconds without a node lease renewal before reporting a stale heartbeat.|active|'
-  'heartbeatMonitor.enabled|boolean|false|Monitors|Send a periodic external dead-man heartbeat.|active|'
-  'heartbeatMonitor.interval|integer|300|Monitors|Seconds between heartbeat notifications.|active|'
-  'heartbeatMonitor.url|string|empty|Security|External dead-man heartbeat URL; stored only through a mounted Secret.|secret|'
-  'scheduleMonitor.enabled|boolean|true|Monitors|Include scheduling delay and unschedulable diagnostics.|active|'
-  'oomMonitor.enabled|boolean|true|Monitors|Track repeating OOM kills independently from current pod state.|active|'
-  'oomMonitor.threshold|integer|3|Monitors|OOM kills within the window before raising a repeating-OOM incident.|active|'
-  'oomMonitor.windowMinutes|integer|60|Monitors|Sliding window used for repeating OOM detection.|active|'
-  'pendingPodMonitor.enabled|boolean|true|Monitors|Watch pods that remain Pending.|active|'
-  'pendingPodMonitor.threshold|integer|300|Monitors|Seconds a pod may remain Pending before alerting.|active|'
-  'notReadyMonitor.enabled|boolean|true|Monitors|Watch running pods that remain not ready.|active|'
-  'pdbMonitor.enabled|boolean|true|Monitors|Watch PodDisruptionBudgets that block voluntary disruption.|active|'
-  'pdbMonitor.sustainedMinutes|integer|5|Monitors|Minutes a PDB violation must persist before alerting.|active|'
-  'nodeResourceMonitor.enabled|boolean|true|Monitors|Watch node overcommit and filesystem/inode pressure.|active|'
-  'nodeResourceMonitor.intervalSeconds|integer|300|Monitors|Seconds between node resource checks.|active|'
-  'nodeResourceMonitor.cpuWarning|float|2.0|Monitors|CPU requested-to-capacity ratio that raises a warning.|active|'
-  'nodeResourceMonitor.cpuCritical|float|4.0|Monitors|CPU requested-to-capacity ratio that raises a critical alert.|active|'
-  'nodeResourceMonitor.memWarning|float|2.0|Monitors|Memory requested-to-capacity ratio that raises a warning.|active|'
-  'nodeResourceMonitor.memCritical|float|4.0|Monitors|Memory requested-to-capacity ratio that raises a critical alert.|active|'
-  'nodeResourceMonitor.filesystemWarningPercent|float|90|Monitors|Node filesystem usage warning threshold.|active|'
-  'nodeResourceMonitor.filesystemCriticalPercent|float|95|Monitors|Node filesystem usage critical threshold.|active|'
-  'nodeResourceMonitor.inodeWarningPercent|float|90|Monitors|Node inode usage warning threshold.|active|'
-  'nodeResourceMonitor.inodeCriticalPercent|float|95|Monitors|Node inode usage critical threshold.|active|'
-  'runtimeMetricsMonitor.enabled|boolean|false|Monitors|Use metrics.k8s.io when available for workload usage diagnostics.|active|'
-  'runtimeMetricsMonitor.intervalSeconds|integer|60|Monitors|Seconds between runtime metrics checks.|active|'
-  'runtimeMetricsMonitor.memoryWarningPercent|integer|90|Monitors|Memory usage warning percentage when metrics.k8s.io is available.|active|'
-  'runtimeMetricsMonitor.memoryCriticalPercent|integer|100|Monitors|Memory usage critical percentage when metrics.k8s.io is available.|active|'
-  'runtimeMetricsMonitor.cpuWarningPercent|integer|90|Monitors|CPU usage warning percentage when metrics.k8s.io is available.|active|'
-  'runtimeMetricsMonitor.cpuCriticalPercent|integer|100|Monitors|CPU usage critical percentage when metrics.k8s.io is available.|active|'
-  'clusterAutoscalerMonitor.enabled|boolean|true|Monitors|Watch built-in cluster-autoscaler evidence from Kubernetes resources and events.|active|'
-  'tlsMonitor.threshold|integer|30|Monitors|Days before certificate expiry to warn.|active|'
-  'tlsMonitor.criticalThreshold|integer|3|Monitors|Days before certificate expiry for a high-severity alert.|active|'
-  'controlPlaneMonitor.intervalSeconds|integer|30|Monitors|Seconds between API and control-plane health checks.|active|'
-  'controlPlaneMonitor.apiServerLatencyWarningMs|integer|1000|Monitors|API readyz latency warning threshold in milliseconds.|active|'
-  'controlPlaneMonitor.failureThreshold|integer|2|Monitors|Consecutive control-plane failures before alerting.|active|'
-  'controlPlaneMonitor.recoveryThreshold|integer|2|Monitors|Consecutive successful checks before resolving.|active|'
-  'kubeletTelemetryMonitor.enabled|boolean|true|Monitors|Read built-in kubelet telemetry without an agent.|active|'
-  'kubeletTelemetryMonitor.intervalSeconds|integer|60|Monitors|Seconds between built-in kubelet telemetry sweeps.|active|'
-  'kubeletTelemetryMonitor.persistState|boolean|true|Monitors|Persist telemetry counters across restarts.|active|'
-  'kubeletTelemetryMonitor.failureThreshold|integer|2|Monitors|Consecutive kubelet telemetry failures before alerting.|active|'
-  'kubeletTelemetryMonitor.recoveryThreshold|integer|2|Monitors|Consecutive successful telemetry checks before resolving.|active|'
-  'kubeletTelemetryMonitor.memoryWarningPercent|float|90|Monitors|Kubelet memory usage warning threshold.|active|'
-  'kubeletTelemetryMonitor.memoryCriticalPercent|float|100|Monitors|Kubelet memory usage critical threshold.|active|'
-  'kubeletTelemetryMonitor.ephemeralStorageWarningPercent|float|90|Monitors|Ephemeral-storage usage warning threshold.|active|'
-  'kubeletTelemetryMonitor.ephemeralStorageCriticalPercent|float|95|Monitors|Ephemeral-storage usage critical threshold.|active|'
-  'kubeletTelemetryMonitor.cpuWarningPercent|float|90|Monitors|CPU usage warning threshold from kubelet telemetry.|active|'
-  'kubeletTelemetryMonitor.cpuCriticalPercent|float|100|Monitors|CPU usage critical threshold from kubelet telemetry.|active|'
-  'kubeletTelemetryMonitor.cpuThrottlingWarningPercent|float|25|Monitors|CPU throttling warning threshold.|active|'
-  'kubeletTelemetryMonitor.cpuThrottlingCriticalPercent|float|50|Monitors|CPU throttling critical threshold.|active|'
-  'kubeletTelemetryMonitor.psiWarningPercent|float|20|Monitors|Pressure stall warning threshold.|active|'
-  'kubeletTelemetryMonitor.psiCriticalPercent|float|50|Monitors|Pressure stall critical threshold.|active|'
-  'kubeletTelemetryMonitor.networkErrorRateWarning|float|1|Monitors|Network error rate warning threshold.|active|'
-  'kubeletTelemetryMonitor.networkErrorRateCritical|float|10|Monitors|Network error rate critical threshold.|active|'
-  'kubeletTelemetryMonitor.runtimeErrorRateWarning|float|1|Monitors|Container runtime error rate warning threshold.|active|'
-  'kubeletTelemetryMonitor.runtimeErrorRateCritical|float|10|Monitors|Container runtime error rate critical threshold.|active|'
-  'tlsMonitor.enabled|boolean|false|Monitors|Watch TLS certificates before expiry; reads certificate Secrets.|active|'
-  'activeProbeMonitor.enabled|boolean|false|Monitors|Run explicitly configured application probes.|active|'
-  'activeProbeMonitor.intervalSeconds|integer|30|Monitors|Seconds between active probe rounds.|active|'
-  'activeProbeMonitor.timeoutSeconds|integer|5|Monitors|Timeout for each active probe.|active|'
-  'activeProbeMonitor.failureThreshold|integer|3|Monitors|Consecutive probe failures before alerting.|active|'
-  'activeProbeMonitor.recoveryThreshold|integer|2|Monitors|Consecutive successes before resolving a probe incident.|active|'
-  'activeProbeMonitor.autoServices|boolean|false|Monitors|Probe discoverable Service ports automatically; opt in to avoid unexpected traffic.|active|'
-  'activeProbeMonitor.http|json|[]|Monitors|JSON array of HTTP probe targets with optional paths, headers, and latency limits.|active|'
-  'activeProbeMonitor.tcp|json|[]|Monitors|JSON array of TCP probe targets.|active|'
-  'activeProbeMonitor.dns|json|[]|Monitors|JSON array of DNS probe targets.|active|'
-  'upgrader.disableUpdateCheck|boolean|false|Operations|Disable the update notification.|active|'
-  'telemetry.enabled|boolean|true|Operations|Send the adoption heartbeat.|active|'
-  'maintenance.enabled|boolean|true|Operations|Honor maintenance annotations while preserving cluster-level alerts.|active|'
-  'maintenance.annotation|string|kwatch.io/maintenance|Operations|Annotation that marks deliberate maintenance on a resource.|active|'
-  'maintenance.untilAnnotation|string|kwatch.io/maintenance-until|Operations|Optional annotation containing the maintenance expiry timestamp.|active|'
-  'healthCheck.diagnostics|boolean|false|Operations|Expose diagnostic endpoints such as incidents and test-alert.|active|'
-  'healthCheck.diagnosticsToken|string|empty|Security|Bearer token for diagnostic endpoints; stored only through a mounted Secret.|secret|'
-  'healthCheck.pprof|boolean|false|Operations|Expose Go profiling endpoints; keep disabled in production.|active|'
-  'app.clusterName|string|empty|Operations|Cluster name shown in notifications.|active|'
-  'app.proxyURL|string|empty|Operations|Optional proxy for outbound provider requests.|active|'
-  'app.disableStartupMessage|boolean|false|Operations|Disable the startup notification.|active|'
-  'app.logFormatter|string|text|Operations|Log output format: text or json.|active|'
-  'app.insecureSkipTLSVerify|boolean|false|Security|Skip TLS verification for outbound providers; strongly discouraged.|active|'
-  'app.caBundlePath|string|empty|Security|Path to a mounted PEM bundle for outbound provider TLS.|active|'
-  'healthCheck.enabled|boolean|true|Operations|Expose the built-in health endpoint.|active|'
-  'healthCheck.port|integer|8060|Operations|Port for health and optional diagnostic endpoints.|active|'
-  'crd.enabled|boolean|true|Operations|Watch KwatchConfig and supported CRD status conditions; restart kwatch when configuration changes; enabled by the interactive installer after installing the CRD.|active|'
-  'crd.failureConditions|list|empty|Operations|Additional CRD condition rules such as Ready=False or Degraded=True.|active|'
-  'crd.graphReferences|list|empty|Operations|Optional CRD references used by dependency and impact analysis.|active|'
-  'auditLog.enabled|boolean|true|Operations|Write structured incident lifecycle records to the configured audit sink.|active|'
-  'auditLog.output|string|stdout|Operations|Audit output: stdout or a supported output sink.|active|'
-  'templates|json|{}|Operations|JSON map of optional reason-specific message templates.|active|'
-  'runbooks|json|{}|Operations|JSON map of reason-to-runbook URLs.|active|'
-  'silences|json|[]|Noise reduction|JSON array of scoped silence rules, including eventMessages substring matches for attached Kubernetes Events.|active|'
-  'ignoreContainerNames|list|legacy|Compatibility|Legacy container suppression field.|deprecated|silences'
-  'ignorePodNames|list|legacy|Compatibility|Legacy pod-name suppression field.|deprecated|silences'
-  'ignoreLogPatterns|list|legacy|Compatibility|Legacy log suppression field.|deprecated|silences'
-  'ignoreContainerMessages|list|legacy|Compatibility|Legacy container-message suppression field.|deprecated|silences'
-  'ignoreNodeReasons|list|legacy|Compatibility|Legacy node-reason suppression field.|deprecated|silences'
-  'ignoreNodeMessages|list|legacy|Compatibility|Legacy node-message suppression field.|deprecated|silences'
-)
 
 if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ]; then
   UI_RESET=$'\033[0m'
@@ -611,7 +53,7 @@ with_loading() {
   local output_file pid frame=0 index char rc
   local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
   if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
-    "$@" 2>/dev/null
+    "$@"
     return
   fi
   output_file=$(mktemp)
@@ -625,13 +67,20 @@ with_loading() {
     frame=$((frame + 1))
   done
   if wait "$pid"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  if [ "$rc" -eq 0 ]; then
     printf '%s%s✅ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
     cat "$output_file"
     rm -f "$output_file"
     return 0
   fi
-  rc=$?
   printf '%s%s❌ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  if [ -s "$output_file" ]; then
+    cat "$output_file" >&2
+  fi
   rm -f "$output_file"
   return "$rc"
 }
@@ -772,7 +221,7 @@ cache_catalog() {
 }
 
 load_catalog_for_version() {
-  local version="${1:-}" tmp cached
+  local version="${1:-}" tmp cached cached_source
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && with_loading "Loading configuration catalog" \
@@ -783,6 +232,9 @@ load_catalog_for_version() {
     cache_catalog "$tmp"
     return 0
   fi
+  cached_source=$(kubectl -n "$NAMESPACE" get configmap "$CATALOG_CACHE_NAME" \
+    -o jsonpath='{.data.source}' 2>/dev/null || true)
+  [ "$cached_source" = "release:$version" ] || return 1
   cached=$(kubectl -n "$NAMESPACE" get configmap "$CATALOG_CACHE_NAME" \
     -o jsonpath='{.data.catalog\.tsv}' 2>/dev/null || true)
   if [ -n "$cached" ]; then
@@ -824,7 +276,7 @@ cache_feature_catalog() {
 }
 
 load_feature_catalog_for_version() {
-  local version="${1:-}" tmp cached
+  local version="${1:-}" tmp cached cached_source
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && with_loading "Loading feature catalog" \
@@ -835,6 +287,9 @@ load_feature_catalog_for_version() {
     cache_feature_catalog "$tmp"
     return 0
   fi
+  cached_source=$(kubectl -n "$NAMESPACE" get configmap "$FEATURE_CATALOG_CACHE_NAME" \
+    -o jsonpath='{.data.source}' 2>/dev/null || true)
+  [ "$cached_source" = "release:$version" ] || return 1
   cached=$(kubectl -n "$NAMESPACE" get configmap "$FEATURE_CATALOG_CACHE_NAME" \
     -o jsonpath='{.data.features\.tsv}' 2>/dev/null || true)
   if [ -n "$cached" ]; then
@@ -849,6 +304,7 @@ load_feature_catalog_for_version() {
 
 load_provider_catalog_file() {
   local file="$1" entry provider display field type required secret validation default description
+  local group condition
   local -a loaded=()
   while IFS= read -r entry || [ -n "$entry" ]; do
     if [[ "$entry" =~ ^#\ kwatch\ provider\ catalog\ v([0-9]+)$ ]]; then
@@ -856,7 +312,8 @@ load_provider_catalog_file() {
       continue
     fi
     [[ -z "$entry" || "$entry" = \#* ]] && continue
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     [ -n "$provider" ] && [ -n "$display" ] && [ -n "$field" ] && \
       case "$type" in
         string|integer|boolean|list|json|headers) ;;
@@ -866,6 +323,14 @@ load_provider_catalog_file() {
       { [ "$required" = true ] || [ "$required" = false ]; } && \
       { [ "$secret" = true ] || [ "$secret" = false ]; } && \
       [ -n "$description" ] || return 1
+    if [ -n "$condition" ]; then
+      case "$condition" in
+        choice:*) [ -n "$group" ] || return 1 ;;
+        at-least-one) [ -n "$group" ] || return 1 ;;
+        required-if:*) [[ "$condition" = *"="* ]] || return 1 ;;
+        *) return 1 ;;
+      esac
+    fi
     loaded+=("$entry")
   done < "$file"
   [ "${#loaded[@]}" -gt 0 ] || return 1
@@ -882,7 +347,7 @@ cache_provider_catalog() {
 }
 
 load_provider_catalog_for_version() {
-  local version="${1:-}" tmp cached
+  local version="${1:-}" tmp cached cached_source
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
   if [ -n "$version" ] && with_loading "Loading provider catalog" \
@@ -893,6 +358,9 @@ load_provider_catalog_for_version() {
     cache_provider_catalog "$tmp"
     return 0
   fi
+  cached_source=$(kubectl -n "$NAMESPACE" get configmap "$PROVIDER_CATALOG_CACHE_NAME" \
+    -o jsonpath='{.data.source}' 2>/dev/null || true)
+  [ "$cached_source" = "release:$version" ] || return 1
   cached=$(kubectl -n "$NAMESPACE" get configmap "$PROVIDER_CATALOG_CACHE_NAME" \
     -o jsonpath='{.data.providers\.tsv}' 2>/dev/null || true)
   if [ -n "$cached" ]; then
@@ -934,8 +402,7 @@ restore_backup() {
   rm -f "$backup_file"
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
-  kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m >/dev/null
+  restart_kwatch
 }
 
 config_value() {
@@ -980,9 +447,12 @@ ensure_crd() {
     "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" ||
     die "could not download the CRD for $version"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
-  kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" >/dev/null
-  kubectl wait --for=condition=Established \
-    crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
+  with_loading "Applying CRD" \
+    kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" \
+    >/dev/null || die "could not apply the CRD for $version"
+  with_loading "Waiting for CRD readiness" kubectl wait \
+    --for=condition=Established crd/kwatchconfigs.kwatch.abahmed.dev \
+    --timeout=60s >/dev/null || die "CRD did not become ready"
 }
 
 json_escape() {
@@ -1264,7 +734,8 @@ write_webhook_headers() {
     done
     while true; do
       value=$(ask_secret "Header $i value")
-      if [ -n "$value" ] && [[ ! "$value" =~ $'\n'|$'\r' ]]; then
+      if [ -n "$value" ] && [[ "$value" != *$'\n'* &&
+        "$value" != *$'\r'* ]]; then
         break
       fi
       ui_warn "⚠️ Header value must be a non-empty single line."
@@ -1409,6 +880,7 @@ migrate_legacy_silences() {
 }
 
 configure_flow() {
+  require_config_catalog
   ensure_crd
   preflight_access manage
   preflight_config_resource
@@ -1479,8 +951,7 @@ configure_flow() {
         fi
         kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
           "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
-        if ! kubectl -n "$NAMESPACE" rollout restart "deployment/$(deployment_name)" >/dev/null \
-          || ! kubectl -n "$NAMESPACE" rollout status "deployment/$(deployment_name)" --timeout=5m; then
+        if ! restart_kwatch; then
           echo "Configuration failed validation; restoring backup." >&2
           restore_backup
           die "configuration update failed"
@@ -1495,22 +966,19 @@ configure_flow() {
 
 configure_alert_flow() {
   local backup deployment
+  require_provider_catalog
+  adopt_existing_config_secret
   preflight_alert_access
   backup=$(mktemp)
   trap 'if [ -n "${backup:-}" ]; then rm -f "$backup"; fi' RETURN
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" -o yaml >"$backup" 2>/dev/null || true
   write_config_secret
   deployment=$(deployment_name)
-  if [ -n "$deployment" ] && ! kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null; then
+  if [ -n "$deployment" ] && ! restart_kwatch; then
+    ui_warn "⚠️ Notification rollout failed; restoring the previous configuration."
     kubectl apply -f "$backup" >/dev/null 2>&1 || true
+    restart_kwatch || true
     die "could not restart kwatch after changing the notification destination"
-  fi
-  if [ -n "$deployment" ] && ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m; then
-    echo "Notification update failed; restoring the previous credential and configuration." >&2
-    [ -s "$backup" ] && kubectl apply -f "$backup" >/dev/null
-    kubectl -n "$NAMESPACE" rollout restart "deployment/$deployment" >/dev/null
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m >/dev/null
-    die "notification update failed"
   fi
   echo "Notification destination updated."
 }
@@ -1538,7 +1006,6 @@ NAMESPACE_CREATED=false
 CONFIG_SECRET_NAME="${RELEASE}-config"
 STATE_CONFIGMAP_NAME="${RELEASE}-manager-state"
 CATALOG_CACHE_NAME="${RELEASE}-config-catalog"
-CATALOG_SOURCE="embedded"
 FEATURE_CATALOG_CACHE_NAME="${RELEASE}-feature-catalog"
 PROVIDER_CATALOG_CACHE_NAME="${RELEASE}-provider-catalog"
 valid_kubernetes_name "$NAMESPACE" || die "invalid namespace: $NAMESPACE (maximum 40 characters)"
@@ -1685,7 +1152,64 @@ deployment_name() {
   fi
   kubectl -n "$NAMESPACE" get deployment \
     -l 'app=kwatch,app.kubernetes.io/managed-by=kwatch.sh' \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+adopt_existing_config_secret() {
+  local deployment secret_name
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || return 0
+  secret_name=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.volumes[?(@.name=="config-volume")].secret.secretName}' \
+    2>/dev/null || true)
+  if [ -n "$secret_name" ]; then
+    CONFIG_SECRET_NAME="$secret_name"
+    ui_info "🔐 Using existing configuration Secret: $CONFIG_SECRET_NAME"
+  fi
+}
+
+restart_kwatch() {
+  local deployment
+  deployment=$(deployment_name || true)
+  if [ -z "$deployment" ]; then
+    ui_error "❌ kwatch Deployment was not found; configuration was not activated."
+    return 1
+  fi
+  with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
+    rollout restart "deployment/$deployment" >/dev/null || return 1
+  with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
+    rollout status "deployment/$deployment" --timeout=5m || return 1
+}
+
+resolve_action() {
+  local requested="$1" existing_deployment has_config has_secret
+  existing_deployment=$(deployment_name || true)
+  has_config=false
+  has_secret=false
+  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
+    has_config=true
+  fi
+  if kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" >/dev/null 2>&1; then
+    has_secret=true
+  fi
+  case "$requested" in
+    install)
+      if [ -n "$existing_deployment" ]; then
+        ui_warn "🔄 An existing kwatch Deployment was found; treating install as upgrade to preserve it."
+        printf 'upgrade'
+        return 0
+      fi
+      ;;
+    upgrade)
+      if [ -z "$existing_deployment" ] &&
+        { [ "$has_config" = true ] || [ "$has_secret" = true ]; }; then
+        ui_warn "🧭 Existing kwatch configuration was found without a Deployment; treating upgrade as install."
+        printf 'install'
+        return 0
+      fi
+      ;;
+  esac
+  printf '%s' "$requested"
 }
 
 installed_version() {
@@ -1705,39 +1229,47 @@ installed_version() {
 }
 
 maybe_load_catalog() {
-  local version="${1:-}" catalog_version fallback_version
+  local version="${1:-}" catalog_version ok=true
   if [ -z "$version" ]; then
     version=$(installed_version || true)
   fi
   if [ -z "$version" ]; then
     version=$(latest_version || true)
   fi
+  [ -n "$version" ] || {
+    ui_error "❌ Could not determine the kwatch release for catalog loading."
+    return 1
+  }
   catalog_version="$version"
-  if [ -n "$version" ] && load_catalog_for_version "$version"; then
+  if load_catalog_for_version "$version"; then
     ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($version)"
   else
-    fallback_version=$(latest_release_candidate || true)
-    if [ -n "$fallback_version" ] &&
-      [ "$fallback_version" != "$version" ] &&
-      load_catalog_for_version "$fallback_version"; then
-      catalog_version="$fallback_version"
-      ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($catalog_version)"
-    else
-      ui_warn "⚠️ Configuration catalog: embedded fallback"
-    fi
+    ui_error "❌ Configuration catalog unavailable for $version."
+    ok=false
   fi
-  if [ -n "$catalog_version" ] &&
-    load_feature_catalog_for_version "$catalog_version"; then
+  if load_feature_catalog_for_version "$catalog_version"; then
     ui_success "🧩 Feature catalog: $FEATURE_CATALOG_SOURCE ($catalog_version)"
   else
-    ui_warn "⚠️ Feature catalog: unavailable; feature enforcement remains in the image"
+    ui_error "❌ Feature catalog unavailable for $catalog_version."
+    ok=false
   fi
-  if [ -n "$catalog_version" ] &&
-    load_provider_catalog_for_version "$catalog_version"; then
+  if load_provider_catalog_for_version "$catalog_version"; then
     ui_success "🔌 Provider catalog: $PROVIDER_CATALOG_SOURCE ($catalog_version)"
   else
-    ui_warn "⚠️ Provider catalog: embedded fallback"
+    ui_error "❌ Provider catalog unavailable for $catalog_version."
+    ok=false
   fi
+  [ "$ok" = true ]
+}
+
+require_config_catalog() {
+  [ "${#CATALOG[@]}" -gt 0 ] ||
+    die "configuration catalog is unavailable; retry while the release artifact is reachable"
+}
+
+require_provider_catalog() {
+  [ "${#PROVIDER_CATALOG[@]}" -gt 0 ] ||
+    die "provider catalog is unavailable; retry while the release artifact is reachable"
 }
 
 features_flow() {
@@ -1796,7 +1328,8 @@ choose_provider() {
   local validation default description seen="|" i provider_name display_name
   local -a providers=() displays=() matches=()
   for entry in "${PROVIDER_CATALOG[@]}"; do
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     case "$seen" in
       *"|$provider|"*) continue ;;
     esac
@@ -1859,7 +1392,7 @@ choose_provider() {
       ui_warn "⚠️ Choose one of the matching provider numbers."
       continue
     fi
-    ui_warn "⚠️ No provider matched '$query'. Try a name such as Slack, Telegram, or PagerDuty."
+    ui_warn "⚠️ No provider matched '$query'. Try a partial name or number."
   done
 }
 
@@ -1868,28 +1401,123 @@ choose_tls_monitor() {
     "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
 }
 
-choose_slack_mode() {
-  local choice
-  while true; do
-    choice=$(ask "🔐 Slack authentication: 1) Incoming webhook 2) Bot token + channel" "1")
-    case "$choice" in
-      1) printf 'webhook'; return 0 ;;
-      2) printf 'token'; return 0 ;;
-      *) ui_warn "⚠️ Choose 1 for webhook or 2 for bot token mode." ;;
+provider_group_value() {
+  local group="$1" rest
+  rest="${PROVIDER_GROUP_SELECTIONS#*|$group=}"
+  [ "$rest" != "$PROVIDER_GROUP_SELECTIONS" ] || return 1
+  printf '%s' "${rest%%|*}"
+}
+
+set_provider_group_value() {
+  local group="$1" value="$2"
+  PROVIDER_GROUP_SELECTIONS="${PROVIDER_GROUP_SELECTIONS}${group}=${value}|"
+}
+
+provider_group_present() {
+  local group="$1"
+  case "${PROVIDER_GROUP_PRESENCE:-|}" in
+    *"|$group|"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+mark_provider_group_present() {
+  local group="$1"
+  [ -n "$group" ] || return 0
+  provider_group_present "$group" ||
+    PROVIDER_GROUP_PRESENCE="${PROVIDER_GROUP_PRESENCE:-|}${group}|"
+}
+
+provider_group_has_later_field() {
+  local target_group="$1" current_field="$2"
+  local entry provider display field type required secret validation default
+  local description group condition seen=false
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
+    [ "$provider" = "$PROVIDER" ] || continue
+    [ "$group" = "$target_group" ] || continue
+    [ "$condition" = at-least-one ] || continue
+    if [ "$seen" = true ]; then
+      return 0
+    fi
+    [ "$field" = "$current_field" ] && seen=true
+  done
+  return 1
+}
+
+select_provider_groups() {
+  local entry provider display field type required secret validation default
+  local description group condition choice value selected i
+  local seen="|"
+  local -a groups=() values=()
+  PROVIDER_GROUP_SELECTIONS="|"
+  for entry in "${PROVIDER_CATALOG[@]}"; do
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
+    [ "$provider" = "$PROVIDER" ] || continue
+    case "$condition" in
+      choice:*)
+        case "$seen" in
+          *"|$group|"*) ;;
+          *) groups+=("$group"); seen="${seen}${group}|" ;;
+        esac
+        ;;
     esac
+  done
+  for group in "${groups[@]}"; do
+    values=()
+    for entry in "${PROVIDER_CATALOG[@]}"; do
+      IFS='|' read -r provider display field type required secret validation default \
+        description entry_group condition <<<"$entry"
+      [ "$provider" = "$PROVIDER" ] || continue
+      [ "$entry_group" = "$group" ] || continue
+      case "$condition" in
+        choice:*) values+=("${condition#choice:}|$field|$description") ;;
+      esac
+    done
+    [ "${#values[@]}" -gt 0 ] || continue
+    echo >&2
+    printf '🔐 Choose %s:%s\n' "$group" >&2
+    i=1
+    for value in "${values[@]}"; do
+      IFS='|' read -r selected field description <<<"$value"
+      printf '  %d) %s (%s)\n' "$i" "$selected" "$field" >&2
+      i=$((i + 1))
+    done
+    while true; do
+      choice=$(ask "🎯 $group option" "1")
+      if [[ "$choice" =~ ^[0-9]+$ ]] &&
+        [ "$choice" -ge 1 ] && [ "$choice" -le "${#values[@]}" ]; then
+        value="${values[$((choice - 1))]}"
+        IFS='|' read -r selected field description <<<"$value"
+        set_provider_group_value "$group" "$selected"
+        break
+      fi
+      ui_warn "⚠️ Choose one of the listed $group options."
+    done
   done
 }
 
-choose_sns_mode() {
-  local choice
-  while true; do
-    choice=$(ask "📨 SNS destination: 1) Topic ARN 2) Target ARN" "1")
-    case "$choice" in
-      1) printf 'topic'; return 0 ;;
-      2) printf 'target'; return 0 ;;
-      *) ui_warn "⚠️ Choose 1 for topic ARN or 2 for target ARN." ;;
-    esac
-  done
+provider_condition_matches() {
+  local group="$1" condition="$2" selected expected expression
+  case "$condition" in
+    choice:*)
+      selected=$(provider_group_value "$group" || true)
+      expected="${condition#choice:}"
+      [ "$selected" = "$expected" ]
+      ;;
+    at-least-one) return 0 ;;
+    required-if:*)
+      expression="${condition#required-if:}"
+      group="${expression%%=*}"
+      expected="${expression#*=}"
+      selected=$(provider_group_value "$group" || true)
+      [ "$selected" = "$expected" ]
+      ;;
+    "") return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 prompt_provider_value() {
@@ -1925,9 +1553,9 @@ prompt_provider_value() {
           ui_warn "⚠️ $field must be an http or https URL."; continue;
         }
         ;;
-      telegram-chat-id)
+      signed-integer|telegram-chat-id)
         [[ "$value" =~ ^-?[0-9]+$ ]] || {
-          ui_warn "⚠️ $field must be a Telegram chat ID."; continue;
+          ui_warn "⚠️ $field must be a signed integer."; continue;
         }
         ;;
       port)
@@ -1961,17 +1589,25 @@ prompt_provider_value() {
   done
 }
 
+apply_config_secret() {
+  kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
+    --from-file=config.yaml="$config_tmp" \
+    "${SECRET_ARGS[@]}" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
 write_config_secret() {
-  local secret_name="${RELEASE}-config" tmp_dir config_tmp telemetry_enabled
+  local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
+  local tmp_dir config_tmp telemetry_enabled
   local entry provider display field type required secret validation default description value
   local field_description
-  local configure_optional force_field slack_mode="" sns_mode=""
-  local slack_webhook="" slack_token="" slack_channel=""
-  local sns_topic_arn="" sns_target_arn=""
+  local configure_optional
   local old_provider encoded old_config_file
+  local field_required
   SECRET_ARGS=()
   WRITTEN_PROVIDER_SECTIONS="|"
   WRITTEN_CONFIG_SECTIONS="|"
+  PROVIDER_GROUP_PRESENCE="|"
   tmp_dir=$(mktemp -d)
   config_tmp="$tmp_dir/config.yaml"
   trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
@@ -1983,11 +1619,7 @@ write_config_secret() {
     old_config_file=""
   fi
   choose_provider
-  if [ "$PROVIDER" = slack ]; then
-    slack_mode=$(choose_slack_mode)
-  elif [ "$PROVIDER" = sns ]; then
-    sns_mode=$(choose_sns_mode)
-  fi
+  select_provider_groups
   telemetry_enabled=$(ask_yes_no \
     "📊 Send anonymous usage data to help improve kwatch" "y")
   configure_optional=$(ask_yes_no \
@@ -2007,43 +1639,38 @@ write_config_secret() {
   printf 'crd:\n  enabled: true\ntelemetry:\n  enabled: %s\nalert:\n  %s:\n' \
     "$telemetry_enabled" "$PROVIDER" > "$config_tmp"
   for entry in "${PROVIDER_CATALOG[@]}"; do
-    IFS='|' read -r provider display field type required secret validation default description <<<"$entry"
+    IFS='|' read -r provider display field type required secret validation default \
+      description group condition <<<"$entry"
     [ "$provider" = "$PROVIDER" ] || continue
-    force_field=false
-    if [ "$provider" = slack ]; then
-      case "$slack_mode:$field" in
-        webhook:webhook|token:token|token:channel)
-          force_field=true
-          required=true
-          ;;
-        webhook:token|token:webhook) continue ;;
-      esac
-    elif [ "$provider" = sns ]; then
-      case "$sns_mode:$field" in
-        topic:topicArn|target:targetArn)
-          force_field=true
-          required=true
-          ;;
-        topic:targetArn|target:topicArn) continue ;;
-      esac
+    case "$condition" in
+      choice:*)
+        provider_condition_matches "$group" "$condition" || continue
+        required=true
+        ;;
+      required-if:*)
+        provider_condition_matches "$group" "$condition" && required=true
+        ;;
+      at-least-one) ;;
+    esac
+    field_required="$required"
+    if [ "$condition" = at-least-one ] &&
+      ! provider_group_present "$group" &&
+      ! provider_group_has_later_field "$group" "$field"; then
+      field_required=true
     fi
     if [ "$required" != true ] && [ "$configure_optional" = false ] &&
-      [ "$force_field" = false ]; then
+      [ -z "$condition" ]; then
       if [ "$secret" = true ] &&
         preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-        case "$field" in
-          webhook) slack_webhook=preserved ;;
-          token) slack_token=preserved ;;
-          topicArn) sns_topic_arn=preserved ;;
-          targetArn) sns_target_arn=preserved ;;
-        esac
+        mark_provider_group_present "$group"
+        :
       elif [ "$provider" = "$old_provider" ] &&
         preserve_provider_optional "$config_tmp" "$provider" "$field" \
         "$type" "$tmp_dir"; then
-        [ "$field" = channel ] && slack_channel=preserved
+        mark_provider_group_present "$group"
+        :
       elif [ -n "$default" ] && [ "$type" != headers ]; then
         write_provider_value "$config_tmp" "$field" "$type" "$default"
-        [ "$field" = channel ] && slack_channel="$default"
       fi
       continue
     fi
@@ -2054,7 +1681,7 @@ write_config_secret() {
     fi
     while true; do
       field_description="$description"
-      if [ "$required" = false ]; then
+      if [ "$field_required" = false ]; then
         field_description="$description (optional; Enter to skip)"
       fi
       value=$(prompt_provider_value "$field" "$type" "$secret" \
@@ -2062,15 +1689,16 @@ write_config_secret() {
       if [ -z "$value" ]; then
         if [ "$secret" = true ] &&
           preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
-          case "$field" in
-            webhook) slack_webhook=preserved ;;
-            token) slack_token=preserved ;;
-            topicArn) sns_topic_arn=preserved ;;
-            targetArn) sns_target_arn=preserved ;;
-          esac
+          mark_provider_group_present "$group"
           break
         fi
-        if [ "$required" = true ]; then
+        if [ "$provider" = "$old_provider" ] &&
+          preserve_provider_optional "$config_tmp" "$provider" "$field" \
+          "$type" "$tmp_dir"; then
+          mark_provider_group_present "$group"
+          break
+        fi
+        if [ "$field_required" = true ]; then
           ui_warn "⚠️ $field cannot be empty."
           continue
         fi
@@ -2081,32 +1709,10 @@ write_config_secret() {
       else
         write_provider_value "$config_tmp" "$field" "$type" "$value"
       fi
-      case "$field" in
-        webhook) slack_webhook="$value" ;;
-        token) slack_token="$value" ;;
-        channel) slack_channel="$value" ;;
-        topicArn) sns_topic_arn="$value" ;;
-        targetArn) sns_target_arn="$value" ;;
-      esac
+      mark_provider_group_present "$group"
       break
     done
   done
-  if [ "$PROVIDER" = slack ]; then
-    if [ -z "$slack_webhook" ] && [ -z "$slack_token" ]; then
-      die "Slack requires a webhook or bot token"
-    fi
-    if [ -n "$slack_token" ] && [ -z "$slack_channel" ]; then
-      while [ -z "$slack_channel" ]; do
-        slack_channel=$(ask "Slack channel for bot-token mode")
-        [ -n "$slack_channel" ] || ui_warn "⚠️ Slack channel cannot be empty in bot-token mode."
-      done
-      write_provider_value "$config_tmp" channel string "$slack_channel"
-    fi
-  fi
-  if [ "$PROVIDER" = sns ] && [ -z "$sns_topic_arn" ] &&
-    [ -z "$sns_target_arn" ]; then
-    die "SNS requires a topic ARN or target ARN"
-  fi
   for entry in "${CATALOG[@]}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
@@ -2122,10 +1728,8 @@ write_config_secret() {
       ui_warn "⚠️ $path must be a valid single-line secret value. Try again."
     done
   done
-  kubectl -n "$NAMESPACE" create secret generic "$secret_name" \
-    --from-file=config.yaml="$config_tmp" \
-    "${SECRET_ARGS[@]}" \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  with_loading "Saving notification configuration" apply_config_secret ||
+    die "could not save the notification configuration"
   kubectl -n "$NAMESPACE" label secret "$secret_name" \
     app.kubernetes.io/instance="$RELEASE" \
     app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null
@@ -2133,18 +1737,27 @@ write_config_secret() {
 }
 
 apply_manifests() {
-  local version="$1" tmp crd_tmp deployment
+  local version="$1" tmp crd_tmp apply_tmp="" deployment existing_deployment
+  local manifest_to_apply
   valid_release_version "$version" || die "invalid kwatch release version: $version"
+  existing_deployment=$(deployment_name || true)
+  if [ -n "$existing_deployment" ]; then
+    adopt_existing_config_secret
+  fi
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
-  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" 2>/dev/null || true' RETURN
+  trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" \
+    "${apply_tmp:-}" "${apply_tmp:-}.bak" 2>/dev/null || true' RETURN
   with_loading "Downloading CRD for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
-  kubectl apply -f "$crd_tmp"
-  kubectl wait --for=condition=Established \
-    crd/kwatchconfigs.kwatch.abahmed.dev --timeout=60s >/dev/null
+  with_loading "Applying CRD" kubectl apply -f "$crd_tmp" >/dev/null ||
+    return 1
+  with_loading "Waiting for CRD readiness" kubectl wait \
+    --for=condition=Established crd/kwatchconfigs.kwatch.abahmed.dev \
+    --timeout=60s >/dev/null || return 1
   preflight_config_resource
+  ensure_config_resource
   with_loading "Downloading deployment for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/deploy.yaml" -o "$tmp" || return 1
@@ -2159,8 +1772,31 @@ apply_manifests() {
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
-  kubectl apply -f "$tmp"
-  ensure_config_resource
+  manifest_to_apply="$tmp"
+  if [ -n "$existing_deployment" ]; then
+    # Deployment selectors are immutable. Omit the selector on updates so
+    # Kubernetes preserves the selector used by an older kwatch release.
+    apply_tmp=$(mktemp)
+    cp "$tmp" "$apply_tmp" || return 1
+    sed -i.bak \
+      -e '/^  selector:$/,/^  template:$/ { /^  template:$/!d; }' \
+      "$apply_tmp"
+    manifest_to_apply="$apply_tmp"
+  fi
+  if ! with_loading "Applying kwatch Deployment" kubectl apply -f \
+    "$manifest_to_apply"; then
+    if [ -n "$existing_deployment" ] && recreate_deployment \
+      "$existing_deployment" "$tmp"; then
+      ui_success \
+        "🛠️ Recreated the kwatch Deployment" \
+        "while preserving configuration."
+    else
+      ui_error \
+        "❌ Could not apply the kwatch Deployment." \
+        "Existing configuration and Secrets were preserved."
+      return 1
+    fi
+  fi
   if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
     enable_initial_tls_monitor
   elif [ "$(config_value tlsMonitor.enabled)" = true ]; then
@@ -2168,7 +1804,24 @@ apply_manifests() {
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m
+  with_loading "Waiting for kwatch rollout" \
+    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout=5m
+}
+
+recreate_deployment() {
+  local deployment="$1" manifest="$2"
+  ui_warn \
+    "⚠️ Existing Deployment could not be reconciled; recreating it" \
+    "while preserving KwatchConfig and Secrets."
+  with_loading "Removing invalid kwatch Deployment" kubectl -n "$NAMESPACE" \
+    delete deployment "$deployment" --ignore-not-found --wait=true || return 1
+  with_loading "Recreating kwatch Deployment" kubectl apply -f "$manifest" || {
+    ui_error \
+      "❌ Deployment recreation failed." \
+      "KwatchConfig and Secrets were not removed."
+    return 1
+  }
 }
 
 verify_operational_security() {
@@ -2251,13 +1904,15 @@ apply_operational_namespace_labels() {
       [ "$warn" != restricted ]; }; then
     ui_info "🔐 Existing kwatch resources found; applying restricted Pod Security labels."
   fi
-  kubectl label namespace "$NAMESPACE" \
-    pod-security.kubernetes.io/enforce=restricted \
+  with_loading "Applying namespace security labels" kubectl label namespace \
+    "$NAMESPACE" pod-security.kubernetes.io/enforce=restricted \
     pod-security.kubernetes.io/audit=restricted \
-    pod-security.kubernetes.io/warn=restricted --overwrite >/dev/null
+    pod-security.kubernetes.io/warn=restricted --overwrite >/dev/null ||
+    die "could not apply namespace security labels"
   if [ "$NAMESPACE_CREATED" = true ]; then
-    kubectl annotate namespace "$NAMESPACE" \
-      kwatch.dev/managed-namespace=true --overwrite >/dev/null
+    with_loading "Marking managed namespace" kubectl annotate namespace \
+      "$NAMESPACE" kwatch.dev/managed-namespace=true --overwrite >/dev/null ||
+      die "could not mark the managed namespace"
   fi
 }
 
@@ -2287,15 +1942,20 @@ clear_managed_namespace_labels() {
 }
 
 install_flow() {
-  kubectl cluster-info >/dev/null || die "cannot reach the Kubernetes cluster"
+  with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
+    die "cannot reach the Kubernetes cluster"
   confirm_resume
   local version
   version=$(select_release_version) || die "could not determine kwatch release from GitHub"
-  maybe_load_catalog "$version"
+  maybe_load_catalog "$version" ||
+    die "release catalogs are unavailable; installation cannot continue"
+  require_config_catalog
+  require_provider_catalog
   if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
     NAMESPACE_CREATED=false
   else
-    kubectl create namespace "$NAMESPACE" >/dev/null
+    with_loading "Creating namespace $NAMESPACE" kubectl create namespace \
+      "$NAMESPACE" >/dev/null || die "could not create namespace $NAMESPACE"
     NAMESPACE_CREATED=true
   fi
   apply_operational_namespace_labels
@@ -2321,7 +1981,8 @@ upgrade_flow() {
   local version
   confirm_resume
   version=$(select_release_version) || die "could not determine kwatch release from GitHub"
-  maybe_load_catalog "$version"
+  maybe_load_catalog "$version" ||
+    die "release catalogs are unavailable; upgrade cannot continue"
   ui_info "⬆️ Upgrading kwatch to $version..."
   apply_operational_namespace_labels
   record_state preflight "$version" "upgrade started"
@@ -2400,7 +2061,9 @@ main() {
   if [ -z "$action" ]; then
     installed=$(deployment_name)
     if [ -n "$installed" ]; then
-      maybe_load_catalog
+      if ! maybe_load_catalog; then
+        ui_warn "⚠️ Catalogs are unavailable; configuration actions will require a retry."
+      fi
       migration_notice
       cat >&2 <<'EOF'
 
@@ -2422,9 +2085,15 @@ EOF
       action=install
     fi
   else
+    action=$(resolve_action "$action")
     case "$action" in
       install|upgrade|uninstall) ;;
-      *) maybe_load_catalog; migration_notice ;;
+      *)
+        if ! maybe_load_catalog; then
+          ui_warn "⚠️ Catalogs are unavailable; configuration actions will require a retry."
+        fi
+        migration_notice
+        ;;
     esac
   fi
   case "$action" in

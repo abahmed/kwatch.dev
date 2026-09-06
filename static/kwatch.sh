@@ -2392,7 +2392,7 @@ write_config_secret() {
     telemetry_default=n
   fi
   telemetry_enabled=$(ask_yes_no \
-    "📊 Send anonymous usage data to help improve kwatch" \
+    "📊 Send a weekly adoption heartbeat (random installation ID + kwatch version only)" \
     "$telemetry_default")
   printf 'telemetry:\n  enabled: %s\n' "$telemetry_enabled" >>"$config_tmp"
   for entry in "${CATALOG[@]}"; do

@@ -115,7 +115,8 @@ write_config_secret
 token_line=$(grep -n 'Provider token' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 channel_line=$(grep -n 'Destination channel' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 optional_line=$(grep -n 'optional settings' "$PROMPT_LOG" | head -1 | cut -d: -f1)
-telemetry_line=$(grep -n 'anonymous usage' "$PROMPT_LOG" | head -1 | cut -d: -f1)
+telemetry_line=$(grep -n 'weekly adoption heartbeat' "$PROMPT_LOG" |
+  head -1 | cut -d: -f1)
 [ "$token_line" -lt "$channel_line" ] &&
   [ "$channel_line" -lt "$optional_line" ] &&
   [ "$optional_line" -lt "$telemetry_line" ] || {

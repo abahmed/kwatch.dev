@@ -58,6 +58,13 @@ The kwatch release workflow updates `src/data/releases.json` automatically:
 The release workflow also updates the main kwatch README. Keep version pins in
 the release-managed blocks only.
 
+### 🌐 Deployment
+
+The website is hosted on Render. Pushes to `main` trigger the repository
+workflow, which calls the `RENDER_DEPLOY_HOOK_URL` secret when it is configured.
+If the secret is not present, enable Render's native auto-deploy for the `main`
+branch or add the deploy-hook secret in the repository settings.
+
 ## 🤝 Contribute
 
 Read [Contributing](./docs/contributing/contributing.md) and

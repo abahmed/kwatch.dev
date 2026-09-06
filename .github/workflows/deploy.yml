@@ -1,0 +1,28 @@
+name: Deploy website
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Trigger Render deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::notice::RENDER_DEPLOY_HOOK_URL is not configured; Render auto-deploy must be enabled instead."
+            exit 0
+          fi
+          curl --fail --silent --show-error --request POST \
+            "$RENDER_DEPLOY_HOOK_URL" >/tmp/render-deploy-response.json
+          echo "Render deployment triggered."

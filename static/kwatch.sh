@@ -1933,7 +1933,7 @@ choose_provider() {
       ui_warn "⚠️ Choose one of the matching provider numbers."
       continue
     fi
-    ui_warn "⚠️ No provider matched '$query'. Try a name such as Slack, Telegram, or PagerDuty."
+    ui_warn "⚠️ No provider matched '$query'. Try a partial name or number."
   done
 }
 

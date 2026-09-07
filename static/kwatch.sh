@@ -71,6 +71,19 @@ ui_menu() {
 }
 ui_detail() { printf '%s%s%s\n' "$UI_DIM" "$*" "$UI_RESET" >&2; }
 
+context_label() {
+  local context="$1" label
+  case "$context" in
+    arn:*:cluster/*) label="cluster/${context##*/}" ;;
+    *) label="$context" ;;
+  esac
+  if [ "${#label}" -gt 56 ]; then
+    printf '%s…%s' "${label:0:24}" "${label: -28}"
+  else
+    printf '%s' "$label"
+  fi
+}
+
 with_loading() {
   local label="$1"; shift
   local command_name="${1:-command}"
@@ -229,6 +242,10 @@ failure_hint() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
+    *podsecurity*|*restricted*|*hostpath*|*violat*)
+      printf '%s' "An admission controller or Pod Security policy rejected the Pod. In this case an injected hostPath volume was not allowed." ;;
+    *admission*|*webhook*)
+      printf '%s' "An admission controller rejected or changed the resource. Review the webhook or policy named in the event." ;;
     *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
       printf '%s' "The workload references a missing ServiceAccount or configuration Secret. Re-run with permission to create it, then retry." ;;
     *forbidden*|*unauthorized*|*permission*denied*)
@@ -239,8 +256,6 @@ failure_hint() {
       printf '%s' "The cluster could not pull the kwatch image. Check registry access and network policy." ;;
     *timeout*|*timed\ out*|*connection\ refused*|*unavailable*)
       printf '%s' "The Kubernetes API or rollout did not respond in time. Check connectivity and nodes." ;;
-    *admission*|*webhook*|*podsecurity*|*violat*)
-      printf '%s' "An admission or Pod Security policy rejected the resource. Review that policy." ;;
     *)
       printf '%s' "Review the Kubernetes details below; no safe automatic fix was identified." ;;
   esac
@@ -250,6 +265,10 @@ failure_fix() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
+    *podsecurity*|*restricted*|*hostpath*|*violat*)
+      printf '%s' "Exclude the kwatch namespace from the injector or remove the injected hostPath; do not weaken restricted Pod Security just for kwatch." ;;
+    *admission*|*webhook*)
+      printf '%s' "Ask the cluster administrator to review the named webhook or policy, then retry." ;;
     *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
       printf '%s' "Grant create/get access for the named ServiceAccount or Secret, or ask the cluster administrator to create it, then retry." ;;
     *forbidden*|*unauthorized*|*permission*denied*)
@@ -260,8 +279,6 @@ failure_fix() {
       printf '%s' "Make the kwatch image reachable from the cluster or configure the required imagePullSecret, then retry." ;;
     *timeout*|*timed\ out*|*connection\ refused*|*unavailable*|*too\ many\ requests*|*rate\ limit*)
       printf '%s' "Check API/network health; the manager can safely retry this operation after you approve it." ;;
-    *admission*|*webhook*|*podsecurity*|*violat*)
-      printf '%s' "Ask the cluster administrator to allow the kwatch manifest or namespace policy, then retry." ;;
     *)
       printf '%s' "Review the details and events, correct the named resource or permission, then run the manager again." ;;
   esac
@@ -271,17 +288,25 @@ failure_is_retryable() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
-    *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*|*serviceaccount*not\ found*|*serviceaccount*missing*|*configuration\ secret*missing*) return 0 ;;
+    *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*|*serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*) return 0 ;;
   esac
   return 1
 }
 
+compact_reason() {
+  local compact
+  compact=$(printf '%s' "$1" | sed -E \
+    's#https?://[^ ]+#<url-redacted>#g; s/((token|password|secret)[=:])[[:space:]]*[^[:space:]]+/\1<redacted>/Ig; s/[[:space:]]+/ /g')
+  printf '%s' "${compact:0:500}"
+}
+
 show_failure_diagnostics() {
-  local operation="$1" reason="$2" deployment pod pods
+  local operation="$1" reason="$2" safe_reason deployment pod pods summary events
+  safe_reason=$(compact_reason "$reason")
   ui_heading "🔎 $operation diagnostics"
-  ui_error "❌ Kubernetes reported: $reason"
-  ui_info "💡 Likely cause: $(failure_hint "$reason")"
-  ui_info "🛠️ Recommended fix: $(failure_fix "$reason")"
+  ui_error "❌ Kubernetes reported: $safe_reason"
+  ui_info "💡 Likely cause: $(failure_hint "$safe_reason")"
+  ui_info "🛠️ Recommended fix: $(failure_fix "$safe_reason")"
   ui_detail "The following read-only checks help identify the exact cause."
   deployment=$(deployment_name || true)
   if [ -z "$deployment" ]; then
@@ -290,7 +315,10 @@ show_failure_diagnostics() {
   fi
   if [ -n "$deployment" ]; then
     ui_detail "📦 Deployment: $NAMESPACE/$deployment"
-    kubectl -n "$NAMESPACE" describe deployment "$deployment" 2>/dev/null ||
+    summary=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o custom-columns='READY:.status.readyReplicas,DESIRED:.spec.replicas,UPDATED:.status.updatedReplicas,AVAILABLE:.status.availableReplicas,REASON:.status.conditions[-1].reason' \
+      --no-headers 2>/dev/null || true)
+    [ -n "$summary" ] && printf '  %s\n' "$summary" ||
       ui_detail "Deployment details are unavailable."
     pods=$(kubectl -n "$NAMESPACE" get pods \
       -l "app.kubernetes.io/instance=$RELEASE" \
@@ -303,12 +331,26 @@ show_failure_diagnostics() {
     while IFS= read -r pod; do
       [ -n "$pod" ] || continue
       ui_detail "🧩 Pod: $NAMESPACE/$pod"
-      kubectl -n "$NAMESPACE" describe pod "$pod" 2>/dev/null || true
+      summary=$(kubectl -n "$NAMESPACE" get pod "$pod" \
+        -o custom-columns='PHASE:.status.phase,READY:.status.containerStatuses[0].ready,REASON:.status.containerStatuses[0].state.waiting.reason' \
+        --no-headers 2>/dev/null || true)
+      [ -n "$summary" ] && printf '  %s\n' "$summary" ||
+        ui_detail "Pod details are unavailable."
     done <<< "$pods"
   fi
   ui_detail "🕒 Recent namespace events:"
-  kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp \
-    2>/dev/null | tail -20 || ui_detail "Namespace events are unavailable."
+  events=$(kubectl -n "$NAMESPACE" get events --field-selector=type=Warning \
+    --sort-by=.lastTimestamp -o custom-columns='REASON:.reason,MESSAGE:.message' \
+    --no-headers 2>/dev/null | tail -8 || true)
+  if [ -n "$events" ]; then
+    while IFS= read -r summary; do
+      summary=$(printf '%s' "$summary" | sed -E \
+        's#https?://[^ ]+#<url-redacted>#g; s/((token|password|secret)[=:])[[:space:]]*[^[:space:]]+/\1<redacted>/Ig')
+      printf '  %s\n' "${summary:0:320}"
+    done <<< "$events"
+  else
+    ui_detail "No warning events were found or events are unavailable."
+  fi
 }
 
 kubectl() {
@@ -363,10 +405,10 @@ select_context() {
     ui_heading "🧭 Select the Kubernetes cluster to manage"
     for index in "${!contexts[@]}"; do
       if [ "${contexts[$index]}" = "$current" ]; then
-        ui_menu "  $((index + 1))) ${contexts[$index]} ${UI_GREEN}(current)${UI_RESET}"
+        ui_menu "  $((index + 1))) $(context_label "${contexts[$index]}") ${UI_GREEN}(current)${UI_RESET}"
         default_choice=$((index + 1))
       else
-        ui_menu "  $((index + 1))) ${contexts[$index]}"
+        ui_menu "  $((index + 1))) $(context_label "${contexts[$index]}")"
       fi
     done
     [ -n "$default_choice" ] || default_choice=1
@@ -383,9 +425,9 @@ select_context() {
 
   server=$(command kubectl --context "$SELECTED_CONTEXT" config view --minify \
     -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
-  [ -n "$server" ] || die "could not read the Kubernetes server for context '$SELECTED_CONTEXT'"
-  ui_success "Selected cluster: $SELECTED_CONTEXT"
-  ui_info "Kubernetes server: $server"
+  [ -n "$server" ] || die "could not read the Kubernetes server for the selected context"
+  ui_success "Selected cluster: $(context_label "$SELECTED_CONTEXT")"
+  ui_info "Kubernetes API is reachable."
 }
 
 catalog_entry() {
@@ -3160,7 +3202,7 @@ retry_install_apply() {
   fi
   LAST_COMMAND_ERROR="$failure"
   ui_error "❌ Retry failed."
-  ui_error "Reason: $failure"
+  ui_error "Reason: $(compact_reason "$failure")"
   show_failure_diagnostics "Installation retry" "$failure"
   return 1
 }
@@ -3184,7 +3226,7 @@ retry_upgrade_apply() {
   fi
   LAST_COMMAND_ERROR="$failure"
   ui_error "❌ Upgrade retry failed."
-  ui_error "Reason: $failure"
+  ui_error "Reason: $(compact_reason "$failure")"
   show_failure_diagnostics "Upgrade retry" "$failure"
   return 1
 }
@@ -3211,7 +3253,7 @@ install_flow() {
   require_provider_catalog
   if [ "$change_confirmed" != true ]; then
     confirm_change \
-      "🚀 The manager will install kwatch $version on '$SELECTED_CONTEXT'." \
+      "🚀 The manager will install kwatch $version on '$(context_label "$SELECTED_CONTEXT")'." \
       "It will create or update resources in namespace '$NAMESPACE' and may create a configuration Secret." || {
       ui_info "↩️ Installation cancelled; no changes were made."
       return 0
@@ -3257,7 +3299,7 @@ install_flow() {
   if [ -n "$install_failure" ]; then
     record_state failed "$version" "installation failed; cleanup requires confirmation"
     ui_error "❌ Installation failed; the created workload can be cleaned up."
-    ui_error "Reason: $install_failure"
+    ui_error "Reason: $(compact_reason "$install_failure")"
     show_failure_diagnostics "Installation" "$install_failure"
     if failure_is_retryable "$install_failure"; then
       if retry_install_apply "$version"; then
@@ -3295,7 +3337,7 @@ upgrade_flow() {
     die "release catalogs are unavailable; upgrade cannot continue"
   if [ "$change_confirmed" != true ]; then
     confirm_change \
-      "⬆️ The manager will upgrade kwatch to $version on '$SELECTED_CONTEXT'." \
+      "⬆️ The manager will upgrade kwatch to $version on '$(context_label "$SELECTED_CONTEXT")'." \
       "It will update the CRD and Deployment. A configuration backup will be created first." || {
       ui_info "↩️ Upgrade cancelled; no changes were made."
       return 0
@@ -3330,7 +3372,7 @@ upgrade_flow() {
   fi
   if [ -n "$upgrade_failure" ]; then
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
-    ui_error "Reason: $upgrade_failure"
+    ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
     if failure_is_retryable "$upgrade_failure"; then
       if retry_upgrade_apply "$version"; then
@@ -3393,7 +3435,7 @@ legacy_reinstall_flow() {
 
 show_absent_menu() {
   ui_heading "🚀 Install kwatch"
-  ui_info "No running kwatch installation was found on '$SELECTED_CONTEXT'."
+  ui_info "No running kwatch installation was found on '$(context_label "$SELECTED_CONTEXT")'."
   if stale_resources_present; then
     ui_info "Existing kwatch configuration resources were found, but no" \
       "kwatch workload is running; they are not treated as an installation."
@@ -3412,7 +3454,7 @@ show_absent_menu() {
 
 show_legacy_menu() {
   ui_heading "⚠️ Legacy kwatch detected"
-  ui_warn "kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
+  ui_warn "kwatch $INSTALL_VERSION is running on '$(context_label "$SELECTED_CONTEXT")'."
   ui_detail "This release predates the guided configuration catalogs."
   ui_detail "Configuration editing is unavailable until it is replaced."
   ui_menu \
@@ -3429,7 +3471,7 @@ show_legacy_menu() {
 
 show_supported_menu() {
   ui_heading "✅ kwatch is ready"
-  ui_success "✅ kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
+  ui_success "✅ kwatch $INSTALL_VERSION is running on '$(context_label "$SELECTED_CONTEXT")'."
   ui_menu \
     "  1) ⬆️ Upgrade kwatch" \
     "  2) 🔌 Edit notification providers" \
@@ -3505,7 +3547,7 @@ show_broken_menu() {
 status_flow() {
   local deployment version pod_instance
   ui_heading "📊 kwatch status"
-  ui_detail "📍 Context: $SELECTED_CONTEXT"
+  ui_detail "📍 Context: $(context_label "$SELECTED_CONTEXT")"
   ui_detail "📦 Namespace: $NAMESPACE"
   version=$(installed_version || true)
   ui_detail "🏷️ Version: ${version:-unknown}"

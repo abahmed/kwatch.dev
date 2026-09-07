@@ -13,12 +13,18 @@ SUPPORTED_CATALOG_VERSION=1
 SUPPORTED_FEATURE_CATALOG_VERSION=1
 SUPPORTED_PROVIDER_CATALOG_VERSION=1
 MAX_KUBECTL_ATTEMPTS=3
+ROLLOUT_TIMEOUT="${KWATCH_ROLLOUT_TIMEOUT:-5m}"
 SELECTED_CONTEXT=""
 INSTALL_STATE=""
 INSTALL_DEPLOYMENT=""
 INSTALL_VERSION=""
 INSTALL_REASON=""
 LAST_COMMAND_ERROR=""
+PROVIDER_EDIT_INTENT=false
+INJECTOR_OPT_OUT_PROFILE=""
+MENU_EXIT=false
+HEADER_HEALTH=unknown
+SESSION_CACHE_DIR=""
 FRESH_INSTALL=false
 MIGRATION_TARGET_VERSION=""
 FEATURE_CATALOG_SOURCE="unavailable"
@@ -31,7 +37,18 @@ CONFIG_MOUNT_PATH="/config"
 
 
 
+# Brand palette taken from the kwatch logo: #00ACD7 (Go cyan) and #326CE5
+# (Kubernetes blue), with #E8F0FE as the pale highlight. Rendered as 24-bit
+# colour where the terminal advertises it, as the nearest xterm-256 entries
+# otherwise, and as plain ANSI on everything else.
+UI_COLOR=false
+if [ "${BASH_VERSINFO[0]:-3}" -ge 4 ]; then
+  UI_ESC_TIMEOUT=0.05
+else
+  UI_ESC_TIMEOUT=1
+fi
 if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ]; then
+  UI_COLOR=true
   UI_RESET=$'\033[0m'
   UI_BOLD=$'\033[1m'
   UI_CYAN=$'\033[36m'
@@ -39,8 +56,33 @@ if [ -t 2 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-}" != dumb ]; then
   UI_YELLOW=$'\033[33m'
   UI_RED=$'\033[31m'
   UI_DIM=$'\033[2m'
+  UI_BLUE=$'\033[34m'
+  UI_MAGENTA=$'\033[35m'
   UI_CLEAR=$'\033[K'
   UI_CLEAR_LINE=$'\033[2K\r'
+  UI_HIDE_CURSOR=$'\033[?25l'
+  UI_SHOW_CURSOR=$'\033[?25h'
+  case "${COLORTERM:-}" in
+    truecolor|24bit)
+      UI_BRAND=$'\033[38;2;0;172;215m'
+      UI_BRAND_ALT=$'\033[38;2;50;108;229m'
+      UI_BRAND_PALE=$'\033[38;2;232;240;254m'
+      UI_BRAND_BG=$'\033[48;2;50;108;229m'
+      ;;
+    *)
+      if [ "$(tput colors 2>/dev/null || echo 8)" -ge 256 ]; then
+        UI_BRAND=$'\033[38;5;38m'
+        UI_BRAND_ALT=$'\033[38;5;62m'
+        UI_BRAND_PALE=$'\033[38;5;255m'
+        UI_BRAND_BG=$'\033[48;5;62m'
+      else
+        UI_BRAND="$UI_CYAN"
+        UI_BRAND_ALT="$UI_BLUE"
+        UI_BRAND_PALE="$UI_BOLD"
+        UI_BRAND_BG=$'\033[44m'
+      fi
+      ;;
+  esac
 else
   UI_RESET=""
   UI_BOLD=""
@@ -49,27 +91,328 @@ else
   UI_YELLOW=""
   UI_RED=""
   UI_DIM=""
+  UI_BLUE=""
+  UI_MAGENTA=""
   UI_CLEAR=""
   UI_CLEAR_LINE=""
+  UI_HIDE_CURSOR=""
+  UI_SHOW_CURSOR=""
+  UI_BRAND=""
+  UI_BRAND_ALT=""
+  UI_BRAND_PALE=""
+  UI_BRAND_BG=""
 fi
 
-ui_info() { printf '%s%s%s\n' "$UI_CYAN" "$*" "$UI_RESET" >&2; }
+ui_info() { printf '%s%s%s\n' "$UI_BRAND" "$*" "$UI_RESET" >&2; }
 ui_success() { printf '%s%s%s\n' "$UI_GREEN" "$*" "$UI_RESET" >&2; }
 ui_warn() { printf '%s%s%s\n' "$UI_YELLOW" "$*" "$UI_RESET" >&2; }
 ui_error() { printf '%s%s%s\n' "$UI_RED" "$*" "$UI_RESET" >&2; }
 back_hint() { printf '%s(↩️ type back)%s' "$UI_DIM" "$UI_RESET"; }
-back_label() { printf '%s↩️ Back%s' "$UI_CYAN" "$UI_RESET"; }
-exit_label() { printf '%s🚪 Exit%s' "$UI_DIM" "$UI_RESET"; }
 ui_heading() {
-  printf '\n%s%s%s\n' "$UI_BOLD$UI_CYAN" "$*" "$UI_RESET" >&2
-}
-ui_menu() {
-  local item
-  for item in "$@"; do
-    printf '%s%s%s\n' "$UI_CYAN" "$item" "$UI_RESET" >&2
-  done
+  printf '\n%s%s%s\n' "$UI_BOLD$UI_BRAND" "$*" "$UI_RESET" >&2
 }
 ui_detail() { printf '%s%s%s\n' "$UI_DIM" "$*" "$UI_RESET" >&2; }
+
+# Selection lists are drawn in a fixed window: kwatch has a settings category
+# with 89 entries, and a list longer than the terminal cannot be redrawn in
+# place. The window scrolls with the cursor, and a list that needs scrolling
+# also accepts typing to narrow it -- the only practical way through 89 items.
+UI_SELECT_LABELS=()
+UI_SELECT_MATCHES=()
+
+# Indices of the entries matching the current filter, in order.
+ui_select_filter() {
+  local filter="$1" index label lower
+  UI_SELECT_MATCHES=()
+  lower=$(printf '%s' "$filter" | tr '[:upper:]' '[:lower:]')
+  for index in "${!UI_SELECT_LABELS[@]}"; do
+    if [ -z "$lower" ]; then
+      UI_SELECT_MATCHES+=("$index")
+      continue
+    fi
+    label=$(printf '%s' "${UI_SELECT_LABELS[$index]}" | tr '[:upper:]' '[:lower:]')
+    case "$label" in
+      *"$lower"*) UI_SELECT_MATCHES+=("$index") ;;
+    esac
+  done
+}
+
+ui_select_render() {
+  local current="$1" top="$2" visible="$3" filter="$4" total row index hint
+  total=${#UI_SELECT_MATCHES[@]}
+  hint="  ↑/↓ move · ⏎ choose · esc back"
+  [ "$total" -gt "$visible" ] &&
+    hint="  ↑/↓ move · ⏎ choose · type to filter · esc back"
+  [ -n "$filter" ] && hint="  filter: ${filter}_"
+  printf '%s%s%s%s%s\n' "$UI_CLEAR_LINE" "$UI_DIM" "$hint" "$UI_RESET" "$UI_CLEAR" >&2
+  for ((row = 0; row < visible; row++)); do
+    index=$((top + row))
+    if [ "$index" -ge "$total" ]; then
+      printf '%s%s\n' "$UI_CLEAR_LINE" "$UI_CLEAR" >&2
+      continue
+    fi
+    if [ "$index" -eq "$current" ]; then
+      printf '%s%s%s ❯ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_BOLD" "$UI_BRAND" \
+        "${UI_SELECT_LABELS[${UI_SELECT_MATCHES[$index]}]}" "$UI_RESET" "$UI_CLEAR" >&2
+    else
+      printf '%s   %s%s%s%s\n' "$UI_CLEAR_LINE" "$UI_DIM" \
+        "${UI_SELECT_LABELS[${UI_SELECT_MATCHES[$index]}]}" "$UI_RESET" "$UI_CLEAR" >&2
+    fi
+  done
+  if [ "$total" -eq 0 ]; then
+    # Filtering to nothing leaves an empty frame; say why rather than looking
+    # broken, and keep the filter on screen so it can be edited back.
+    printf '%s%s  no matches — backspace to edit the filter%s%s\n' \
+      "$UI_CLEAR_LINE" "$UI_YELLOW" "$UI_RESET" "$UI_CLEAR" >&2
+  elif [ "$total" -gt "$visible" ]; then
+    printf '%s%s  %s of %s%s%s\n' "$UI_CLEAR_LINE" "$UI_DIM" \
+      "$((current + 1))" "$total" "$UI_RESET" "$UI_CLEAR" >&2
+  else
+    printf '%s%s\n' "$UI_CLEAR_LINE" "$UI_CLEAR" >&2
+  fi
+}
+
+# Clears the window plus the hint line above it and the counter below.
+ui_select_erase() {
+  local visible="$1" index total
+  total=$((visible + 2))
+  printf '\033[%sA' "$total" >&2
+  for ((index = 0; index < total; index++)); do
+    printf '%s\n' "$UI_CLEAR_LINE" >&2
+  done
+  printf '\033[%sA' "$total" >&2
+}
+
+# Prints the chosen entry's 0-based index on stdout; returns 1 when the user
+# cancels. Falls back to a numbered prompt when there is no terminal to draw on,
+# so pipes and KWATCH_PLAIN_UI still work.
+ui_select() {
+  local default_index="$1"; shift
+  local count="$#" current top visible rows key rest answer index filter=""
+  local total
+  [ "$count" -gt 0 ] || return 1
+  UI_SELECT_LABELS=("$@")
+  if ! ui_interactive; then
+    for ((index = 0; index < count; index++)); do
+      printf '  %s) %s\n' "$((index + 1))" "${UI_SELECT_LABELS[$index]}" >&2
+    done
+    while true; do
+      answer=$(ask "Choice" "$((default_index + 1))") || exit_expected
+      if [[ "$answer" =~ ^[0-9]+$ ]] && [ "$answer" -ge 1 ] &&
+        [ "$answer" -le "$count" ]; then
+        printf '%s' "$((answer - 1))"
+        return 0
+      fi
+      is_back_choice "$answer" && return 1
+      ui_warn "⚠️ Choose a number from 1 to $count."
+    done
+  fi
+  rows=$(ui_rows)
+  visible=$((rows - 8))
+  [ "$visible" -lt 5 ] && visible=5
+  [ "$visible" -gt "$count" ] && visible="$count"
+  ui_select_filter ""
+  current="$default_index"
+  [ "$current" -ge 0 ] && [ "$current" -lt "$count" ] || current=0
+  top=0
+  [ "$current" -ge "$visible" ] && top=$((current - visible + 1))
+  printf '\n%s' "$UI_HIDE_CURSOR" >&2
+  ui_select_render "$current" "$top" "$visible" "$filter"
+  while true; do
+    IFS= read -rsn1 key || {
+      ui_select_erase "$visible"
+      printf '%s' "$UI_SHOW_CURSOR" >&2
+      input_ended
+    }
+    total=${#UI_SELECT_MATCHES[@]}
+    case "$key" in
+      $'\x1b')
+        # An arrow arrives as ESC [ A; a bare Escape has nothing after it. bash
+        # 3.2, still the default on macOS, rejects a fractional -t.
+        IFS= read -rsn2 -t "$UI_ESC_TIMEOUT" rest || rest=""
+        case "$rest" in
+          '[A') [ "$total" -gt 0 ] && current=$(((current - 1 + total) % total)) ;;
+          '[B') [ "$total" -gt 0 ] && current=$(((current + 1) % total)) ;;
+          '')
+            ui_select_erase "$visible"
+            printf '%s' "$UI_SHOW_CURSOR" >&2
+            return 1
+            ;;
+          *) ;;
+        esac
+        ;;
+      '')
+        [ "$total" -gt 0 ] || continue
+        ui_select_erase "$visible"
+        printf '%s' "$UI_SHOW_CURSOR" >&2
+        printf '%s' "${UI_SELECT_MATCHES[$current]}"
+        return 0
+        ;;
+      $'\x7f'|$'\b')
+        if [ -n "$filter" ]; then
+          filter="${filter%?}"
+          ui_select_filter "$filter"
+          current=0
+          top=0
+        fi
+        ;;
+      *)
+        if [ "$count" -le "$visible" ]; then
+          # Short list: keep the familiar shortcuts rather than filtering.
+          case "$key" in
+            k|K) [ "$total" -gt 0 ] && current=$(((current - 1 + total) % total)) ;;
+            j|J) [ "$total" -gt 0 ] && current=$(((current + 1) % total)) ;;
+            q|Q|b|B)
+              ui_select_erase "$visible"
+              printf '%s' "$UI_SHOW_CURSOR" >&2
+              return 1
+              ;;
+            [1-9])
+              if [ "$key" -le "$total" ]; then
+                current=$((key - 1))
+                ui_select_erase "$visible"
+                printf '%s' "$UI_SHOW_CURSOR" >&2
+                printf '%s' "${UI_SELECT_MATCHES[$current]}"
+                return 0
+              fi
+              ;;
+          esac
+        else
+          case "$key" in
+            [[:print:]])
+              filter="$filter$key"
+              ui_select_filter "$filter"
+              current=0
+              top=0
+              ;;
+          esac
+        fi
+        ;;
+    esac
+    total=${#UI_SELECT_MATCHES[@]}
+    [ "$current" -ge "$total" ] && current=$((total > 0 ? total - 1 : 0))
+    [ "$current" -lt "$top" ] && top="$current"
+    [ "$current" -ge $((top + visible)) ] && top=$((current - visible + 1))
+    [ "$top" -lt 0 ] && top=0
+    # The render writes the hint, the window and the counter: rewind over all
+    # of them, not just the window.
+    printf '\033[%sA' "$((visible + 2))" >&2
+    ui_select_render "$current" "$top" "$visible" "$filter"
+  done
+}
+
+# Every screen is drawn as a frame: the wordmark, one line that always says
+# which cluster and workload is being managed and whether it is healthy, then
+# the screen's own content. Menus clear first so the frame stays at the top;
+# result screens append and end with a pause, so nothing is wiped before it has
+# been read.
+ui_screen_clear() {
+  ui_interactive || return 0
+  printf '\033[H\033[2J' >&2
+}
+
+ui_header() {
+  local title="$1" health="${HEADER_HEALTH:-unknown}" dot detail
+  case "$health" in
+    healthy) dot=$(ui_dot ok) ;;
+    absent) dot=$(ui_dot warn) ;;
+    *) dot=$(ui_dot bad) ;;
+  esac
+  printf '\n  %s%skwatch%s %s%s%s\n' "$UI_BOLD" "$UI_BRAND" "$UI_RESET" \
+    "$UI_DIM" "${title:+· $title}" "$UI_RESET" >&2
+  detail="$(context_label "${SELECTED_CONTEXT:-}") · ns ${NAMESPACE:-kwatch}"
+  [ -n "${INSTALL_VERSION:-}" ] && detail="$detail · ${INSTALL_VERSION}"
+  printf '  %s %s%s%s\n' "$dot" "$UI_DIM" "$detail" "$UI_RESET" >&2
+  ui_rule
+}
+
+ui_screen() {
+  ui_screen_clear
+  ui_header "$1"
+}
+
+# Result screens would otherwise be erased by the next menu redraw.
+ui_pause() {
+  ui_interactive || return 0
+  printf '\n' >&2
+  ui_detail "  Press Enter to return to the menu"
+  IFS= read -r _ || true
+}
+
+ui_rows() {
+  local rows
+  rows=$(tput lines 2>/dev/null || true)
+  [[ "$rows" =~ ^[0-9]+$ ]] || rows="${LINES:-24}"
+  [[ "$rows" =~ ^[0-9]+$ ]] || rows=24
+  printf '%s' "$rows"
+}
+
+ui_columns() {
+  local columns
+  columns=$(tput cols 2>/dev/null || true)
+  # tput needs a terminal on stdout; fall back to the shell's own idea of the
+  # width before giving up on 80.
+  [[ "$columns" =~ ^[0-9]+$ ]] || columns="${COLUMNS:-80}"
+  [[ "$columns" =~ ^[0-9]+$ ]] || columns=80
+  printf '%s' "$columns"
+}
+
+# Selection rows are counted in lines, so a row that wraps would break the
+# window arithmetic. Everything that goes in one is cut to fit first.
+ui_truncate() {
+  local text="$1" width="$2"
+  if [ "$width" -le 1 ] || [ "${#text}" -le "$width" ]; then
+    printf '%s' "$text"
+    return
+  fi
+  printf '%s…' "${text:0:$((width - 1))}"
+}
+
+ui_rule() {
+  printf '  %s%s%s\n' "$UI_DIM" \
+    "────────────────────────────────────────────────────" "$UI_RESET" >&2
+}
+
+# An emoji built from a variation selector (⬆️, ⚙️, 🏷️) renders one column wide
+# in most terminals while a plain emoji (🚀, 📦) renders two, so labels drift out
+# of line when they are simply concatenated. Pass the icon separately and pad the
+# label to a fixed width instead.
+ui_kv() {
+  local icon="$1" label="$2" value="$3"
+  printf '  %s  %s%-11s%s %s%s%s\n' "$icon" "$UI_DIM" "$label" "$UI_RESET" \
+    "$UI_BRAND_PALE" "$value" "$UI_RESET" >&2
+}
+
+# Green when healthy, red when not: the state is readable before the words are.
+ui_dot() {
+  case "$1" in
+    ok) printf '%s●%s' "$UI_GREEN" "$UI_RESET" ;;
+    bad) printf '%s●%s' "$UI_RED" "$UI_RESET" ;;
+    *) printf '%s●%s' "$UI_YELLOW" "$UI_RESET" ;;
+  esac
+}
+
+# The banner is drawn one line at a time so the manager opens with a visible
+# beat rather than a wall of text. It is skipped whenever the output is not an
+# interactive terminal, so logs and pipes stay clean.
+# The kwatch mark drawn from its own SVG: the Kubernetes hexagon, the radar
+# scope sweeping the upper-right quadrant with a detection blip, the eight
+# resource dots, and the K letterform at the centre. Revealed a row at a time,
+# and replaced by a plain heading wherever colour is not available.
+# A small wordmark rather than a drawn logo: the manager opens on the cluster
+# and the menu, and the header should not push them down the screen.
+ui_banner() {
+  if [ "$UI_COLOR" != true ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
+    ui_heading "kwatch interactive manager"
+    return 0
+  fi
+  printf '\n' >&2
+  printf '  %s%skwatch%s %s·%s %sinteractive manager%s\n' \
+    "$UI_BOLD" "$UI_BRAND" "$UI_RESET" "$UI_BRAND_ALT" "$UI_RESET" \
+    "$UI_BRAND_PALE" "$UI_RESET" >&2
+  printf '  %s%s%s\n\n' "$UI_DIM" \
+    "kubectl · operational security checks" "$UI_RESET" >&2
+}
 
 context_label() {
   local context="$1" label
@@ -88,7 +431,9 @@ with_loading() {
   local label="$1"; shift
   local command_name="${1:-command}"
   local output_file error_file pid frame=0 index char rc diagnostic
+  local started elapsed timer="" hue
   local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
+  local -a spinner_hues=( "$UI_BRAND" "$UI_BRAND_ALT" "$UI_BRAND" "$UI_BRAND_ALT" )
   LAST_COMMAND_ERROR=""
   if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
     error_file=$(mktemp)
@@ -114,14 +459,23 @@ with_loading() {
   pid=$!
   trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; \
     rm -f "$output_file" "$error_file"; \
-    printf "%s" "$UI_CLEAR_LINE" >&2; exit 130' INT
+    printf "%s%s" "$UI_CLEAR_LINE" "$UI_SHOW_CURSOR" >&2; exit 130' INT
   trap 'kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; \
     rm -f "$output_file" "$error_file"; \
-    printf "%s" "$UI_CLEAR_LINE" >&2; exit 143' TERM
+    printf "%s%s" "$UI_CLEAR_LINE" "$UI_SHOW_CURSOR" >&2; exit 143' TERM
+  started=$SECONDS
+  printf '%s' "$UI_HIDE_CURSOR" >&2
   while kill -0 "$pid" 2>/dev/null; do
     index=$((frame % ${#spinner_frames[@]}))
     char="${spinner_frames[$index]}"
-    printf '%s%s⏳ %s %s%s' "$UI_CLEAR_LINE" "$UI_CYAN" "$label" "$char" "$UI_CLEAR" >&2
+    hue="${spinner_hues[$(((frame / 4) % ${#spinner_hues[@]}))]}"
+    elapsed=$((SECONDS - started))
+    # Only time the waits that are long enough to make someone wonder.
+    if [ "$elapsed" -ge 3 ]; then
+      timer=" ${UI_DIM}${elapsed}s${UI_RESET}"
+    fi
+    printf '%s%s%s %s%s%s%s%s' "$UI_CLEAR_LINE" "$hue" "$char" \
+      "$UI_CYAN" "$label" "$UI_RESET" "$timer" "$UI_CLEAR" >&2
     sleep 0.1
     frame=$((frame + 1))
   done
@@ -130,15 +484,20 @@ with_loading() {
   else
     rc=$?
   fi
-  trap - INT TERM
+  install_signal_traps
+  ui_restore_terminal
+  elapsed=$((SECONDS - started))
+  [ "$elapsed" -ge 3 ] && timer=" ${UI_DIM}(${elapsed}s)${UI_RESET}" || timer=""
   if [ "$rc" -eq 0 ]; then
-    printf '%s%s✅ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_GREEN" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+    printf '%s%s✅ %s%s%s%s\n' "$UI_CLEAR_LINE" "$UI_GREEN" "$label" "$UI_RESET" \
+      "$timer" "$UI_CLEAR" >&2
     cat "$output_file"
     cat "$error_file" >&2
     rm -f "$output_file" "$error_file"
     return 0
   fi
-  printf '%s%s❌ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  printf '%s%s❌ %s%s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" \
+    "$timer" "$UI_CLEAR" >&2
   LAST_COMMAND_ERROR=$(cat "$error_file" "$output_file" |
     sed '/^[[:space:]]*$/d' | tail -20 || true)
   if [ -z "$LAST_COMMAND_ERROR" ]; then
@@ -150,33 +509,133 @@ with_loading() {
   return "$rc"
 }
 
-die() { ui_error "Error: $*"; exit 1; }
+# The spinner and the selection list hide the cursor. Without these traps, a
+# Ctrl-C at the wrong moment left the terminal with no cursor until `reset`.
+ui_restore_terminal() { printf '%s' "$UI_SHOW_CURSOR" >&2; }
+cleanup_session() {
+  local rc=$?
+  ui_restore_terminal
+  report_unexpected_exit "$rc"
+  [ -n "$SESSION_CACHE_DIR" ] && rm -rf "$SESSION_CACHE_DIR" 2>/dev/null
+  return 0
+}
+# Only INT is trapped. A TERM handler would catch the signal that input_ended
+# sends to end the session, and bash defers it until the command substitution
+# the prompt runs in has returned -- by which time the calling loop has already
+# asked again, so the session never ended. TERM stays fatal by default; the
+# cursor is restored before the signal is sent instead.
+install_signal_traps() {
+  trap 'ui_restore_terminal; exit 130' INT
+  trap - TERM
+}
+install_signal_traps
+trap cleanup_session EXIT
+
+die() { EXPECTED_EXIT=true; ui_error "Error: $*"; exit 1; }
+
+# `set -e` ends the manager wherever a command fails, which used to leave the
+# user with a bare kubectl line and no idea what was in progress. Reported from
+# the exit trap rather than from an ERR trap: an ERR trap needs errtrace to see
+# failures inside functions, and errtrace also carries it into every command
+# substitution, where a deliberate "cancelled" return looked like a crash.
+EXPECTED_EXIT=false
+exit_expected() {
+  EXPECTED_EXIT=true
+  exit "${1:-1}"
+}
+report_unexpected_exit() {
+  local rc="$1"
+  [ "$rc" -ne 0 ] || return 0
+  [ "$EXPECTED_EXIT" != true ] || return 0
+  ui_error "❌ The manager stopped unexpectedly (exit status $rc)."
+  [ -n "${LAST_COMMAND_ERROR:-}" ] &&
+    ui_detail "$(compact_reason "$LAST_COMMAND_ERROR")"
+  ui_info \
+    "ℹ️ No further changes were made. Re-run kwatch.sh and choose View status to inspect the installation."
+  return 0
+}
+
 need() { type -P "$1" >/dev/null 2>&1 || die "'$1' is required"; }
 require_tools() { need kubectl; need curl; }
+
+# The manager relies on server-side dry run and on Pod Security admission, both
+# of which need a reasonably recent cluster. Warn once rather than failing later
+# in a way that looks like a kwatch problem.
+check_cluster_version() {
+  local version minor
+  # "Server Version: v1.35.6-eks-bca9cf6" is one stable line across kubectl
+  # versions; the JSON form splits the field across lines and needs a parser.
+  version=$(command kubectl --context "$SELECTED_CONTEXT" version 2>/dev/null |
+    sed -n 's/^Server Version: v\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1 ||
+    true)
+  minor="${version#*.}"
+  [ -n "$minor" ] && [[ "$minor" =~ ^[0-9]+$ ]] || return 0
+  if [ "$minor" -lt 25 ] 2>/dev/null; then
+    ui_warn \
+      "⚠️ Kubernetes 1.$minor predates built-in Pod Security admission (1.25);" \
+      "the manager's security verification may not apply."
+  fi
+}
+# Every prompt is read inside a command substitution, so `die` would end only
+# that subshell: the menu loop around it would then re-prompt on a closed stdin
+# for ever, spinning on end-of-file. Signal the manager itself so the session
+# ends when input is gone -- a closed stdin or Ctrl-D at any prompt.
+# End of input is reported by exit status, not by a signal. Signalling the main
+# shell left the subshell that owns the asking loop running as an orphan, and it
+# span on the closed stdin for ever; every prompt site propagates this status
+# instead. The ERR trap is cleared first: this exit is deliberate.
+input_ended() {
+  printf '\n' >&2
+  ui_error "Error: input ended before the operation was complete"
+  ui_restore_terminal
+  exit_expected 1
+}
 ask() {
   local prompt="$1" default="${2:-}" answer
   [ -n "$default" ] && prompt="$prompt [$default]"
   printf '%s%s%s%s: ' "$UI_BOLD" "$UI_CYAN" "$prompt" "$UI_RESET" >&2
-  if ! IFS= read -r answer; then
-    printf '\n' >&2
-    die "input ended before the operation was complete"
-  fi
+  IFS= read -r answer || input_ended
   printf '%s' "${answer:-$default}"
 }
 ask_secret() {
   local prompt="$1" answer
   printf '%s%s%s%s: ' "$UI_BOLD" "$UI_CYAN" "$prompt" "$UI_RESET" >&2
-  if ! IFS= read -r -s answer; then
-    printf '\n' >&2
-    die "input ended before the operation was complete"
-  fi
+  IFS= read -r -s answer || input_ended
   printf '\n' >&2
   printf '%s' "$answer"
 }
+# True when the terminal can draw an interactive selection list.
+ui_interactive() {
+  [ -t 0 ] && [ -t 2 ] && [ "$UI_COLOR" = true ] &&
+    [ "${KWATCH_PLAIN_UI:-false}" != true ]
+}
+
 ask_yes_no() {
-  local prompt="$1" default="$2" answer
+  local prompt="$1" default="$2" answer index
+  if ui_interactive; then
+    printf '%s%s%s%s\n' "$UI_BOLD" "$UI_BRAND" "$prompt" "$UI_RESET" >&2
+    case "$default" in
+      y|Y|yes|Yes|true) index=0 ;;
+      *) index=1 ;;
+    esac
+    # The list is erased on selection, so echo the answer: the question would
+    # otherwise be left on screen with nothing under it.
+    if index=$(ui_select "$index" "✅ Yes" "🚫 No"); then
+      if [ "$index" = 0 ]; then
+        ui_detail "  ✅ Yes"
+        printf 'true'
+      else
+        ui_detail "  🚫 No"
+        printf 'false'
+      fi
+    else
+      ui_detail "  🚫 No"
+      printf 'false'
+    fi
+    return 0
+  fi
   while true; do
-    answer=$(ask "$prompt" "$default")
+    answer=$(ask "$prompt" "$default") || exit_expected
     case "$answer" in
       y|Y|yes|Yes) printf 'true'; return 0 ;;
       n|N|no|No) printf 'false'; return 0 ;;
@@ -193,9 +652,26 @@ is_back_choice() {
 }
 
 ask_yes_no_or_back() {
-  local prompt="$1" default="$2" answer
+  local prompt="$1" default="$2" answer index
+  if ui_interactive; then
+    printf '%s%s%s%s\n' "$UI_BOLD" "$UI_BRAND" "$prompt" "$UI_RESET" >&2
+    case "$default" in
+      y|Y|yes|Yes|true) index=0 ;;
+      *) index=1 ;;
+    esac
+    # Cancelling the list means the same thing as choosing Back.
+    index=$(ui_select "$index" "✅ Yes" "🚫 No" "↩️  Back") || {
+      ui_detail "  ↩️  Back"
+      return 2
+    }
+    case "$index" in
+      0) ui_detail "  ✅ Yes"; printf 'true'; return 0 ;;
+      1) ui_detail "  🚫 No"; printf 'false'; return 0 ;;
+      *) ui_detail "  ↩️  Back"; return 2 ;;
+    esac
+  fi
   while true; do
-    answer=$(ask "$prompt $(back_hint)" "$default")
+    answer=$(ask "$prompt $(back_hint)" "$default") || exit_expected
     is_back_choice "$answer" && return 2
     case "$answer" in
       y|Y|yes|Yes) printf 'true'; return 0 ;;
@@ -293,48 +769,116 @@ failure_is_retryable() {
   return 1
 }
 
-is_injected_hostpath_failure() {
+# Known Pod-level opt-outs for admission injectors. The keyword is matched
+# against the injected volume or container named in a rejection, and against the
+# names of the mutating webhooks installed in the cluster.
+injector_keywords() {
+  printf '%s\n' datadog istio linkerd vault kuma opentelemetry
+}
+
+provider_profile_for_keyword() {
+  case "$1" in
+    datadog)
+      printf '%s' "Datadog|labels|admission.datadoghq.com/enabled|false" ;;
+    istio)
+      printf '%s' "Istio|labels|sidecar.istio.io/inject|false" ;;
+    linkerd)
+      printf '%s' "Linkerd|annotations|linkerd.io/inject|disabled" ;;
+    vault)
+      printf '%s' "Vault Agent|annotations|vault.hashicorp.com/agent-inject|false" ;;
+    kuma)
+      printf '%s' "Kuma|annotations|kuma.io/sidecar-injection|disabled" ;;
+    opentelemetry)
+      printf '%s' "OpenTelemetry|annotations|instrumentation.opentelemetry.io/inject-sdk|false" ;;
+    *) return 1 ;;
+  esac
+}
+
+namespace_warning_events() {
+  kubectl -n "$NAMESPACE" get events --field-selector=type=Warning \
+    -o custom-columns='REASON:.reason,MESSAGE:.message' --no-headers \
+    2>/dev/null || true
+}
+
+# Scan every Warning event for an admission rejection instead of trusting the
+# newest one. A later unrelated warning -- FailedScheduling, FailedMount, a
+# failing probe on a previous ReplicaSet -- would otherwise hide the rejection
+# and skip the repair. Ordering is not dependable either: lastTimestamp is unset
+# on events written through events.k8s.io, which sorts them unpredictably.
+admission_rejection_event() {
+  namespace_warning_events |
+    grep -Ei 'violates PodSecurity|restricted volume types|is forbidden' |
+    tail -1 || true
+}
+
+latest_warning_event() {
+  namespace_warning_events | tail -1 || true
+}
+
+installed_injector_webhooks() {
+  kubectl get mutatingwebhookconfigurations \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{range .webhooks[*]}{.name}{" "}{.clientConfig.service.namespace}{" "}{.clientConfig.service.name}{" "}{end}{"\n"}{end}' \
+    2>/dev/null | tr '[:upper:]' '[:lower:]' || true
+}
+
+# Every Pod Security rejection of a kwatch Pod comes from content the manager did
+# not submit: the shipped workload runs non-root and read-only, drops all
+# capabilities, and sets RuntimeDefault seccomp. Classify the whole family rather
+# than hostPath alone, because an injector that adds a privileged container, a
+# host namespace, or extra capabilities breaks the install in the same way and is
+# repaired by the same Pod-level opt-out.
+is_injected_admission_failure() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
-    *hostpath*) ;;
-    *) return 1 ;;
+    *"violates podsecurity"*) return 0 ;;
   esac
   case "$diagnostic" in
-    *podsecurity*|*restricted*|*violates*) return 0 ;;
+    *hostpath*|*privileged*|*"unrestricted capabilities"*|*"host namespaces"*|*hostport*)
+      case "$diagnostic" in
+        *podsecurity*|*restricted*|*baseline*|*violates*) return 0 ;;
+      esac
+      ;;
   esac
   return 1
 }
 
+# Identify the injector from the rejection first, since it names the injected
+# volume or container and some vendors put their name there. Vendors whose
+# injected names do not carry it -- an Istio sidecar rejected for NET_ADMIN, a
+# Linkerd proxy rejected for runAsUser -- are identifiable only from the webhooks
+# installed in the cluster, and then only when exactly one candidate exists. The
+# manager never chooses between two possible injectors.
 injection_opt_out_profile() {
-  local diagnostic webhooks
+  local diagnostic webhooks keyword profile chosen="" matches=0
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
-  webhooks=$(kubectl get mutatingwebhookconfigurations \
-    -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{range .webhooks[*]}{.name}{" "}{.clientConfig.service.namespace}{" "}{.clientConfig.service.name}{"\\n"}{end}{end}' \
-    2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+  webhooks=$(installed_injector_webhooks)
   [ -n "$webhooks" ] || return 1
-  case "$diagnostic" in
-    *datadog*)
-      [[ "$webhooks" == *datadog* ]] || return 1
-      printf '%s' "Datadog|labels|admission.datadoghq.com/enabled|false" ;;
-    *istio*|*istio-proxy*)
-      [[ "$webhooks" == *istio* ]] || return 1
-      printf '%s' "Istio|labels|sidecar.istio.io/inject|false" ;;
-    *linkerd*|*linkerd-proxy*)
-      [[ "$webhooks" == *linkerd* ]] || return 1
-      printf '%s' "Linkerd|annotations|linkerd.io/inject|disabled" ;;
-    *vault*|*vault-agent*)
-      [[ "$webhooks" == *vault* ]] || return 1
-      printf '%s' "Vault Agent|annotations|vault.hashicorp.com/agent-inject|false" ;;
-    *) return 1 ;;
-  esac
+  while IFS= read -r keyword; do
+    [ -n "$keyword" ] || continue
+    case "$diagnostic" in *"$keyword"*) ;; *) continue ;; esac
+    case "$webhooks" in *"$keyword"*) ;; *) continue ;; esac
+    profile=$(provider_profile_for_keyword "$keyword") || continue
+    printf '%s' "$profile"
+    return 0
+  done < <(injector_keywords)
+  while IFS= read -r keyword; do
+    [ -n "$keyword" ] || continue
+    case "$webhooks" in *"$keyword"*) ;; *) continue ;; esac
+    profile=$(provider_profile_for_keyword "$keyword") || continue
+    matches=$((matches + 1))
+    chosen="$profile"
+  done < <(injector_keywords)
+  [ "$matches" -eq 1 ] || return 1
+  printf '%s' "$chosen"
 }
 
 show_injector_candidates() {
   local candidates
   candidates=$(kubectl get mutatingwebhookconfigurations \
-    -o 'jsonpath={range .items[*]}{.metadata.name}{"\\n"}{end}' \
-    2>/dev/null | grep -Ei 'datadog|istio|linkerd|vault|inject|sidecar' \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+    2>/dev/null |
+    grep -Ei 'datadog|istio|linkerd|vault|kuma|telemetry|inject|sidecar|mesh' \
     | head -6 || true)
   [ -n "$candidates" ] || return 0
   ui_detail "🔌 Possible injection webhooks (read-only):"
@@ -343,25 +887,25 @@ show_injector_candidates() {
   done <<< "$candidates"
 }
 
-repair_injected_hostpath() {
-  local failure="$1" deployment profile provider target key value details patch
-  if ! profile=$(injection_opt_out_profile "$failure"); then
-    ui_warn "⚠️ An injector added a restricted hostPath volume, but it was not identified."
-    show_injector_candidates
-    ui_info "ℹ️ The manager will not guess an opt-out label or change cluster policy."
-    return 1
-  fi
+# True when the workload already carries this opt-out, so an upgrade of an
+# installation that was repaired earlier does not ask the same question again.
+injection_opt_out_present() {
+  local profile="$1" deployment provider target key value current
   IFS='|' read -r provider target key value <<< "$profile"
   deployment=$(deployment_name || true)
-  [ -n "$deployment" ] || deployment="$RELEASE"
-  details="$provider injection added a hostPath volume rejected by restricted Pod"
-  details+=" Security. This adds $key=$value to the kwatch Pod template, then"
-  details+=" waits for a replacement Pod. It does not change the injector, Pod"
-  details+=" Security, namespace policy, or any other workload."
-  confirm_repair \
-    "exclude only the kwatch Pod from $provider injection" \
-    "$details" ||
-    return 1
+  [ -n "$deployment" ] || return 1
+  current=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o "jsonpath={.spec.template.metadata.$target}" 2>/dev/null || true)
+  case "$current" in
+    *"\"$key\":\"$value\""*) return 0 ;;
+  esac
+  return 1
+}
+
+# Add the vendor's documented Pod-level opt-out to the kwatch Pod template only.
+apply_injection_opt_out() {
+  local deployment="$1" profile="$2" provider target key value patch
+  IFS='|' read -r provider target key value <<< "$profile"
   check_access patch deployments namespace
   if [ "$target" = labels ]; then
     patch='{"spec":{"template":{"metadata":{"labels":{'
@@ -369,14 +913,218 @@ repair_injected_hostpath() {
     patch='{"spec":{"template":{"metadata":{"annotations":{'
   fi
   patch+="\"$key\":\"$value\"}}}}}"
-  if ! with_loading "Excluding kwatch from $provider injection" \
+  with_loading "Excluding kwatch from $provider injection" \
     kubectl -n "$NAMESPACE" patch deployment "$deployment" \
-    --type=merge -p "$patch"; then
+    --type=merge -p "$patch"
+}
+
+# Ask the API server what the cluster's admission stack will do to a compliant
+# kwatch Pod before anything is applied. A server-side dry run executes the real
+# mutating webhooks and the real Pod Security check, so an injector that would
+# make the workload unschedulable is found in one round trip instead of after a
+# five-minute rollout timeout. The probe Pod is never persisted.
+#
+# The probe carries the workload's own security context, so it is admissible
+# under restricted on its own: any rejection is caused by injected content. It
+# prints the rejection and returns non-zero; a clean or unevaluable cluster
+# returns zero and the install proceeds untouched.
+admission_preflight_probe() {
+  local image="$1" output
+  # The status has to be taken from the assignment: a `|| rc=$?` inside the
+  # command substitution would set rc in its subshell and lose it here.
+  if output=$(kubectl -n "$NAMESPACE" create --dry-run=server -o name -f - 2>&1 <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  generateName: $RELEASE-admission-preflight-
+  namespace: $NAMESPACE
+  labels:
+    app: $RELEASE
+    app.kubernetes.io/instance: $RELEASE
+    app.kubernetes.io/managed-by: kwatch.sh
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: probe
+      image: $image
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+EOF
+  ); then
+    return 0
+  fi
+  printf '%s' "$output"
+  return 1
+}
+
+# Decide the opt-out before the Deployment is applied. Nothing here can fail the
+# install: an unidentified injector, a cluster that refuses the dry run, and a
+# declined prompt all leave the previous behaviour in place, and the reactive
+# repair still runs if the rollout then fails.
+plan_injection_opt_out() {
+  local image="$1" failure profile provider target key value details
+  INJECTOR_OPT_OUT_PROFILE=""
+  [ "${KWATCH_SKIP_ADMISSION_PREFLIGHT:-false}" = true ] && return 0
+  if failure=$(admission_preflight_probe "$image"); then
+    return 0
+  fi
+  [ -n "$failure" ] || return 0
+  # A missing permission or an unsupported dry run is not a rejection; the
+  # manager stays out of the way rather than reporting a cluster problem.
+  is_injected_admission_failure "$failure" || return 0
+  ui_warn "⚠️ An admission injector adds content that Pod Security rejects in $NAMESPACE."
+  ui_detail "$(compact_reason "$failure")"
+  if ! profile=$(injection_opt_out_profile "$failure"); then
+    ui_warn "⚠️ The injector was not identified."
+    show_injector_candidates
+    ui_info "ℹ️ The manager will not guess an opt-out label or change cluster policy."
+    return 0
+  fi
+  # Already repaired on an earlier run: re-assert it after the manifest is
+  # applied so it cannot be lost, but do not ask the same question again.
+  if injection_opt_out_present "$profile"; then
+    INJECTOR_OPT_OUT_PROFILE="$profile"
+    return 0
+  fi
+  IFS='|' read -r provider target key value <<< "$profile"
+  details="$provider injection adds content to Pods in $NAMESPACE that Pod"
+  details+=" Security rejects, so the workload could never start. This adds"
+  details+=" $key=$value to the kwatch Pod template as it is created. It does not"
+  details+=" change the injector, Pod Security, namespace policy, or any other"
+  details+=" workload."
+  if confirm_repair \
+    "exclude only the kwatch Pod from $provider injection" \
+    "$details"; then
+    INJECTOR_OPT_OUT_PROFILE="$profile"
+  fi
+  return 0
+}
+
+# A rollout can also fail because no node will take the Pod. That is a different
+# problem from admission and has a different repair, so classify it separately.
+is_scheduling_failure() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *"untolerated taint"*|*"didn't tolerate"*) return 0 ;;
+  esac
+  return 1
+}
+
+# Node conditions (unschedulable, not-ready, pressure) and control-plane roles
+# are deliberate exclusions, not placement policy: tolerating them would put
+# kwatch on a cordoned or reserved node. Only a cluster's own taints are
+# offered.
+is_placement_taint() {
+  case "$1" in
+    node.kubernetes.io/*|node-role.kubernetes.io/*|node.cloudprovider.kubernetes.io/*)
+      return 1 ;;
+  esac
+  return 0
+}
+
+cluster_placement_taints() {
+  kubectl get nodes \
+    -o 'jsonpath={range .items[*]}{range .spec.taints[*]}{.key}{"="}{.value}{":"}{.effect}{"\n"}{end}{end}' \
+    2>/dev/null | sort -u || true
+}
+
+# Build one toleration object per taint. A taint with no value is tolerated with
+# operator Exists, which is what an empty value means on the node.
+tolerations_json() {
+  local taint key value effect json="" entry
+  while IFS= read -r taint; do
+    [ -n "$taint" ] || continue
+    key="${taint%%=*}"
+    value="${taint#*=}"
+    effect="${value##*:}"
+    value="${value%:*}"
+    if [ -n "$value" ]; then
+      entry="{\"key\":\"$key\",\"operator\":\"Equal\",\"value\":\"$value\",\"effect\":\"$effect\"}"
+    else
+      entry="{\"key\":\"$key\",\"operator\":\"Exists\",\"effect\":\"$effect\"}"
+    fi
+    [ -n "$json" ] && json="$json,"
+    json="$json$entry"
+  done
+  printf '%s' "$json"
+}
+
+repair_scheduling() {
+  local deployment details json taint
+  local -a taints=()
+  while IFS= read -r taint; do
+    [ -n "$taint" ] || continue
+    is_placement_taint "${taint%%=*}" || continue
+    taints+=("$taint")
+  done < <(cluster_placement_taints)
+  if [ "${#taints[@]}" -eq 0 ]; then
+    ui_warn "⚠️ No kwatch Pod can be scheduled, and no tolerable node taint was found."
+    ui_info \
+      "ℹ️ The cluster may have no schedulable node. The manager will not change node policy."
+    return 1
+  fi
+  ui_detail "🏷️ Node taints blocking the Pod:"
+  for taint in "${taints[@]}"; do
+    printf '  %s\n' "$taint"
+  done
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || deployment="$RELEASE"
+  details="No node accepts the kwatch Pod because of the taints above. This adds"
+  details+=" a matching toleration to the kwatch Pod template only. It does not"
+  details+=" change any node, taint, or other workload."
+  confirm_repair "tolerate those node taints for the kwatch Pod" "$details" ||
+    return 1
+  json=$(printf '%s\n' "${taints[@]}" | tolerations_json)
+  [ -n "$json" ] || return 1
+  check_access patch deployments namespace
+  with_loading "Adding node tolerations" \
+    kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=merge \
+    -p "{\"spec\":{\"template\":{\"spec\":{\"tolerations\":[$json]}}}}" ||
+    return 1
+  with_loading "Waiting for corrected kwatch rollout" \
+    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout="$ROLLOUT_TIMEOUT" || return 1
+  ui_success "✅ kwatch is ready. The tolerations apply only to this Pod."
+  return 0
+}
+
+repair_injected_hostpath() {
+  local failure="$1" deployment profile provider target key value details
+  if ! profile=$(injection_opt_out_profile "$failure"); then
+    ui_warn "⚠️ An injector added content rejected by Pod Security, but it was not identified."
+    show_injector_candidates
+    ui_info "ℹ️ The manager will not guess an opt-out label or change cluster policy."
+    return 1
+  fi
+  IFS='|' read -r provider target key value <<< "$profile"
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || deployment="$RELEASE"
+  details="$provider injection added content rejected by restricted Pod"
+  details+=" Security. This adds $key=$value to the kwatch Pod template, then"
+  details+=" waits for a replacement Pod. It does not change the injector, Pod"
+  details+=" Security, namespace policy, or any other workload."
+  confirm_repair \
+    "exclude only the kwatch Pod from $provider injection" \
+    "$details" ||
+    return 1
+  if ! apply_injection_opt_out "$deployment" "$profile"; then
     return 1
   fi
   if ! with_loading "Waiting for corrected kwatch rollout" \
     kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout=5m; then
+    --timeout="$ROLLOUT_TIMEOUT"; then
     return 1
   fi
   if ! verify_operational_security; then
@@ -433,9 +1181,7 @@ show_failure_diagnostics() {
     done <<< "$pods"
   fi
   ui_detail "🕒 Recent namespace events:"
-  events=$(kubectl -n "$NAMESPACE" get events --field-selector=type=Warning \
-    --sort-by=.lastTimestamp -o custom-columns='REASON:.reason,MESSAGE:.message' \
-    --no-headers 2>/dev/null | tail -8 || true)
+  events=$(namespace_warning_events | tail -8 || true)
   if [ -n "$events" ]; then
     while IFS= read -r summary; do
       summary=$(printf '%s' "$summary" | sed -E \
@@ -492,36 +1238,45 @@ select_context() {
   [ "${#contexts[@]}" -gt 0 ] || die "no Kubernetes contexts found in kubeconfig"
   current=$(command kubectl config current-context 2>/dev/null || true)
 
-  if [ "${#contexts[@]}" -eq 1 ]; then
-    SELECTED_CONTEXT="${contexts[0]}"
-  else
-    [ -t 0 ] || die "multiple Kubernetes contexts found; an interactive terminal is required to choose one"
-    ui_heading "🧭 Select the Kubernetes cluster to manage"
-    for index in "${!contexts[@]}"; do
-      if [ "${contexts[$index]}" = "$current" ]; then
-        ui_menu "  $((index + 1))) $(context_label "${contexts[$index]}") ${UI_GREEN}(current)${UI_RESET}"
-        default_choice=$((index + 1))
-      else
-        ui_menu "  $((index + 1))) $(context_label "${contexts[$index]}")"
-      fi
-    done
-    [ -n "$default_choice" ] || default_choice=1
-    while true; do
-      choice=$(ask "Cluster number (Enter keeps current)" "$default_choice")
-      if [[ "$choice" =~ ^[0-9]+$ ]] &&
-        [ "$choice" -ge 1 ] && [ "$choice" -le "${#contexts[@]}" ]; then
-        SELECTED_CONTEXT="${contexts[$((choice - 1))]}"
+  # An explicit context makes a command usable from a script or a pipeline,
+  # where the manager cannot ask which cluster is meant. It is still named
+  # explicitly: the manager never falls back to the current context on its own.
+  if [ -n "${KWATCH_CONTEXT:-}" ]; then
+    for context in "${contexts[@]}"; do
+      if [ "$context" = "$KWATCH_CONTEXT" ]; then
+        SELECTED_CONTEXT="$context"
         break
       fi
-      ui_warn "⚠️ Choose a number from 1 to ${#contexts[@]}."
     done
+    [ -n "$SELECTED_CONTEXT" ] ||
+      die "context '$KWATCH_CONTEXT' was not found in kubeconfig"
+  elif [ "${#contexts[@]}" -eq 1 ]; then
+    SELECTED_CONTEXT="${contexts[0]}"
+  else
+    [ -t 0 ] || die "multiple Kubernetes contexts found; choose one with KWATCH_CONTEXT=<name> or run in an interactive terminal"
+    ui_heading "🧭 Select the Kubernetes cluster to manage"
+    local -a labels=()
+    for index in "${!contexts[@]}"; do
+      if [ "${contexts[$index]}" = "$current" ]; then
+        labels+=("$(context_label "${contexts[$index]}") ${UI_GREEN}(current)${UI_RESET}")
+        default_choice="$index"
+      else
+        labels+=("$(context_label "${contexts[$index]}")")
+      fi
+    done
+    [ -n "$default_choice" ] || default_choice=0
+    # Cancelling the picker is a decision, not a failure.
+    choice=$(ui_select "$default_choice" "${labels[@]}") || {
+      ui_info "↩️ No cluster selected; nothing was changed."
+      exit_expected 0
+    }
+    SELECTED_CONTEXT="${contexts[$choice]}"
   fi
 
   server=$(command kubectl --context "$SELECTED_CONTEXT" config view --minify \
     -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
   [ -n "$server" ] || die "could not read the Kubernetes server for the selected context"
-  ui_success "Selected cluster: $(context_label "$SELECTED_CONTEXT")"
-  ui_info "Kubernetes API is reachable."
+  ui_detail "  Selected cluster: $(context_label "$SELECTED_CONTEXT")"
 }
 
 catalog_entry() {
@@ -583,7 +1338,7 @@ load_catalog_for_version() {
   local version="${1:-}" tmp cached cached_source
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  if [ -n "$version" ] && with_loading "Loading configuration catalog" \
+  if [ -n "$version" ] && with_loading "Loading settings catalog" \
       download_catalog_artifact \
       "$BASE_URL/$version/deploy/config-catalog.tsv" "$tmp" \
       && load_catalog_file "$tmp"; then
@@ -645,7 +1400,7 @@ load_feature_catalog_for_version() {
   local version="${1:-}" tmp cached cached_source
   tmp=$(mktemp)
   trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  if [ -n "$version" ] && with_loading "Loading feature catalog" \
+  if [ -n "$version" ] && with_loading "Loading capability catalog" \
       download_catalog_artifact \
       "$BASE_URL/$version/deploy/feature-catalog.tsv" "$tmp" \
       && load_feature_catalog_file "$tmp"; then
@@ -761,6 +1516,10 @@ backup_config() {
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
     --from-literal=resource.json="$resource" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl -n "$NAMESPACE" label secret "$BACKUP_NAME" \
+    app.kubernetes.io/instance="$RELEASE" \
+    app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
+  prune_config_backups
 }
 
 backup_legacy_install() {
@@ -1211,7 +1970,7 @@ existing_provider_names() {
   [ -s "${OLD_CONFIG_PATH:-}" ] || return 0
   while IFS= read -r provider; do
     display="$provider"
-    for entry in "${PROVIDER_CATALOG[@]}"; do
+    for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
       IFS='|' read -r catalog_provider display _ <<<"$entry"
       [ "$catalog_provider" = "$provider" ] && break
       display="$provider"
@@ -1249,7 +2008,7 @@ preserve_provider_block() {
 
 provider_in_catalog() {
   local wanted="$1" entry provider
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r provider _ <<<"$entry"
     [ "$provider" = "$wanted" ] && return 0
   done
@@ -1282,7 +2041,7 @@ preserve_provider_from_catalog() {
   PROVIDER="$provider"
   WRITTEN_PROVIDER_SECTIONS="|"
   printf '  %s:\n' "$provider" >>"$file"
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r catalog_provider display field type required secret \
       validation default description group condition <<<"$entry"
     [ "$catalog_provider" = "$provider" ] || continue
@@ -1371,7 +2130,7 @@ preserve_provider_optional() {
 write_webhook_headers() {
   local file="$1" tmp_dir="$2" count name value i secret_key value_file
   while true; do
-    count=$(ask "Number of custom webhook headers $(back_hint)" "0")
+    count=$(ask "Number of custom webhook headers $(back_hint)" "0") || exit_expected
     is_back_choice "$count" && return 2
     [[ "$count" =~ ^[0-9]+$ ]] && break
     ui_warn "⚠️ Header count must be a non-negative integer."
@@ -1380,13 +2139,13 @@ write_webhook_headers() {
   printf '    headers:\n' >>"$file"
   for ((i = 1; i <= count; i++)); do
     while true; do
-      name=$(ask "Header $i name $(back_hint)")
+      name=$(ask "Header $i name $(back_hint)") || exit_expected
       is_back_choice "$name" && return 2
       [ -n "$name" ] && break
       ui_warn "⚠️ Header name cannot be empty."
     done
     while true; do
-      value=$(ask_secret "Header $i value $(back_hint)")
+      value=$(ask_secret "Header $i value $(back_hint)") || exit_expected
       is_back_choice "$value" && return 2
       if [ -n "$value" ] && [[ "$value" != *$'\n'* &&
         "$value" != *$'\r'* ]]; then
@@ -1544,15 +2303,26 @@ migrate_legacy_silences() {
   ui_success "✅ Legacy ignore settings migrated into scoped silences."
 }
 
+# Reading each setting with its own API call meant ten round trips to draw one
+# category. jsonpath can emit several fields in one response, one per line.
+config_values_for_paths() {
+  local path jsonpath=""
+  for path in "$@"; do
+    jsonpath="${jsonpath}{.spec.${path}}{\"\\n\"}"
+  done
+  [ -n "$jsonpath" ] || return 0
+  kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+    -o "jsonpath=$jsonpath" 2>/dev/null || true
+}
+
 configure_flow() {
-  local deployment
+  local deployment choice category entry path type default category_name
+  local description status replacement current value display_value prompt_default
+  local decision index row path_width value_width description_width
+  local -a categories=() category_labels=() entries=() labels=() values=() paths=()
   require_config_catalog
-  confirm_change \
-    "⚙️ The manager will prepare the configuration for editing." \
-    "It may create the configuration resource and save a backup; the selected setting will be confirmed again before it is changed." || {
-    ui_info "↩️ Configuration editing cancelled; no changes were made."
-    return 0
-  }
+  # No confirmation to reach the list: nothing is written by browsing it, and
+  # each individual change is confirmed on its own below.
   ensure_crd
   preflight_access manage
   preflight_config_resource
@@ -1566,106 +2336,150 @@ configure_flow() {
       "This reverses the legacy settings migration that just failed." || true
     die "configuration migration failed"
   fi
+  categories=("Alerts" "Scope" "Performance" "Incident memory" "Noise reduction"
+    "Monitors" "Operations" "Compatibility" "Product control" "Security")
+  category_labels=("🚨 Alerts" "🎯 Scope" "⚡ Performance" "🧠 Incident memory"
+    "🔇 Noise reduction" "🔍 Monitors" "🛠️  Operations" "🔄 Compatibility"
+    "🎛️  Product control" "🔒 Security" "↩️  Back")
   while true; do
-    ui_heading "⚙️ kwatch configuration"
-    ui_menu "1) 🚨 Alerts" "2) 🎯 Scope" "3) ⚡ Performance" \
-      "4) 🧠 Incident memory" "5) 🔇 Noise reduction" "6) 🔍 Monitors" \
-      "7) 🛠️ Operations" "8) 🔄 Compatibility" "9) 🎛️ Product control" \
-      "10) 🔒 Security" "11) $(back_label)"
-    local choice category entry path type default category_name description status replacement current value
-    choice=$(ask "Category" "1")
-    case "$choice" in
-      1) category="Alerts" ;; 2) category="Scope" ;; 3) category="Performance" ;;
-      4) category="Incident memory" ;; 5) category="Noise reduction" ;; 6) category="Monitors" ;;
-      7) category="Operations" ;; 8) category="Compatibility" ;; 9) category="Product control" ;;
-      10) category="Security" ;; 11) return ;;
-      *) echo "Unknown choice"; continue ;;
-    esac
-    ui_heading "📋 $category settings"
-    local i=1 display_value prompt_default
-    for entry in "${CATALOG[@]}"; do
+    ui_heading "⚙️  kwatch configuration"
+    choice=$(ui_select 0 "${category_labels[@]}") || return 0
+    [ "$choice" -lt "${#categories[@]}" ] || return 0
+    category="${categories[$choice]}"
+
+    entries=()
+    paths=()
+    for entry in ${CATALOG[@]+"${CATALOG[@]}"}; do
       IFS='|' read -r path type default category_name description status replacement <<<"$entry"
       [ "$category_name" = "$category" ] || continue
-      current=$(config_value "$path")
-      display_value="$current"
-      [ -n "$display_value" ] || display_value="default ($default)"
-      ui_menu "$i) ⚙️ $path — $display_value"
-      i=$((i + 1))
+      entries+=("$entry")
+      paths+=("$path")
     done
-    choice=$(ask "Setting $(back_hint)" "")
-    is_back_choice "$choice" && continue
-    [ "$choice" -ge 1 ] 2>/dev/null || { echo "Unknown setting"; continue; }
-    i=1
-    for entry in "${CATALOG[@]}"; do
-      IFS='|' read -r path type default category_name description status replacement <<<"$entry"
-      [ "$category_name" = "$category" ] || continue
-      if [ "$i" = "$choice" ]; then
-        if [ "$status" = secret ]; then
-          ui_info "🔐 Secret-backed settings are changed with Edit notification providers."
-          break
+    if [ "${#entries[@]}" -eq 0 ]; then
+      ui_info "ℹ️ No settings in $category."
+      continue
+    fi
+    values=()
+    while IFS= read -r current; do
+      values+=("$current")
+    done < <(config_values_for_paths "${paths[@]}")
+    # Three columns: the setting, what it is set to, and what it does. The
+    # description comes straight from the release catalog, so it always matches
+    # the version installed.
+    path_width=0
+    for path in "${paths[@]}"; do
+      [ "${#path}" -gt "$path_width" ] && path_width="${#path}"
+    done
+    [ "$path_width" -gt 34 ] && path_width=34
+    # Size the value column to the values actually present so the description
+    # keeps the rest of the line, and leave room for the row marker or the
+    # numbered prefix the plain fallback adds.
+    value_width=8
+    for index in "${!entries[@]}"; do
+      IFS='|' read -r path type default category_name description status replacement <<<"${entries[$index]}"
+      display_value="${values[$index]:-default: $default}"
+      [ "${#display_value}" -gt "$value_width" ] && value_width="${#display_value}"
+    done
+    [ "$value_width" -gt 16 ] && value_width=16
+    description_width=$(($(ui_columns) - path_width - value_width - 12))
+    [ "$description_width" -lt 16 ] && description_width=0
+    labels=()
+    for index in "${!entries[@]}"; do
+      IFS='|' read -r path type default category_name description status replacement <<<"${entries[$index]}"
+      display_value="${values[$index]:-}"
+      [ -n "$display_value" ] || display_value="default: $default"
+      printf -v row '%-*s  %-*s' \
+        "$path_width" "$(ui_truncate "$path" "$path_width")" \
+        "$value_width" "$(ui_truncate "$display_value" "$value_width")"
+      if [ "$description_width" -gt 0 ] && [ -n "$description" ]; then
+        row="$row  ${UI_DIM}$(ui_truncate "$description" "$description_width")${UI_RESET}"
+      fi
+      labels+=("$row")
+    done
+    labels+=("↩️  Back")
+    ui_heading "📋  $category settings"
+    choice=$(ui_select 0 "${labels[@]}") || continue
+    [ "$choice" -lt "${#entries[@]}" ] || continue
+
+    entry="${entries[$choice]}"
+    IFS='|' read -r path type default category_name description status replacement <<<"$entry"
+    if [ "$status" = secret ]; then
+      ui_info "🔐 Secret-backed settings are changed with Edit notification providers."
+      continue
+    fi
+    current="${values[$choice]:-}"
+    show_catalog_entry "$entry"
+    [ "$status" = deprecated ] &&
+      ui_warn "⚠️ Existing values are preserved; migration is not destructive."
+    case "$type" in
+      boolean)
+        # A true/false setting is a choice, not something to spell out.
+        if [ "${current:-$default}" = true ]; then
+          decision=$(ask_yes_no_or_back "Enable ${path%.enabled}?" "y") || continue
+        else
+          decision=$(ask_yes_no_or_back "Enable ${path%.enabled}?" "n") || continue
         fi
-        current=$(config_value "$path")
-        show_catalog_entry "$entry"
-        [ "$status" = deprecated ] &&
-          ui_warn "⚠️ Existing values are preserved; migration is not destructive."
+        value="$decision"
+        ;;
+      *)
         prompt_default="$current"
         [ -n "$prompt_default" ] || prompt_default="$default"
         value=$(ask "New value (Enter keeps current) $(back_hint)" \
-          "$prompt_default")
+          "$prompt_default") || exit_expected
         is_back_choice "$value" && continue
         [ -n "$value" ] || continue
-        confirm_change \
-          "⚙️ Change $path to '$value'." \
-          "The current value is '$current'. kwatch will validate the new value and restart the workload if needed." || {
-          ui_info "↩️ Keeping the existing value for $path."
-          continue
-        }
-        backup_config
-        if ! patch_config_value "$path" "$type" "$value"; then
-          ui_error "❌ Invalid configuration value; the previous configuration can be restored."
-          restore_backup_after_failure \
-            "The attempted value was rejected by Kubernetes." || true
-          continue
-        fi
-        if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
-          if ! verify_runtime_tls_access; then
-            ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
-            restore_backup_after_failure \
-              "TLS monitoring requires Secret access that is not available." || true
-            die "TLS RBAC validation failed"
-          fi
-        fi
-        kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
-          "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
-        deployment=$(deployment_name || true)
-        if [ -n "$deployment" ]; then
-          if ! restart_kwatch; then
-            ui_error "❌ Configuration failed validation; the previous configuration can be restored."
-            restore_backup_after_failure \
-              "The workload did not become ready after this configuration change." || true
-            die "configuration update failed"
-          fi
-        else
-          ui_info "ℹ️ Configuration saved; no kwatch Deployment is currently running."
-          ui_info "🛠️ Run the manager again to install or repair the workload."
-        fi
-        ui_success "✅ Updated $path."
-        break
+        ;;
+    esac
+    [ "$value" = "$current" ] && {
+      ui_info "↩️ $path is already $value."
+      continue
+    }
+    confirm_change \
+      "⚙️ Change $path to '$value'." \
+      "The current value is '${current:-default ($default)}'. kwatch will validate the new value and restart the workload if needed." || {
+      ui_info "↩️ Keeping the existing value for $path."
+      continue
+    }
+    backup_config
+    if ! patch_config_value "$path" "$type" "$value"; then
+      ui_error "❌ Invalid configuration value; the previous configuration can be restored."
+      restore_backup_after_failure \
+        "The attempted value was rejected by Kubernetes." || true
+      continue
+    fi
+    if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
+      if ! verify_runtime_tls_access; then
+        ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
+        restore_backup_after_failure \
+          "TLS monitoring requires Secret access that is not available." || true
+        die "TLS RBAC validation failed"
       fi
-      i=$((i + 1))
-    done
+    fi
+    kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
+      "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
+    deployment=$(deployment_name || true)
+    if [ -n "$deployment" ]; then
+      if ! restart_kwatch; then
+        ui_error "❌ Configuration failed validation; the previous configuration can be restored."
+        restore_backup_after_failure \
+          "The workload did not become ready after this configuration change." || true
+        die "configuration update failed"
+      fi
+    else
+      ui_info "ℹ️ Configuration saved; no kwatch Deployment is currently running."
+      ui_info "🛠️ Run the manager again to install or repair the workload."
+    fi
+    ui_success "✅ Updated $path."
   done
 }
 
 configure_alert_flow() {
   local backup deployment had_backup=false rc
   require_provider_catalog
-  confirm_change \
-    "🔌 The manager will prepare notification provider settings." \
-    "It may create the configuration resource and save a backup; no provider values are saved unless you confirm this operation." || {
-    ui_info "↩️ Provider editing cancelled; no changes were made."
-    return 0
-  }
+  # No confirmation here: reaching this flow is already a deliberate choice, and
+  # nothing is written until the save step. Every prompt below accepts "back".
+  PROVIDER_EDIT_INTENT=true
+  ui_detail "Nothing is saved until the end; type back at any prompt to leave."
   adopt_existing_config_secret
   ensure_crd
   preflight_config_resource
@@ -1882,7 +2696,9 @@ latest_version() {
   local response version
   response=$(with_loading "Checking stable release" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 "$RELEASES_URL") || return 1
-  version=$(printf '%s' "$response" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+  version=$(printf '%s' "$response" |
+    sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' |
+    head -1 || true)
   valid_release_version "$version" || return 1
   printf '%s' "$version"
 }
@@ -1929,19 +2745,46 @@ select_release_version() {
     return 0
   fi
   ui_info "📦 Available kwatch releases:"
-  echo "  1) ${UI_GREEN}✅ Stable ($stable)${UI_RESET} [recommended]" >&2
-  echo "  2) ${UI_YELLOW}🧪 Release candidate ($preview)${UI_RESET}" >&2
-  while true; do
-    choice=$(ask "Release channel (1 or 2)" "1")
-    case "$choice" in
-      1) printf '%s' "$stable"; return 0 ;;
-      2) printf '%s' "$preview"; return 0 ;;
-      *) ui_warn "⚠️ Choose 1 for stable or 2 for the release candidate." ;;
-    esac
-  done
+  choice=$(ui_select 0 \
+    "✅ Stable ($stable) ${UI_DIM}[recommended]${UI_RESET}" \
+    "🧪 Release candidate ($preview)") || return 1
+  case "$choice" in
+    0) printf '%s' "$stable" ;;
+    *) printf '%s' "$preview" ;;
+  esac
 }
 
+# Discovering the Deployment costs up to five API calls, and it is asked for by
+# the status screen, the menus, the diagnostics and every health check. Resolve
+# it once per action and invalidate whenever the workload itself changes.
+# The cache lives in a file, not a variable: almost every caller asks for the
+# name inside a command substitution, and a variable set there would be lost
+# with the subshell.
 deployment_name() {
+  local file="" name
+  [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/deployment-name"
+  if [ -n "$file" ] && [ -f "$file" ]; then
+    cat "$file"
+    return 0
+  fi
+  name=$(deployment_name_uncached || true)
+  if [ -n "$file" ]; then
+    printf '%s' "$name" >"$file" 2>/dev/null || true
+  fi
+  printf '%s' "$name"
+}
+
+# Everything derived from the workload is invalidated together: they all go
+# stale for the same reasons.
+invalidate_deployment_name() {
+  [ -n "$SESSION_CACHE_DIR" ] || return 0
+  rm -f "$SESSION_CACHE_DIR/deployment-name" \
+    "$SESSION_CACHE_DIR/workload-selector" \
+    "$SESSION_CACHE_DIR/failed-components" 2>/dev/null || true
+  return 0
+}
+
+deployment_name_uncached() {
   local name app template_app service_account
   name=$(kubectl -n "$NAMESPACE" get deployment \
     -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/managed-by=kwatch.sh" \
@@ -2003,7 +2846,7 @@ restart_kwatch() {
   with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
     rollout restart "deployment/$deployment" >/dev/null || return 1
   with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
-    rollout status "deployment/$deployment" --timeout=5m || return 1
+    rollout status "deployment/$deployment" --timeout="$ROLLOUT_TIMEOUT" || return 1
 }
 
 installed_version() {
@@ -2049,12 +2892,14 @@ deployment_is_running() {
 
 assess_installation() {
   INSTALL_STATE=absent
+  HEADER_HEALTH=unknown
   INSTALL_DEPLOYMENT=""
   INSTALL_VERSION=""
   INSTALL_REASON=""
   INSTALL_DEPLOYMENT=$(deployment_name || true)
   if [ -z "$INSTALL_DEPLOYMENT" ]; then
     INSTALL_REASON="no kwatch Deployment was found"
+    HEADER_HEALTH=absent
     return 0
   fi
 
@@ -2074,6 +2919,7 @@ assess_installation() {
     return 0
   fi
   INSTALL_STATE=supported
+  HEADER_HEALTH=healthy
 }
 
 stale_resources_present() {
@@ -2126,17 +2972,18 @@ maybe_load_catalog() {
   return 1
 }
 
+# Ask once. Retrying here cannot help: the picker offers the same two releases
+# every time, so a legacy-only choice repeated the warning for ever -- and once
+# input ran out, `die` inside the command substitution ended only that subshell
+# while this loop kept calling GitHub.
 select_modern_release_version() {
   local version
-  while true; do
-    version=$(select_release_version) || return 1
-    if version_is_legacy "$version"; then
-      ui_warn "⚠️ $version is older than v1.0.0; choose a modern release."
-      continue
-    fi
-    printf '%s' "$version"
-    return 0
-  done
+  version=$(select_release_version) || return 1
+  if version_is_legacy "$version"; then
+    ui_warn "⚠️ $version is older than v1.0.0 and cannot be managed by this manager."
+    return 1
+  fi
+  printf '%s' "$version"
 }
 
 compare_release_versions() {
@@ -2186,37 +3033,86 @@ compare_release_versions() {
   fi
 }
 
+# A repair re-applies the release that is already installed, so the equal case is
+# accepted when the caller asks for it. Without that, a broken installation on
+# the newest release had no way forward: every offered release compares as "not
+# newer", and the prompt repeated for ever.
+# Compare before prompting. The channel question used to come first, so an
+# installation already on the newest release was asked to pick a channel, told
+# to confirm the release candidate, and only then informed there was nothing to
+# upgrade to.
 select_upgrade_version() {
-  local current="$1" target comparison
-  while true; do
-    target=$(select_modern_release_version) || return 1
-    comparison=$(compare_release_versions "$target" "$current")
-    if [ "$comparison" = 1 ]; then
-      printf '%s' "$target"
-      return 0
+  local current="$1" allow_same="${2:-false}" stable preview version comparison
+  local choice label
+  local -a versions=() labels=()
+  stable=$(latest_version || true)
+  preview=$(latest_release_candidate || true)
+  for version in "$stable" "$preview"; do
+    [ -n "$version" ] || continue
+    version_is_legacy "$version" && continue
+    case " ${versions[*]-} " in
+      *" $version "*) continue ;;
+    esac
+    comparison=$(compare_release_versions "$version" "$current")
+    case "$comparison" in
+      1) label="newer" ;;
+      0)
+        [ "$allow_same" = true ] || continue
+        label="reinstall the running release"
+        ;;
+      *) continue ;;
+    esac
+    versions+=("$version")
+    if [ "$version" = "$preview" ]; then
+      labels+=("🧪 $version  ${UI_DIM}release candidate · $label${UI_RESET}")
+    else
+      labels+=("✅ $version  ${UI_DIM}stable · $label${UI_RESET}")
     fi
-    ui_warn "⚠️ Choose a release newer than the installed version $current."
   done
+  if [ "${#versions[@]}" -eq 0 ]; then
+    ui_success "✅ kwatch $current is the newest available release; nothing to upgrade."
+    return 1
+  fi
+  if [ "${#versions[@]}" -eq 1 ]; then
+    printf '%s' "${versions[0]}"
+    return 0
+  fi
+  ui_info "📦 Releases newer than $current:"
+  choice=$(ui_select 0 "${labels[@]}") || return 2
+  printf '%s' "${versions[$choice]}"
 }
 
+# Three catalogs load before most screens. Announcing each one cost six lines
+# every time a configuration screen was opened, and said the same thing each
+# time. Report only what the operator cannot infer: a failure, or a catalog
+# served from cache rather than the release.
 load_catalog_bundle() {
   local version="$1" report="${2:-true}" ok=true
   if load_catalog_for_version "$version"; then
-    ui_success "📚 Configuration catalog: $CATALOG_SOURCE ($version)"
+    case "$CATALOG_SOURCE" in
+      release:*) ;;
+      *) ui_detail "📚 Configuration catalog served from $CATALOG_SOURCE." ;;
+    esac
   else
     [ "$report" = true ] &&
       ui_error "❌ Configuration catalog unavailable for $version."
     ok=false
   fi
   if load_feature_catalog_for_version "$version"; then
-    ui_success "🧩 Feature catalog: $FEATURE_CATALOG_SOURCE ($version)"
+    case "$FEATURE_CATALOG_SOURCE" in
+      release:*) ;;
+      *) ui_detail "🧩 Feature catalog served from $FEATURE_CATALOG_SOURCE." ;;
+    esac
   else
     [ "$report" = true ] &&
       ui_error "❌ Feature catalog unavailable for $version."
     ok=false
   fi
   if load_provider_catalog_for_version "$version"; then
-    ui_success "🔌 Provider catalog: $PROVIDER_CATALOG_SOURCE ($version)"
+    case "$PROVIDER_CATALOG_SOURCE" in
+      release:*) ;;
+      *) ui_detail "🔌 Provider catalog served from $PROVIDER_CATALOG_SOURCE." ;;
+    esac
   else
     [ "$report" = true ] &&
       ui_error "❌ Provider catalog unavailable for $version."
@@ -2235,26 +3131,68 @@ require_provider_catalog() {
     die "provider catalog is unavailable; retry while the release artifact is reachable"
 }
 
-features_flow() {
-  [ "${#FEATURE_CATALOG[@]}" -gt 0 ] || die "feature catalog is unavailable; retry while the release artifact is reachable"
-  ui_heading "🧩 kwatch capabilities"
-  local entry id lifecycle description dependencies line
-  for entry in "${FEATURE_CATALOG[@]}"; do
+# Seventy-odd capabilities printed at once is a wall, not a screen. They are
+# already namespaced by area, so browse by area and print one area at a time.
+feature_areas() {
+  printf '%s\n' "${FEATURE_CATALOG[@]}" | cut -d'|' -f1 | cut -d. -f1 | sort -u
+}
+
+show_feature_area() {
+  local area="$1" entry id lifecycle description dependencies line shown=0
+  for entry in ${FEATURE_CATALOG[@]+"${FEATURE_CATALOG[@]}"}; do
     IFS='|' read -r id lifecycle description dependencies <<<"$entry"
+    case "$area" in
+      "") ;;
+      *) case "$id" in "$area".*|"$area") ;; *) continue ;; esac ;;
+    esac
     if [ -n "$dependencies" ]; then
       printf -v line '%-42s %-7s %s (needs: %s)' \
         "$id" "$lifecycle" "$description" "$dependencies"
     else
       printf -v line '%-42s %-7s %s' "$id" "$lifecycle" "$description"
     fi
-    ui_detail "$line"
+    ui_detail "  $line"
+    shown=$((shown + 1))
+  done
+  printf '\n' >&2
+  ui_detail "  $shown capabilities"
+}
+
+features_flow() {
+  local area choice count
+  local -a areas=() labels=()
+  [ "${#FEATURE_CATALOG[@]}" -gt 0 ] || die "feature catalog is unavailable; retry while the release artifact is reachable"
+  while IFS= read -r area; do
+    [ -n "$area" ] && areas+=("$area")
+  done < <(feature_areas)
+  while true; do
+    ui_screen "capabilities"
+    labels=()
+    for area in "${areas[@]}"; do
+      count=$(printf '%s\n' "${FEATURE_CATALOG[@]}" | cut -d'|' -f1 |
+        grep -c "^$area\." || true)
+      labels+=("🧩 $area  ${UI_DIM}$count${UI_RESET}")
+    done
+    labels+=("📋 Everything" "↩️  Back")
+    choice=$(ui_select 0 "${labels[@]}") || return 0
+    if [ "$choice" -lt "${#areas[@]}" ]; then
+      ui_screen "capabilities · ${areas[$choice]}"
+      show_feature_area "${areas[$choice]}"
+      ui_pause
+    elif [ "$choice" -eq "${#areas[@]}" ]; then
+      ui_screen "capabilities · all"
+      show_feature_area ""
+      ui_pause
+    else
+      return 0
+    fi
   done
 }
 
 provider_available() {
   local entry provider display field type required secret validation default
   local description group condition
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r provider display field type required secret validation default \
       description group condition <<<"$entry"
     case "${CONFIGURED_PROVIDERS:-|}" in
@@ -2265,8 +3203,9 @@ provider_available() {
   return 1
 }
 
-remove_namespaced_workload() {
-  delete_owned() {
+# Defined at top level: nesting it meant the helper was redefined on every call
+# and leaked into the global scope anyway.
+delete_owned() {
     local scope="$1" kind="$2" name="$3" owner app service_account
     if [ "$scope" = namespace ]; then
       owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
@@ -2304,7 +3243,10 @@ remove_namespaced_workload() {
       check_access delete "$kind"
       kubectl delete "$kind" "$name" --ignore-not-found >/dev/null
     fi
-  }
+}
+
+remove_namespaced_workload() {
+  invalidate_deployment_name
   delete_owned namespace deployment "$RELEASE"
   delete_owned namespace service "$RELEASE"
   delete_owned namespace serviceaccount "$RELEASE"
@@ -2352,15 +3294,18 @@ rollback_deployment() {
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   kubectl -n "$NAMESPACE" rollout undo "deployment/$deployment" >/dev/null 2>&1 || return 0
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=5m >/dev/null 2>&1 || true
+  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout="$ROLLOUT_TIMEOUT" >/dev/null 2>&1 || true
 }
 
+# Fifty-six providers: too many to read, and the old prompt asked for "name,
+# number, or search" without saying which the input would be treated as. The
+# selection list filters as you type, so one list replaces the search, the
+# browse listing, the numeric match and the disambiguation prompt.
 choose_provider() {
-  local choice query normalized entry provider display field type required secret
-  local validation default description seen="|" i provider_name display_name
-  local exact_match
-  local -a providers=() displays=() matches=()
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  local entry provider display field type required secret validation default
+  local description group condition seen="|" choice
+  local -a providers=() displays=()
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r provider display field type required secret validation default \
       description group condition <<<"$entry"
     case "${CONFIGURED_PROVIDERS:-|}" in
@@ -2370,86 +3315,23 @@ choose_provider() {
       *"|$provider|"*) continue ;;
     esac
     providers+=("$provider")
-    displays+=("$display")
+    displays+=("🔌 $display")
     seen="${seen}${provider}|"
   done
-  while true; do
-    ui_heading "📣 Where should kwatch send alerts?"
-    query=$(ask \
-      "🔎 Provider name, number, or search (Enter to browse) $(back_hint)" \
-      "")
-    is_back_choice "$query" && return 2
-    if [ -z "$query" ]; then
-      for i in "${!providers[@]}"; do
-        ui_menu "  $((i + 1))) 🔌 ${displays[$i]}"
-      done
-      query=$(ask "🎯 Choose provider number or name $(back_hint)" "")
-      is_back_choice "$query" && return 2
-    fi
-    if [[ "$query" =~ ^[0-9]+$ ]]; then
-      if [ "$query" -ge 1 ] && [ "$query" -le "${#providers[@]}" ]; then
-        PROVIDER="${providers[$((query - 1))]}"
-        ui_success "✅ Provider selected: ${displays[$((query - 1))]}"
-        return 0
-      fi
-      ui_warn "⚠️ Provider number is out of range."
-      continue
-    fi
-    normalized=$(printf '%s' "$query" | tr '[:upper:]' '[:lower:]' |
-      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-    [ -n "$normalized" ] || continue
-    matches=()
-    exact_match=-1
-    for i in "${!providers[@]}"; do
-      provider_name=$(printf '%s' "${providers[$i]}" |
-        tr '[:upper:]' '[:lower:]')
-      display_name=$(printf '%s' "${displays[$i]}" |
-        tr '[:upper:]' '[:lower:]')
-      if [ "$provider_name" = "$normalized" ] ||
-        [ "$display_name" = "$normalized" ]; then
-        if [ "$exact_match" -eq -1 ]; then
-          exact_match=$i
-        else
-          exact_match=-2
-        fi
-      fi
-      if [[ "$provider_name" == *"$normalized"* ]] ||
-        [[ "$display_name" == *"$normalized"* ]]; then
-        matches+=("$i")
-      fi
-    done
-    if [ "$exact_match" -ge 0 ]; then
-      PROVIDER="${providers[$exact_match]}"
-      ui_success "✅ Provider selected: ${displays[$exact_match]}"
-      return 0
-    fi
-    if [ "${#matches[@]}" -eq 1 ]; then
-      i="${matches[0]}"
-      PROVIDER="${providers[$i]}"
-      ui_success "✅ Provider selected: ${displays[$i]}"
-      return 0
-    fi
-    if [ "${#matches[@]}" -gt 1 ]; then
-      ui_info "🔎 Matching providers for '$query':"
-      local match_number=1
-      for i in "${matches[@]}"; do
-        ui_menu "  $match_number) 🔌 ${displays[$i]} (${providers[$i]})"
-        match_number=$((match_number + 1))
-      done
-      choice=$(ask "🎯 Choose a matching provider number $(back_hint)" "")
-      is_back_choice "$choice" && return 2
-      if [[ "$choice" =~ ^[0-9]+$ ]] &&
-        [ "$choice" -ge 1 ] && [ "$choice" -le "${#matches[@]}" ]; then
-        i="${matches[$((choice - 1))]}"
-        PROVIDER="${providers[$i]}"
-        ui_success "✅ Provider selected: ${displays[$i]}"
-        return 0
-      fi
-      ui_warn "⚠️ Choose one of the matching provider numbers."
-      continue
-    fi
-    ui_warn "⚠️ No provider matched '$query'. Try a partial name or number."
-  done
+  if [ "${#PROVIDER_CATALOG[@]}" -eq 0 ]; then
+    ui_error "❌ The provider catalog is unavailable; provider selection cannot continue."
+    return 2
+  fi
+  if [ "${#providers[@]}" -eq 0 ]; then
+    ui_warn "⚠️ Every provider in the catalog is already configured."
+    return 2
+  fi
+  ui_heading "📣  Where should kwatch send alerts?"
+  displays+=("↩️  Back")
+  choice=$(ui_select 0 "${displays[@]}") || return 2
+  [ "$choice" -lt "${#providers[@]}" ] || return 2
+  PROVIDER="${providers[$choice]}"
+  ui_success "✅ Provider selected: ${displays[$choice]#🔌 }"
 }
 
 choose_tls_monitor() {
@@ -2488,7 +3370,7 @@ provider_group_has_later_field() {
   local target_group="$1" current_field="$2"
   local entry provider display field type required secret validation default
   local description group condition seen=false
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r provider display field type required secret validation default \
       description group condition <<<"$entry"
     [ "$provider" = "$PROVIDER" ] || continue
@@ -2504,11 +3386,11 @@ provider_group_has_later_field() {
 
 select_provider_groups() {
   local entry provider display field type required secret validation default
-  local description group condition choice value selected i
+  local description group condition choice value selected
   local seen="|"
-  local -a groups=() values=()
+  local -a groups=() values=() labels=()
   PROVIDER_GROUP_SELECTIONS="|"
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     IFS='|' read -r provider display field type required secret validation default \
       description group condition <<<"$entry"
     [ "$provider" = "$PROVIDER" ] || continue
@@ -2524,7 +3406,7 @@ select_provider_groups() {
   [ "${#groups[@]}" -gt 0 ] || return 0
   for group in "${groups[@]}"; do
     values=()
-    for entry in "${PROVIDER_CATALOG[@]}"; do
+    for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
       IFS='|' read -r provider display field type required secret validation default \
         description entry_group condition <<<"$entry"
       [ "$provider" = "$PROVIDER" ] || continue
@@ -2534,25 +3416,19 @@ select_provider_groups() {
       esac
     done
     [ "${#values[@]}" -gt 0 ] || continue
-    ui_heading "🔐 Choose $group"
-    i=1
+    ui_heading "🔐  Choose $group"
+    labels=()
     for value in "${values[@]}"; do
       IFS='|' read -r selected field description <<<"$value"
-      ui_menu "  $i) 🔑 $selected ($field)"
-      i=$((i + 1))
+      labels+=("🔑 $(printf '%-10s' "$selected") ${UI_DIM}$description${UI_RESET}")
     done
-    while true; do
-      choice=$(ask "🎯 $group option $(back_hint)" "1")
-      is_back_choice "$choice" && return 2
-      if [[ "$choice" =~ ^[0-9]+$ ]] &&
-        [ "$choice" -ge 1 ] && [ "$choice" -le "${#values[@]}" ]; then
-        value="${values[$((choice - 1))]}"
-        IFS='|' read -r selected field description <<<"$value"
-        set_provider_group_value "$group" "$selected"
-        break
-      fi
-      ui_warn "⚠️ Choose one of the listed $group options."
-    done
+    labels+=("↩️  Back")
+    choice=$(ui_select 0 "${labels[@]}") || return 2
+    [ "$choice" -lt "${#values[@]}" ] || return 2
+    value="${values[$choice]}"
+    IFS='|' read -r selected field description <<<"$value"
+    set_provider_group_value "$group" "$selected"
+    ui_detail "  🔑 $selected"
   done
 }
 
@@ -2588,9 +3464,9 @@ prompt_provider_value() {
   esac
   while true; do
     if [ "$secret" = true ]; then
-      value=$(ask_secret "$description $(back_hint)")
+      value=$(ask_secret "$description $(back_hint)") || exit_expected
     else
-      value=$(ask "$description $(back_hint)" "$default")
+      value=$(ask "$description $(back_hint)" "$default") || exit_expected
     fi
     is_back_choice "$value" && return 2
     [ -n "$value" ] || { printf ''; return 0; }
@@ -2796,14 +3672,14 @@ write_provider_block() {
   ui_info "🔐 Required settings for $PROVIDER"
   configure_optional=true
   for priority in 1 2 3; do
-    for entry in "${PROVIDER_CATALOG[@]}"; do
+    for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
       write_provider_field "$entry" required "$configure_optional" \
         "$priority" || { rc=$?; return "$rc"; }
     done
   done
   # Keep at-least-one destination groups in catalog order. This lets the user
   # choose the first destination without being forced into the last row.
-  for entry in "${PROVIDER_CATALOG[@]}"; do
+  for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
     write_provider_field "$entry" group true 3 || { rc=$?; return "$rc"; }
   done
   ui_info "⚙️ Optional settings for $PROVIDER"
@@ -2815,7 +3691,7 @@ write_provider_block() {
     return "$rc"
   fi
   for priority in 1 2 3; do
-    for entry in "${PROVIDER_CATALOG[@]}"; do
+    for entry in ${PROVIDER_CATALOG[@]+"${PROVIDER_CATALOG[@]}"}; do
       write_provider_field "$entry" optional "$configure_optional" \
         "$priority" || { rc=$?; return "$rc"; }
     done
@@ -2829,6 +3705,11 @@ choose_provider_config_action() {
     [ -n "$provider" ] && existing+=("$display")
   done < <(existing_provider_names)
   if [ "${#existing[@]}" -eq 0 ]; then
+    if [ "${PROVIDER_EDIT_INTENT:-false}" = true ]; then
+      # The caller asked for provider editing; asking again answers itself.
+      printf 'edit'
+      return
+    fi
     if result=$(ask_yes_no_or_back \
       "📣 Configure notification providers now?" "y"); then
       :
@@ -2844,24 +3725,22 @@ choose_provider_config_action() {
     return
   fi
   ui_info "📣 Existing providers: ${existing[*]}"
-  ui_menu \
-    "  1) Edit or add providers" \
-    "  2) Keep providers unchanged" \
-    "  3) Remove all providers" \
-    "  4) $(back_label)"
   while true; do
-    choice=$(ask "Provider configuration action" "1")
+    choice=$(ui_select 0 \
+      "✏️  Edit or add providers" \
+      "✅ Keep providers unchanged" \
+      "🗑️  Remove all providers" \
+      "↩️  Back") || { printf 'back'; return; }
     case "$choice" in
-      1) printf 'edit'; return ;;
-      2) printf 'keep'; return ;;
-      3)
+      0) printf 'edit'; return ;;
+      1) printf 'keep'; return ;;
+      2)
         confirm_action "Remove all configured notification providers" "n" ||
           continue
         printf 'empty'
         return
         ;;
-      4) printf 'back'; return ;;
-      *) ui_warn "⚠️ Choose a number from 1 to 4." ;;
+      *) printf 'back'; return ;;
     esac
   done
 }
@@ -2872,8 +3751,8 @@ write_config_secret() {
   local add_provider keep_existing
   local entry path type default category description status replacement value
   local old_value
-  local encoded legacy_config
-  local -a secret_args_before=()
+  local encoded legacy_config configure_secrets
+  local -a secret_args_before=() secret_paths=()
   SECRET_ARGS=()
   WRITTEN_CONFIG_SECTIONS="|"
   CONFIGURED_PROVIDERS="|"
@@ -2995,12 +3874,42 @@ write_config_secret() {
     printf 'crd:\n  enabled: true\nalert: {}\n' >"$config_tmp"
     ;;
   esac
-  for entry in "${CATALOG[@]}"; do
+  # These are Secret-backed extras unrelated to providers -- a heartbeat URL and
+  # a diagnostics token. Asking for each one on every provider edit was two
+  # prompts that are almost always answered with Enter, so ask once whether they
+  # are wanted at all; declining keeps whatever is already stored.
+  secret_paths=()
+  for entry in ${CATALOG[@]+"${CATALOG[@]}"}; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
+    secret_paths+=("$path")
+  done
+  configure_secrets=false
+  if [ "${#secret_paths[@]}" -gt 0 ] &&
+    [ "$(ask_yes_no "🔐 Set the Secret-backed extras (${secret_paths[*]}) now?" "n")" = true ]; then
+    configure_secrets=true
+  fi
+  for entry in ${CATALOG[@]+"${CATALOG[@]}"}; do
+    IFS='|' read -r path type default category description status replacement <<<"$entry"
+    [ "$status" = secret ] || continue
+    if [ "$configure_secrets" != true ]; then
+      if ! preserve_config_secret "$config_tmp" "$path" "$tmp_dir"; then
+        old_value=$(old_config_value "$path" || true)
+        case "$old_value" in
+          ""|\$\{file:*) ;;
+          *)
+            if write_config_secret_value "$config_tmp" "$path" \
+              "$old_value" "$tmp_dir"; then
+              ui_success "🔐 Migrated $path into the configuration Secret."
+            fi
+            ;;
+        esac
+      fi
+      continue
+    fi
     while true; do
       value=$(ask_secret \
-        "$description (leave empty to skip) $(back_hint)")
+        "$description (leave empty to skip) $(back_hint)") || exit_expected
       is_back_choice "$value" && return 2
       if [ -z "$value" ]; then
         if preserve_config_secret "$config_tmp" "$path" "$tmp_dir"; then
@@ -3031,6 +3940,113 @@ write_config_secret() {
     app.kubernetes.io/instance="$RELEASE" \
     app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null
   CONFIG_SECRET_NAME="$secret_name"
+}
+
+# A Secret volume is written root:root with exactly the mode the manifest asks
+# for, and Kubernetes group-owns it only when the Pod sets fsGroup. The workload
+# mounts its configuration with defaultMode 0400 and runs as a non-root user, so
+# without fsGroup the container cannot read /config/config.yaml: the rollout
+# succeeds and the Pod then crash-loops on "permission denied". Add fsGroup when
+# the release manifest omits it, matching the group the container already runs
+# as. The Secret keeps mode 0400 in the manifest, and the volume becomes
+# readable by that group only.
+ensure_config_volume_readable() {
+  local manifest="$1" gid rewritten
+  grep -q '^        fsGroup:' "$manifest" && return 0
+  grep -q 'defaultMode: 0*400$' "$manifest" || return 0
+  gid=$(awk '/^[[:space:]]*runAsGroup:[[:space:]]*[0-9]+[[:space:]]*$/ {
+    print $2; exit }' "$manifest")
+  [ -n "$gid" ] || return 0
+  rewritten=$(mktemp)
+  # Add fsGroup to the Pod security context, creating that block before the
+  # container list when the release does not declare one at all.
+  if ! awk -v gid="$gid" '
+    /^      securityContext:[[:space:]]*$/ && inserted == 0 {
+      print
+      print "        fsGroup: " gid
+      inserted = 1
+      next
+    }
+    /^      containers:[[:space:]]*$/ && inserted == 0 {
+      print "      securityContext:"
+      print "        fsGroup: " gid
+      inserted = 1
+    }
+    { print }
+  ' "$manifest" >"$rewritten"; then
+    rm -f "$rewritten"
+    return 0
+  fi
+  grep -q '^        fsGroup: ' "$rewritten" || { rm -f "$rewritten"; return 0; }
+  mv "$rewritten" "$manifest" || { rm -f "$rewritten"; return 0; }
+  ui_detail \
+    "🔑 Added fsGroup $gid so the non-root workload can read its 0400 configuration Secret."
+}
+
+# Updating a workload someone else may have hand-edited is easier to agree to
+# when the change is visible first. Offered only when there is something to
+# compare against, and never on a fresh install.
+preview_manifest_changes() {
+  local manifest="$1" existing="$2" answer diff_output
+  [ -n "$existing" ] || return 0
+  ui_interactive || return 0
+  answer=$(ask_yes_no "🔍 Show what this will change in the cluster first?" n)
+  [ "$answer" = true ] || return 0
+  diff_output=$(kubectl diff -f "$manifest" 2>&1 || true)
+  if [ -z "$diff_output" ]; then
+    ui_info "ℹ️ No differences: the cluster already matches this release."
+    return 0
+  fi
+  ui_rule
+  printf '%s\n' "$diff_output" | head -120 |
+    sed -E 's#https?://[^ ]+#<url-redacted>#g;
+      s/((token|password|secret)[=:])[[:space:]]*[^[:space:]]+/\1<redacted>/Ig'
+  ui_rule
+}
+
+# kwatch's readiness self-check asks the API server whether it may update and
+# patch configmaps in its namespace *without* naming one, and the Role the
+# release ships scopes those verbs with resourceNames, which can never answer
+# yes. The security component then reports rbacDenied, /readyz stays 503, and the
+# Pod never becomes Ready even though every write it makes succeeds. Add the
+# unnamed rule the check needs; it is a no-op once the release grants it.
+# kwatch's readiness self-check asks the API server whether it may update and
+# patch configmaps in its namespace *without* naming one, which a
+# resourceNames-scoped rule can never answer yes to. Rather than assume every
+# release has that mismatch and widen the Role on every install, ask the same
+# question the component asks. A release that fixes the check, or a Role that
+# already grants it, answers yes and nothing is changed.
+self_check_rbac_missing() {
+  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" verb answer
+  for verb in update patch; do
+    answer=$(kubectl auth can-i "$verb" configmaps -n "$NAMESPACE" \
+      --as="$subject" 2>/dev/null || true)
+    case "$answer" in
+      *no*) return 0 ;;
+      *yes*) ;;
+      # Impersonation is not allowed here, so the question cannot be asked.
+      *) return 1 ;;
+    esac
+  done
+  return 1
+}
+
+repair_self_check_rbac() {
+  local role="${RELEASE}-configmap-manager" details
+  kubectl -n "$NAMESPACE" get role "$role" >/dev/null 2>&1 || return 1
+  details="kwatch checks this permission without naming a ConfigMap, so the"
+  details+=" scoped rule the release ships can never satisfy it and the Pod"
+  details+=" never reports ready. This adds get/update/patch on configmaps in"
+  details+=" $NAMESPACE to $role. It widens that Role inside this namespace only."
+  confirm_repair "grant the permission the readiness check asks for" "$details" ||
+    return 1
+  check_access patch roles namespace
+  with_loading "Updating $role" kubectl -n "$NAMESPACE" patch role "$role" \
+    --type=json -p '[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps"],"verbs":["get","update","patch"]}}]' \
+    >/dev/null || return 1
+  restart_kwatch || return 1
+  ui_success "✅ Readiness check permission granted."
+  return 0
 }
 
 apply_manifests() {
@@ -3073,6 +4089,8 @@ apply_manifests() {
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
+  ensure_config_volume_readable "$tmp"
+  preview_manifest_changes "$tmp" "$existing_deployment"
   manifest_to_apply="$tmp"
   if [ -n "$existing_deployment" ]; then
     # Deployment selectors are immutable. Omit the selector on updates so
@@ -3084,6 +4102,8 @@ apply_manifests() {
       "$apply_tmp"
     manifest_to_apply="$apply_tmp"
   fi
+  plan_injection_opt_out "ghcr.io/abahmed/kwatch:$version"
+  invalidate_deployment_name
   if ! with_loading "Applying kwatch Deployment" kubectl apply -f \
     "$manifest_to_apply"; then
     if [ -n "$existing_deployment" ] && confirm_action \
@@ -3111,16 +4131,18 @@ apply_manifests() {
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
+  if [ -n "$INJECTOR_OPT_OUT_PROFILE" ] &&
+    ! apply_injection_opt_out "$deployment" "$INJECTOR_OPT_OUT_PROFILE"; then
+    return 1
+  fi
   if with_loading "Waiting for kwatch rollout" \
     kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout=5m; then
+    --timeout="$ROLLOUT_TIMEOUT"; then
     return 0
   fi
   rollout_error="${LAST_COMMAND_ERROR:-rollout did not become ready}"
-  event_detail=$(kubectl -n "$NAMESPACE" get events \
-    --field-selector=type=Warning --sort-by=.lastTimestamp \
-    -o custom-columns='REASON:.reason,MESSAGE:.message' --no-headers \
-    2>/dev/null | tail -1 || true)
+  event_detail=$(admission_rejection_event)
+  [ -n "$event_detail" ] || event_detail=$(latest_warning_event)
   LAST_COMMAND_ERROR="Deployment was applied, but its rollout failed: $rollout_error"
   [ -n "$event_detail" ] &&
     LAST_COMMAND_ERROR="$LAST_COMMAND_ERROR Latest warning event: $event_detail"
@@ -3136,6 +4158,7 @@ recreate_deployment() {
   check_access delete deployments namespace
   with_loading "Removing invalid kwatch Deployment" kubectl -n "$NAMESPACE" \
     delete deployment "$deployment" --ignore-not-found --wait=true || return 1
+  invalidate_deployment_name
   with_loading "Recreating kwatch Deployment" kubectl apply -f "$manifest" || {
     ui_error \
       "❌ Deployment recreation failed." \
@@ -3395,9 +4418,28 @@ install_flow() {
     ui_error "❌ Installation failed; the created workload can be cleaned up."
     ui_error "Reason: $(compact_reason "$install_failure")"
     show_failure_diagnostics "Installation" "$install_failure"
-    if is_injected_hostpath_failure "$install_failure"; then
+    if is_injected_admission_failure "$install_failure"; then
       if repair_injected_hostpath "$install_failure"; then
         record_state complete "$version" "installation repaired after injector opt-out"
+        FRESH_INSTALL=false
+        configure_after_install
+        return 0
+      fi
+      install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
+    elif self_check_rbac_missing && repair_self_check_rbac; then
+      record_state complete "$version" "installation repaired after granting the readiness permission"
+      FRESH_INSTALL=false
+      configure_after_install
+      return 0
+    elif [ -n "$(failed_components "$(workload_selector)")" ] &&
+      repair_component_from_menu; then
+      record_state complete "$version" "installation repaired after disabling a failed component"
+      FRESH_INSTALL=false
+      configure_after_install
+      return 0
+    elif is_scheduling_failure "$install_failure"; then
+      if repair_scheduling; then
+        record_state complete "$version" "installation repaired after adding tolerations"
         FRESH_INSTALL=false
         configure_after_install
         return 0
@@ -3426,14 +4468,22 @@ install_flow() {
 }
 
 upgrade_flow() {
-  local version upgrade_failure="" change_confirmed="${1:-false}"
+  local version upgrade_failure="" change_confirmed="${1:-false}" allow_same=false
   confirm_resume
+  # Repairing an unhealthy installation may mean re-applying the release it is
+  # already on, which is often the newest one available.
+  if [ "$INSTALL_STATE" = broken ]; then
+    allow_same=true
+  fi
   if [ -n "$INSTALL_VERSION" ]; then
-    version=$(select_upgrade_version "$INSTALL_VERSION") ||
-      die "could not determine a newer kwatch release from GitHub"
-  else
-    version=$(select_modern_release_version) ||
-      die "could not determine a modern kwatch release from GitHub"
+    version=$(select_upgrade_version "$INSTALL_VERSION" "$allow_same") || {
+      # 1 means the manager already explained why there is nothing to do.
+      [ "$?" -eq 2 ] && ui_info "↩️ Upgrade cancelled; nothing was changed."
+      return 0
+    }
+  elif ! version=$(select_modern_release_version); then
+    ui_info "↩️ No release was selected; nothing was changed."
+    return 0
   fi
   maybe_load_catalog "$version" ||
     die "release catalogs are unavailable; upgrade cannot continue"
@@ -3476,7 +4526,16 @@ upgrade_flow() {
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
-    if is_injected_hostpath_failure "$upgrade_failure"; then
+    if [ -n "$(failed_components "$(workload_selector)")" ] &&
+      repair_component_from_menu; then
+      record_state complete "$version" "upgrade repaired after disabling a failed component"
+      return 0
+    fi
+    if is_scheduling_failure "$upgrade_failure" && repair_scheduling; then
+      record_state complete "$version" "upgrade repaired after adding tolerations"
+      return 0
+    fi
+    if is_injected_admission_failure "$upgrade_failure"; then
       if repair_injected_hostpath "$upgrade_failure"; then
         record_state complete "$version" "upgrade repaired after injector opt-out"
         ui_success "✅ kwatch upgraded successfully after the repair."
@@ -3528,7 +4587,7 @@ legacy_reinstall_flow() {
     ui_info "↩️ Legacy replacement cancelled; no changes were made."
     return 0
   }
-  confirmation=$(ask "Type uninstall to continue" "")
+  confirmation=$(ask "Type uninstall to continue" "") || exit_expected
   [ "$confirmation" = uninstall ] || {
     ui_warn "↩️ Cancelled. The legacy installation was not changed."
     return 0
@@ -3543,154 +4602,541 @@ legacy_reinstall_flow() {
 }
 
 show_absent_menu() {
-  ui_heading "🚀 Install kwatch"
-  ui_info "No running kwatch installation was found on '$(context_label "$SELECTED_CONTEXT")'."
+  ui_screen "not installed"
+  ui_info "No running kwatch installation was found."
   if stale_resources_present; then
     ui_info "Existing kwatch configuration resources were found, but no" \
       "kwatch workload is running; they are not treated as an installation."
     ui_info \
       "Settings are preserved where possible; provider setup starts fresh."
   fi
-  ui_menu "  1) 🚀 Install kwatch" "  2) $(exit_label)"
-  while true; do
-    case "$(ask "Choice" "1")" in
-      1) install_flow; return ;;
-      2) return ;;
-      *) ui_warn "⚠️ Choose 1 to install or 2 to exit." ;;
+  local choice
+  if choice=$(ui_select 0 "🚀 Install kwatch" "🚪 Exit"); then
+    case "$choice" in
+      0) install_flow; return ;;
     esac
-  done
+  fi
+  MENU_EXIT=true
 }
 
 show_legacy_menu() {
-  ui_heading "⚠️ Legacy kwatch detected"
-  ui_warn "kwatch $INSTALL_VERSION is running on '$(context_label "$SELECTED_CONTEXT")'."
+  ui_screen "legacy release"
+  ui_warn "kwatch $INSTALL_VERSION predates the guided catalogs."
   ui_detail "This release predates the guided configuration catalogs."
   ui_detail "Configuration editing is unavailable until it is replaced."
-  ui_menu \
-    "  1) 🔁 Uninstall legacy kwatch and fresh-install" \
-    "  2) $(exit_label)"
-  while true; do
-    case "$(ask "Choice" "1")" in
-      1) legacy_reinstall_flow; return ;;
-      2) return ;;
-      *) ui_warn "⚠️ Choose 1 or 2." ;;
+  local choice
+  if choice=$(ui_select 1 \
+    "🔁 Uninstall legacy kwatch and fresh-install" \
+    "📊 View status" \
+    "📜 View recent logs" \
+    "🧹 Uninstall kwatch" \
+    "🚪 Exit"); then
+    case "$choice" in
+      0) legacy_reinstall_flow; return ;;
+      1) status_flow; return ;;
+      2) logs_flow; return ;;
+      3) uninstall_flow; return ;;
     esac
-  done
+  fi
+  MENU_EXIT=true
 }
 
 show_supported_menu() {
-  ui_heading "✅ kwatch is ready"
-  ui_success "✅ kwatch $INSTALL_VERSION is running on '$(context_label "$SELECTED_CONTEXT")'."
-  ui_menu \
-    "  1) ⬆️ Upgrade kwatch" \
-    "  2) 🔌 Edit notification providers" \
-    "  3) ⚙️ Edit settings" \
-    "  4) 📊 View status" \
-    "  5) 🧩 View capabilities" \
-    "  6) 🧹 Uninstall kwatch" \
-    "  7) $(exit_label)"
-  while true; do
-    case "$(ask "Choice" "4")" in
-      1) upgrade_flow; return ;;
-      2)
-        maybe_load_catalog "$INSTALL_VERSION" ||
-          die \
-            "release catalogs are unavailable; provider editing cannot continue"
-        migration_notice
-        configure_alert_flow
-        return
-        ;;
-      3)
-        maybe_load_catalog "$INSTALL_VERSION" ||
-          die \
-            "release catalogs are unavailable; settings editing cannot continue"
-        migration_notice
-        configure_flow
-        return
-        ;;
-      4) status_flow; return ;;
-      5)
-        maybe_load_catalog "$INSTALL_VERSION" ||
-          die \
-            "release catalogs are unavailable; capabilities cannot be displayed"
-        features_flow
-        return
-        ;;
-      6) uninstall_flow; return ;;
-      7) return ;;
-      *) ui_warn "⚠️ Choose a number from 1 to 7." ;;
-    esac
-  done
+  ui_screen "ready"
+  local choice
+  local -a actions=() labels=()
+  actions+=(status logs upgrade providers settings capabilities)
+  labels+=(
+    "📊 View status"
+    "📜 View recent logs"
+    "⬆️  Upgrade kwatch"
+    "🔌 Edit notification providers"
+    "⚙️  Edit settings"
+    "🧩 View capabilities"
+  )
+  # Restoring is meaningless with nothing to restore from.
+  if [ -n "$(config_backups)" ]; then
+    actions+=(restore)
+    labels+=("♻️  Restore a previous configuration")
+  fi
+  actions+=(uninstall exit)
+  labels+=("🧹 Uninstall kwatch" "🚪 Exit")
+  if ! choice=$(ui_select 0 "${labels[@]}"); then
+    MENU_EXIT=true
+    return
+  fi
+  case "${actions[$choice]}" in
+    status) status_flow ;;
+    logs) logs_flow ;;
+    upgrade) upgrade_flow ;;
+    providers)
+      require_catalog_for "provider editing"
+      configure_alert_flow
+      ;;
+    settings)
+      require_catalog_for "settings editing"
+      configure_flow
+      ;;
+    capabilities)
+      require_catalog_for "capabilities"
+      features_flow
+      ;;
+    restore) restore_flow ;;
+    uninstall) uninstall_flow ;;
+    *) MENU_EXIT=true ;;
+  esac
 }
 
 show_broken_menu() {
-  ui_heading "🩺 kwatch needs attention"
-  ui_warn "⚠️ A kwatch Deployment was found, but it is not healthy."
-  ui_detail "Deployment: ${INSTALL_DEPLOYMENT:-unknown}"
-  ui_detail "Version: ${INSTALL_VERSION:-unknown}"
-  ui_detail "Reason: $INSTALL_REASON"
-  ui_menu \
-    "  1) 🛠️ Repair by upgrading kwatch" \
-    "  2) 📊 View status" \
-    "  3) 🧹 Uninstall kwatch" \
-    "  4) $(exit_label)"
-  while true; do
-    case "$(ask "Choice" "2")" in
-      1)
-        if confirm_repair \
-          "repair kwatch by upgrading it" \
-          "This will let you choose a release, then update the Deployment and roll back if the rollout fails."; then
-          upgrade_flow true
-          return
-        fi
+  local choice
+  local -a actions=() labels=()
+  ui_screen "needs attention"
+  ui_kv "📦" "Deployment" "${INSTALL_DEPLOYMENT:-unknown}"
+  ui_kv "🏷️" "Version" "${INSTALL_VERSION:-unknown}"
+  ui_kv "❗" "Reason" "$INSTALL_REASON"
+  printf '\n' >&2
+  show_unready_pods "$(workload_selector)" || true
+  # When a component is the cause, offer that repair first: upgrading to the
+  # same release cannot clear a component that fails to initialise.
+  if [ -n "$(failed_components "$(workload_selector)")" ]; then
+    actions+=(component)
+    labels+=("🩺 Disable the component that will not start")
+  fi
+  if self_check_rbac_missing; then
+    actions+=(selfcheck)
+    labels+=("🔑 Grant the permission the readiness check asks for")
+  fi
+  actions+=(status logs upgrade settings providers uninstall exit)
+  labels+=(
+    "📊 View status"
+    "📜 View recent logs"
+    "🛠️  Repair by upgrading kwatch"
+    "⚙️  Edit settings"
+    "🔌 Edit notification providers"
+    "🧹 Uninstall kwatch"
+    "🚪 Exit"
+  )
+  # A detected repair is worth landing on; otherwise start on a read-only entry
+  # rather than on something that changes the cluster.
+  if ! choice=$(ui_select 0 "${labels[@]}"); then
+    MENU_EXIT=true
+    return
+  fi
+  case "${actions[$choice]}" in
+    component) repair_component_from_menu ;;
+    selfcheck) repair_self_check_rbac || true ;;
+    upgrade)
+      if confirm_repair \
+        "repair kwatch by upgrading it" \
+        "This will let you choose a release, then update the Deployment and roll back if the rollout fails."; then
+        upgrade_flow true
+      else
         ui_info "↩️ Repair cancelled; no changes were made."
-        ;;
-      2) status_flow; return ;;
-      3) uninstall_flow; return ;;
-      4) return ;;
-      *) ui_warn "⚠️ Choose a number from 1 to 4." ;;
-    esac
-  done
+      fi
+      ;;
+    status) status_flow ;;
+    logs) logs_flow ;;
+    settings)
+      require_catalog_for "settings editing"
+      configure_flow
+      ;;
+    providers)
+      require_catalog_for "provider editing"
+      configure_alert_flow
+      ;;
+    uninstall) uninstall_flow ;;
+    *) MENU_EXIT=true ;;
+  esac
 }
 
-status_flow() {
-  local deployment version pod_instance
-  ui_heading "📊 kwatch status"
-  ui_detail "📍 Context: $(context_label "$SELECTED_CONTEXT")"
-  ui_detail "📦 Namespace: $NAMESPACE"
-  version=$(installed_version || true)
-  ui_detail "🏷️ Version: ${version:-unknown}"
-  if [ "$CATALOG_SOURCE" != unavailable ]; then
-    ui_detail "📚 Configuration catalog: $CATALOG_SOURCE"
+# One failing component is the common case; more than one is offered as a list.
+repair_component_from_menu() {
+  local selector choice
+  local -a components=()
+  selector=$(workload_selector)
+  while IFS= read -r choice; do
+    [ -n "$choice" ] && components+=("$choice")
+  done < <(failed_components "$selector")
+  if [ "${#components[@]}" -eq 0 ]; then
+    ui_info "ℹ️ Every component started; readiness is failing for another reason."
+    return 0
   fi
+  if [ "${#components[@]}" -eq 1 ]; then
+    repair_failed_component "${components[0]}" || true
+    return 0
+  fi
+  components+=("↩️  Back")
+  choice=$(ui_select 0 "${components[@]}") || return 0
+  [ "$choice" -lt $((${#components[@]} - 1)) ] || return 0
+  repair_failed_component "${components[$choice]}" || true
+}
+
+# kwatch gates its readiness on every component starting cleanly, so one
+# optional monitor that fails to initialise leaves the Pod Running but never
+# Ready. The component logs the failure on startup, which is the only signal
+# available from outside the cluster.
+#
+# Each entry maps the component name kwatch reports to the setting that turns it
+# off, so the manager can offer the same repair it offers for injectors.
+component_setting() {
+  case "$1" in
+    control-plane) printf '%s' "controlPlaneMonitor.enabled" ;;
+    status|network-graph|storage-graph) printf '%s' "clusterResourceMonitor.enabled" ;;
+    runtime-metrics) printf '%s' "runtimeMetricsMonitor.enabled" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Matched against the message text rather than parsed out of it: the same
+# component is reported as "create", "initialize" and "create rest config for",
+# and the component name in the message ("generic status monitor") is not the
+# name kwatch reports it under ("status").
+# Reading 400 log lines is asked for twice on the attention screen -- once to
+# decide whether to offer the repair, once to carry it out. Cache it for the
+# life of one menu render, alongside the other workload lookups.
+failed_components() {
+  local selector="$1" file="" result
+  [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/failed-components"
+  if [ -n "$file" ] && [ -f "$file" ]; then
+    cat "$file"
+    return 0
+  fi
+  result=$(failed_components_uncached "$selector")
+  if [ -n "$file" ]; then
+    printf '%s' "$result" >"$file" 2>/dev/null || true
+  fi
+  printf '%s' "$result"
+  [ -n "$result" ] && printf '\n'
+  return 0
+}
+
+failed_components_uncached() {
+  local selector="$1" line
+  while IFS= read -r line; do
+    case "$line" in
+      *"control-plane monitor"*) printf 'control-plane\n' ;;
+      *"status monitor"*) printf 'status\n' ;;
+      *"network graph monitor"*) printf 'network-graph\n' ;;
+      *"storage graph monitor"*) printf 'storage-graph\n' ;;
+      *"runtime metrics monitor"*) printf 'runtime-metrics\n' ;;
+    esac
+  done < <(kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
+    grep -F 'failed to' || true) | sort -u
+}
+
+component_failure_detail() {
+  local component="$1" selector="$2"
+  kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
+    grep -F "$component" | grep -F 'failed to' | tail -1 || true
+}
+
+# Offer to switch off the component that cannot start. The alternative is a Pod
+# that never becomes Ready, so the trade is stated plainly and confirmed.
+repair_failed_component() {
+  local component="$1" setting details
+  setting=$(component_setting "$component") || {
+    ui_warn "⚠️ The $component component failed to start and has no setting to disable it."
+    return 1
+  }
+  details="kwatch reports every component healthy or it never becomes Ready, so"
+  details+=" the $component failure keeps the Pod out of service. This sets"
+  details+=" $setting=false in the KwatchConfig resource and restarts kwatch."
+  details+=" Only that component stops; every other monitor keeps running."
+  confirm_repair "disable the $component component" "$details" || return 1
+  check_access patch kwatchconfigs namespace
+  if ! patch_config_value "$setting" boolean false; then
+    return 1
+  fi
+  restart_kwatch || return 1
+  ui_success "✅ $component disabled. Re-enable it with Edit settings once it is fixed upstream."
+  return 0
+}
+
+workload_selector() {
+  local file="" selector
+  [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/workload-selector"
+  if [ -n "$file" ] && [ -f "$file" ]; then
+    cat "$file"
+    return 0
+  fi
+  selector=$(workload_selector_uncached)
+  if [ -n "$file" ]; then
+    printf '%s' "$selector" >"$file" 2>/dev/null || true
+  fi
+  printf '%s' "$selector"
+}
+
+workload_selector_uncached() {
+  local deployment pod_instance
   deployment=$(deployment_name || true)
   if [ -n "$deployment" ]; then
-    kubectl -n "$NAMESPACE" get deployment "$deployment" 2>/dev/null || true
     pod_instance=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
       -o 'jsonpath={.spec.template.metadata.labels.app\.kubernetes\.io/instance}' \
       2>/dev/null || true)
-    if [ -n "$pod_instance" ]; then
-      kubectl -n "$NAMESPACE" get pods \
-        -l "app.kubernetes.io/instance=$pod_instance" 2>/dev/null || true
-    else
-      kubectl -n "$NAMESPACE" get pods -l app=kwatch 2>/dev/null || true
+  fi
+  if [ -n "${pod_instance:-}" ]; then
+    printf 'app.kubernetes.io/instance=%s' "$pod_instance"
+  else
+    printf 'app=kwatch'
+  fi
+}
+
+# A Pod that is not ready is the usual reason someone opens the manager, so show
+# the container's own explanation instead of leaving them to run kubectl.
+show_unready_pods() {
+  local selector="$1" pod ready waiting terminated scheduling logs line shown=false
+  local phase probe component
+  while IFS=' ' read -r pod ready; do
+    [ -n "$pod" ] || continue
+    [ "$ready" = true ] && continue
+    shown=true
+    waiting=$(kubectl -n "$NAMESPACE" get pod "$pod" \
+      -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}' \
+      2>/dev/null || true)
+    terminated=$(kubectl -n "$NAMESPACE" get pod "$pod" \
+      -o 'jsonpath={.status.containerStatuses[0].lastState.terminated.reason}' \
+      2>/dev/null || true)
+    # A Pod that never started a container -- Pending on a full or scaling
+    # cluster -- has no container state at all, so fall back to its phase and
+    # the scheduler's own explanation.
+    scheduling=""
+    probe=""
+    if [ -z "$waiting" ]; then
+      phase=$(kubectl -n "$NAMESPACE" get pod "$pod" \
+        -o 'jsonpath={.status.phase}' 2>/dev/null || true)
+      if [ "$phase" = Running ]; then
+        # "not ready: Running" says nothing. A container that started and stayed
+        # up is failing its readiness probe, and the kubelet records why.
+        waiting="running, but failing its readiness probe"
+        probe=$(kubectl -n "$NAMESPACE" get events \
+          --field-selector=involvedObject.name="$pod",reason=Unhealthy \
+          -o 'jsonpath={.items[-1:].message}' 2>/dev/null || true)
+      else
+        waiting="$phase"
+        scheduling=$(kubectl -n "$NAMESPACE" get pod "$pod" \
+          -o 'jsonpath={.status.conditions[?(@.type=="PodScheduled")].message}' \
+          2>/dev/null || true)
+      fi
     fi
+    ui_warn "$(ui_dot bad) Pod $pod is not ready: ${waiting:-unknown}${terminated:+ (last exit: $terminated)}"
+    [ -n "$scheduling" ] && ui_detail "   $(compact_reason "$scheduling")"
+    [ -n "$probe" ] && ui_detail "   $(compact_reason "$probe")"
+    # kwatch holds readiness down until every component starts, so name the one
+    # that did not rather than leaving a healthy-looking process unexplained.
+    while IFS= read -r component; do
+      [ -n "$component" ] || continue
+      ui_detail "   ⚠️ component $component failed to start:"
+      ui_detail "      $(compact_reason "$(component_failure_detail "$component" "$selector")")"
+    done < <(failed_components "$selector")
+    logs=$(kubectl -n "$NAMESPACE" logs "$pod" --tail=3 --previous 2>/dev/null ||
+      kubectl -n "$NAMESPACE" logs "$pod" --tail=3 2>/dev/null || true)
+    [ -n "$logs" ] || continue
+    ui_detail "   Last log lines:"
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      printf '   %s\n' "$(compact_reason "$line")"
+    done <<< "$logs"
+  done < <(kubectl -n "$NAMESPACE" get pods -l "$selector" \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{.status.containerStatuses[0].ready}{"\n"}{end}' \
+    2>/dev/null || true)
+  [ "$shown" = true ] && return 0
+  return 1
+}
+
+status_flow() {
+  local deployment version selector state phase state_version message ready desired
+  ui_screen "status"
+  ui_kv "📍" "Context" "$(context_label "$SELECTED_CONTEXT")"
+  ui_kv "📦" "Namespace" "$NAMESPACE"
+  version=$(installed_version || true)
+  ui_kv "🏷️" "Version" "${version:-unknown}"
+  if [ "$CATALOG_SOURCE" != unavailable ]; then
+    ui_kv "📚" "Catalog" "$CATALOG_SOURCE"
+  fi
+  printf '\n' >&2
+  deployment=$(deployment_name || true)
+  if [ -n "$deployment" ]; then
+    ready=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o 'jsonpath={.status.readyReplicas}' 2>/dev/null || true)
+    desired=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o 'jsonpath={.spec.replicas}' 2>/dev/null || true)
+    [[ "$ready" =~ ^[0-9]+$ ]] || ready=0
+    [[ "$desired" =~ ^[0-9]+$ ]] || desired=0
+    if [ "$ready" -gt 0 ] && [ "$ready" -eq "$desired" ]; then
+      printf '  %s  %sHealthy%s %s%s/%s replicas ready%s\n' "$(ui_dot ok)" \
+        "$UI_BOLD$UI_GREEN" "$UI_RESET" "$UI_DIM" "$ready" "$desired" "$UI_RESET" >&2
+    else
+      printf '  %s  %sUnhealthy%s %s%s/%s replicas ready%s\n' "$(ui_dot bad)" \
+        "$UI_BOLD$UI_RED" "$UI_RESET" "$UI_DIM" "$ready" "$desired" "$UI_RESET" >&2
+    fi
+    ui_rule
+    kubectl -n "$NAMESPACE" get deployment "$deployment" 2>/dev/null |
+      sed 's/^/  /' || true
+    selector=$(workload_selector)
+    kubectl -n "$NAMESPACE" get pods -l "$selector" 2>/dev/null |
+      sed 's/^/  /' || true
+    show_unready_pods "$selector" || true
   else
     ui_warn "⚠️ No kwatch Deployment was found."
   fi
-  kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
-    -o 'custom-columns=PHASE:.data.phase,VERSION:.data.version,MESSAGE:.data.message' \
-    --no-headers 2>/dev/null || ui_detail "🧭 Manager state: not available"
+  state=$(kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
+    -o 'jsonpath={.data.phase}{"|"}{.data.version}{"|"}{.data.message}' \
+    2>/dev/null || true)
+  if [ -n "$state" ]; then
+    IFS='|' read -r phase state_version message <<< "$state"
+    ui_detail "🧭 Manager state: ${phase:-unknown}${state_version:+ ($state_version)}${message:+ — $message}"
+  else
+    ui_detail "🧭 Manager state: not available"
+  fi
+  ui_pause
+}
+
+logs_flow() {
+  local selector pod choice lines
+  ui_screen "logs"
+  selector=$(workload_selector)
+  pod=$(kubectl -n "$NAMESPACE" get pods -l "$selector" \
+    -o 'jsonpath={.items[0].metadata.name}' 2>/dev/null || true)
+  if [ -z "$pod" ]; then
+    ui_warn "⚠️ No kwatch Pod was found in namespace $NAMESPACE."
+    return 0
+  fi
+  ui_detail "Pod: $NAMESPACE/$pod"
+  choice=$(ui_select 0 "Last 50 lines" "Last 200 lines" "Last 1000 lines" \
+    "↩️  Back") || return 0
+  case "$choice" in
+    0) lines=50 ;;
+    1) lines=200 ;;
+    2) lines=1000 ;;
+    *) return 0 ;;
+  esac
+  ui_rule
+  # Logs can carry a webhook URL or a token echoed back by a provider, so they
+  # get the same redaction as every other diagnostic the manager prints.
+  kubectl -n "$NAMESPACE" logs "$pod" --tail="$lines" 2>&1 |
+    sed -E 's#https?://[^ ]+#<url-redacted>#g;
+      s/((token|password|secret)[=:])[[:space:]]*[^[:space:]]+/\1<redacted>/Ig' ||
+    true
+  ui_rule
+  ui_pause
+}
+
+config_backups() {
+  kubectl -n "$NAMESPACE" get secrets \
+    -o "jsonpath={range .items[?(@.metadata.labels.app\\.kubernetes\\.io/managed-by=='kwatch.sh')]}{.metadata.name}{\"\n\"}{end}" \
+    2>/dev/null | grep "^${RELEASE}-config-[0-9]" | sort -r || true
+}
+
+# Every upgrade writes a backup Secret and nothing removed them, so a
+# long-lived installation accumulated one per upgrade for ever.
+prune_config_backups() {
+  local keep="${KWATCH_BACKUP_KEEP:-5}" name index=0
+  [[ "$keep" =~ ^[0-9]+$ ]] || keep=5
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    index=$((index + 1))
+    [ "$index" -gt "$keep" ] || continue
+    kubectl -n "$NAMESPACE" delete secret "$name" --ignore-not-found \
+      >/dev/null 2>&1 || true
+  done < <(config_backups)
+}
+
+# Restoring used to be reachable only as the automatic rollback after a failed
+# upgrade, so an unwanted but successful configuration change could not be
+# undone from the manager.
+restore_flow() {
+  local name created choice
+  local -a names=() labels=()
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    created=$(kubectl -n "$NAMESPACE" get secret "$name" \
+      -o 'jsonpath={.metadata.creationTimestamp}' 2>/dev/null || true)
+    names+=("$name")
+    labels+=("$name  ${UI_DIM}${created:-unknown}${UI_RESET}")
+  done < <(config_backups)
+  if [ "${#names[@]}" -eq 0 ]; then
+    ui_warn "⚠️ No configuration backups were found in namespace $NAMESPACE."
+    ui_detail "Backups are created automatically before each upgrade."
+    return 0
+  fi
+  ui_heading "♻️   Restore a previous configuration"
+  ui_detail "Newest first. The current configuration is replaced, then kwatch restarts."
+  labels+=("↩️  Back")
+  choice=$(ui_select 0 "${labels[@]}") || choice="${#names[@]}"
+  if [ "$choice" -ge "${#names[@]}" ]; then
+    ui_info "↩️ Restore cancelled; nothing was changed."
+    return 0
+  fi
+  confirm_repair \
+    "restore the configuration saved in ${names[$choice]}" \
+    "The current KwatchConfig is replaced by the saved one and kwatch is restarted. Notification Secrets are not changed." ||
+    {
+      ui_info "↩️ Restore cancelled; nothing was changed."
+      return 0
+    }
+  BACKUP_NAME="${names[$choice]}"
+  restore_backup
+  ui_success "✅ Configuration restored from ${names[$choice]}."
+}
+
+# Deleting is a sequence across namespaced and cluster-scoped resources. Check
+# every permission before the first deletion: `check_access` calls die, so a
+# missing one used to abort mid-way and leave orphaned cluster RBAC behind.
+preflight_uninstall_access() {
+  check_access delete deployments namespace
+  check_access delete services namespace
+  check_access delete serviceaccounts namespace
+  check_access delete roles namespace
+  check_access delete rolebindings namespace
+  check_access delete secrets namespace
+  check_access delete clusterrolebindings
+  check_access delete clusterroles
+}
+
+# Everything the manager itself created, beyond the workload: the state marker,
+# the cached catalogs, the configuration resource, and the upgrade backups.
+purge_manager_data() {
+  local name
+  for name in "$STATE_CONFIGMAP_NAME" "$CATALOG_CACHE_NAME" \
+    "$FEATURE_CATALOG_CACHE_NAME" "$PROVIDER_CATALOG_CACHE_NAME"; do
+    [ -n "$name" ] || continue
+    kubectl -n "$NAMESPACE" delete configmap "$name" --ignore-not-found \
+      >/dev/null 2>&1 || true
+  done
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    kubectl -n "$NAMESPACE" delete secret "$name" --ignore-not-found \
+      >/dev/null 2>&1 || true
+  done < <(config_backups)
+  kubectl -n "$NAMESPACE" delete kwatchconfig "$RELEASE" --ignore-not-found \
+    >/dev/null 2>&1 || true
 }
 
 uninstall_flow() {
-  local confirm secret_owner
+  local confirm secret_owner scope purge=false
   adopt_existing_config_secret
-  ui_warn \
-    "⚠️ This removes the kwatch workload and its manager-owned configuration Secret."
-  ui_detail "KwatchConfig, backups, namespace, and CRD are preserved."
-  confirm=$(ask "Type uninstall to remove kwatch" "")
+  ui_heading "🧹  Uninstall kwatch"
+  scope=$(ui_select 0 \
+    "🧹 Remove the workload, keep configuration and backups" \
+    "🔥 Remove everything the manager created" \
+    "↩️  Cancel") || { ui_warn "↩️ Cancelled."; return; }
+  case "$scope" in
+    0) ;;
+    1) purge=true ;;
+    *) ui_warn "↩️ Cancelled."; return ;;
+  esac
+  if [ "$purge" = true ]; then
+    ui_warn \
+      "⚠️ This removes the workload, the configuration resource, every configuration backup, and the cached catalogs."
+    ui_detail "The namespace and the CRD are preserved."
+  else
+    ui_warn \
+      "⚠️ This removes the kwatch workload and its manager-owned configuration Secret."
+    ui_detail "KwatchConfig, backups, namespace, and CRD are preserved."
+  fi
+  confirm=$(ask "Type uninstall to remove kwatch" "") || exit_expected
   [ "$confirm" = uninstall ] || { ui_warn "↩️ Cancelled."; return; }
+  preflight_uninstall_access
   ui_info \
     "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other resources remain."
   remove_namespaced_workload
@@ -3703,19 +5149,82 @@ uninstall_flow() {
   else
     ui_info "🔐 Preserving unowned Secret '$CONFIG_SECRET_NAME'."
   fi
+  if [ "$purge" = true ]; then
+    with_loading "Removing manager data" purge_manager_data
+  fi
   clear_managed_namespace_labels
-  ui_success \
-    "✅ kwatch workload removed. KwatchConfig, backups, namespace, and CRD remain."
+  if [ "$purge" = true ]; then
+    ui_success \
+      "✅ kwatch removed, along with its configuration, backups, and cached catalogs. The namespace and CRD remain."
+  else
+    ui_success \
+      "✅ kwatch workload removed. KwatchConfig, backups, namespace, and CRD remain."
+  fi
+}
+
+usage() {
+  cat <<'USAGE'
+🧭 Usage: kwatch.sh
+
+Interactive kubectl manager with operational security checks.
+Run it with no arguments; every action is chosen from the menu.
+
+  --help, -h        Show this help and exit
+  --version, -v     Show the manager catalog version and exit
+
+Environment:
+  KWATCH_CONTEXT                   kubeconfig context to manage; skips the
+                                   cluster picker
+  KWATCH_NAMESPACE                 Namespace to manage (default: kwatch)
+  KWATCH_RELEASE                   Release name to manage (default: kwatch)
+  KWATCH_PLAIN_UI=true             Disable spinners and colour
+  KWATCH_ALLOW_NAMESPACE_LABELS=true
+                                   Allow restricted Pod Security labels on a
+                                   namespace the manager did not create
+  KWATCH_SKIP_ADMISSION_PREFLIGHT=true
+                                   Skip the admission-injection dry run
+  KWATCH_ROLLOUT_TIMEOUT           How long to wait for a rollout
+                                   (default: 5m)
+  KWATCH_BACKUP_KEEP               Configuration backups to retain
+                                   (default: 5)
+USAGE
+}
+
+# Loading a release catalog is a precondition for every configuration screen,
+# so keep the failure message in one place.
+require_catalog_for() {
+  local purpose="$1"
+  maybe_load_catalog "$INSTALL_VERSION" ||
+    die "release catalogs are unavailable; $purpose cannot continue"
+  migration_notice
+}
+
+# Return to the menu after each action instead of ending the session, so a
+# status check or a settings edit does not cost a fresh run and another context
+# selection. The installation is reassessed every time, because the previous
+# action usually changed it.
+interactive_session() {
+  while true; do
+    MENU_EXIT=false
+    case "$INSTALL_STATE" in
+      absent) show_absent_menu ;;
+      legacy) show_legacy_menu ;;
+      supported) show_supported_menu ;;
+      broken) show_broken_menu ;;
+      *) die "could not assess the kwatch installation" ;;
+    esac
+    [ "$MENU_EXIT" = true ] && return 0
+    [ -t 0 ] || return 0
+    # The action just taken usually changed the workload; re-resolve it.
+    invalidate_deployment_name
+    assess_installation
+  done
 }
 
 main() {
   local action="${1:-}"
   case "$action" in
-    --help|-h)
-      echo "🧭 Usage: kwatch.sh"
-      echo "Interactive kubectl manager with operational security checks."
-      exit 0
-      ;;
+    --help|-h) usage; exit 0 ;;
     --version|-v)
       echo "🏷️ kwatch manager catalog $CATALOG_VERSION"
       exit 0
@@ -3724,18 +5233,14 @@ main() {
     *) die "kwatch.sh is interactive; run it without an action argument" ;;
   esac
   require_tools
-  ui_heading "🧭 kwatch interactive manager"
+  SESSION_CACHE_DIR=$(mktemp -d 2>/dev/null || true)
+  ui_banner
   select_context
   with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
-    die "cannot reach the Kubernetes cluster"
+    die "cannot reach the Kubernetes cluster: $(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
+  check_cluster_version
   assess_installation
-  case "$INSTALL_STATE" in
-    absent) show_absent_menu ;;
-    legacy) show_legacy_menu ;;
-    supported) show_supported_menu ;;
-    broken) show_broken_menu ;;
-    *) die "could not assess the kwatch installation" ;;
-  esac
+  interactive_session
 }
 
 if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]}" == "$0" ]]; then

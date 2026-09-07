@@ -243,7 +243,7 @@ failure_hint() {
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
     *podsecurity*|*restricted*|*hostpath*|*violat*)
-      printf '%s' "An admission controller or Pod Security policy rejected the Pod. In this case an injected hostPath volume was not allowed." ;;
+      printf '%s' "A Pod Security policy rejected a volume added by the workload or an admission injector." ;;
     *admission*|*webhook*)
       printf '%s' "An admission controller rejected or changed the resource. Review the webhook or policy named in the event." ;;
     *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
@@ -266,7 +266,7 @@ failure_fix() {
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
     *podsecurity*|*restricted*|*hostpath*|*violat*)
-      printf '%s' "Exclude the kwatch namespace from the injector or remove the injected hostPath; do not weaken restricted Pod Security just for kwatch." ;;
+      printf '%s' "Use a workload-only injector opt-out when the manager identifies a supported injector. Do not weaken Pod Security." ;;
     *admission*|*webhook*)
       printf '%s' "Ask the cluster administrator to review the named webhook or policy, then retry." ;;
     *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
@@ -291,6 +291,100 @@ failure_is_retryable() {
     *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*|*serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*) return 0 ;;
   esac
   return 1
+}
+
+is_injected_hostpath_failure() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *hostpath*) ;;
+    *) return 1 ;;
+  esac
+  case "$diagnostic" in
+    *podsecurity*|*restricted*|*violates*) return 0 ;;
+  esac
+  return 1
+}
+
+injection_opt_out_profile() {
+  local diagnostic webhooks
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  webhooks=$(kubectl get mutatingwebhookconfigurations \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{range .webhooks[*]}{.name}{" "}{.clientConfig.service.namespace}{" "}{.clientConfig.service.name}{"\\n"}{end}{end}' \
+    2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+  [ -n "$webhooks" ] || return 1
+  case "$diagnostic" in
+    *datadog*)
+      [[ "$webhooks" == *datadog* ]] || return 1
+      printf '%s' "Datadog|labels|admission.datadoghq.com/enabled|false" ;;
+    *istio*|*istio-proxy*)
+      [[ "$webhooks" == *istio* ]] || return 1
+      printf '%s' "Istio|labels|sidecar.istio.io/inject|false" ;;
+    *linkerd*|*linkerd-proxy*)
+      [[ "$webhooks" == *linkerd* ]] || return 1
+      printf '%s' "Linkerd|annotations|linkerd.io/inject|disabled" ;;
+    *vault*|*vault-agent*)
+      [[ "$webhooks" == *vault* ]] || return 1
+      printf '%s' "Vault Agent|annotations|vault.hashicorp.com/agent-inject|false" ;;
+    *) return 1 ;;
+  esac
+}
+
+show_injector_candidates() {
+  local candidates
+  candidates=$(kubectl get mutatingwebhookconfigurations \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{"\\n"}{end}' \
+    2>/dev/null | grep -Ei 'datadog|istio|linkerd|vault|inject|sidecar' \
+    | head -6 || true)
+  [ -n "$candidates" ] || return 0
+  ui_detail "🔌 Possible injection webhooks (read-only):"
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] && printf '  %s\n' "$candidate"
+  done <<< "$candidates"
+}
+
+repair_injected_hostpath() {
+  local failure="$1" deployment profile provider target key value details patch
+  if ! profile=$(injection_opt_out_profile "$failure"); then
+    ui_warn "⚠️ An injector added a restricted hostPath volume, but it was not identified."
+    show_injector_candidates
+    ui_info "ℹ️ The manager will not guess an opt-out label or change cluster policy."
+    return 1
+  fi
+  IFS='|' read -r provider target key value <<< "$profile"
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || deployment="$RELEASE"
+  details="$provider injection added a hostPath volume rejected by restricted Pod"
+  details+=" Security. This adds $key=$value to the kwatch Pod template, then"
+  details+=" waits for a replacement Pod. It does not change the injector, Pod"
+  details+=" Security, namespace policy, or any other workload."
+  confirm_repair \
+    "exclude only the kwatch Pod from $provider injection" \
+    "$details" ||
+    return 1
+  check_access patch deployments namespace
+  if [ "$target" = labels ]; then
+    patch='{"spec":{"template":{"metadata":{"labels":{'
+  else
+    patch='{"spec":{"template":{"metadata":{"annotations":{'
+  fi
+  patch+="\"$key\":\"$value\"}}}}}"
+  if ! with_loading "Excluding kwatch from $provider injection" \
+    kubectl -n "$NAMESPACE" patch deployment "$deployment" \
+    --type=merge -p "$patch"; then
+    return 1
+  fi
+  if ! with_loading "Waiting for corrected kwatch rollout" \
+    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout=5m; then
+    return 1
+  fi
+  if ! verify_operational_security; then
+    LAST_COMMAND_ERROR="kwatch rolled out, but its operational security check failed"
+    return 1
+  fi
+  ui_success "✅ kwatch is ready. $provider injection is disabled only for this Pod."
+  return 0
 }
 
 compact_reason() {
@@ -3301,7 +3395,15 @@ install_flow() {
     ui_error "❌ Installation failed; the created workload can be cleaned up."
     ui_error "Reason: $(compact_reason "$install_failure")"
     show_failure_diagnostics "Installation" "$install_failure"
-    if failure_is_retryable "$install_failure"; then
+    if is_injected_hostpath_failure "$install_failure"; then
+      if repair_injected_hostpath "$install_failure"; then
+        record_state complete "$version" "installation repaired after injector opt-out"
+        FRESH_INSTALL=false
+        configure_after_install
+        return 0
+      fi
+      install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
+    elif failure_is_retryable "$install_failure"; then
       if retry_install_apply "$version"; then
         return 0
       fi
@@ -3374,7 +3476,14 @@ upgrade_flow() {
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
-    if failure_is_retryable "$upgrade_failure"; then
+    if is_injected_hostpath_failure "$upgrade_failure"; then
+      if repair_injected_hostpath "$upgrade_failure"; then
+        record_state complete "$version" "upgrade repaired after injector opt-out"
+        ui_success "✅ kwatch upgraded successfully after the repair."
+        return 0
+      fi
+      upgrade_failure="${LAST_COMMAND_ERROR:-$upgrade_failure}"
+    elif failure_is_retryable "$upgrade_failure"; then
       if retry_upgrade_apply "$version"; then
         return 0
       fi

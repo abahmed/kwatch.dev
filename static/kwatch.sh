@@ -229,6 +229,8 @@ failure_hint() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
+    *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
+      printf '%s' "The workload references a missing ServiceAccount or configuration Secret. Re-run with permission to create it, then retry." ;;
     *forbidden*|*unauthorized*|*permission*denied*)
       printf '%s' "Kubernetes denied this operation. Check your account and RBAC permissions." ;;
     *immutable*|*field\ is\ immutable*|*invalid\ value*)
@@ -248,6 +250,8 @@ failure_fix() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
+    *serviceaccount*not\ found*|*service\ account*not\ found*|*serviceaccount*missing*|*service\ account*missing*|*configuration\ secret*missing*)
+      printf '%s' "Grant create/get access for the named ServiceAccount or Secret, or ask the cluster administrator to create it, then retry." ;;
     *forbidden*|*unauthorized*|*permission*denied*)
       printf '%s' "Use a Kubernetes identity allowed to create, patch, and delete kwatch resources; the manager will not grant cluster-admin automatically." ;;
     *immutable*|*field\ is\ immutable*)
@@ -267,7 +271,7 @@ failure_is_retryable() {
   local diagnostic
   diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
   case "$diagnostic" in
-    *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*) return 0 ;;
+    *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*|*serviceaccount*not\ found*|*serviceaccount*missing*|*configuration\ secret*missing*) return 0 ;;
   esac
   return 1
 }
@@ -1802,7 +1806,7 @@ select_release_version() {
 }
 
 deployment_name() {
-  local name app
+  local name app template_app service_account
   name=$(kubectl -n "$NAMESPACE" get deployment \
     -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/managed-by=kwatch.sh" \
     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
@@ -1822,9 +1826,22 @@ deployment_name() {
   # compatibility fallback and adopt its existing configuration Secret.
   app=$(kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
     -o 'jsonpath={.metadata.labels.app}' 2>/dev/null || true)
-  [ "$app" = kwatch ] || return 0
-  kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
-    -o jsonpath='{.metadata.name}' 2>/dev/null || true
+  [ "$app" = kwatch ] && {
+    kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || true
+    return 0
+  }
+  # Some legacy manifests put the app label only on the Pod template and
+  # leave Deployment metadata unlabeled. The exact release name plus this
+  # template identity is sufficient to recognize kwatch safely.
+  template_app=$(kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+    -o 'jsonpath={.spec.template.metadata.labels.app}' 2>/dev/null || true)
+  service_account=$(kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+    -o 'jsonpath={.spec.template.spec.serviceAccountName}' 2>/dev/null || true)
+  if [ "$template_app" = kwatch ] || [ "$service_account" = "$RELEASE" ]; then
+    kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || true
+  fi
 }
 
 adopt_existing_config_secret() {
@@ -1911,16 +1928,16 @@ assess_installation() {
     INSTALL_REASON="the Deployment image version could not be determined"
     return 0
   fi
+  if version_is_legacy "$INSTALL_VERSION"; then
+    INSTALL_STATE=legacy
+    return 0
+  fi
   if ! deployment_is_running "$INSTALL_DEPLOYMENT"; then
     INSTALL_STATE=broken
     INSTALL_REASON="the Deployment has no available replicas"
     return 0
   fi
-  if version_is_legacy "$INSTALL_VERSION"; then
-    INSTALL_STATE=legacy
-  else
-    INSTALL_STATE=supported
-  fi
+  INSTALL_STATE=supported
 }
 
 stale_resources_present() {
@@ -2114,7 +2131,7 @@ provider_available() {
 
 remove_namespaced_workload() {
   delete_owned() {
-    local scope="$1" kind="$2" name="$3" owner app
+    local scope="$1" kind="$2" name="$3" owner app service_account
     if [ "$scope" = namespace ]; then
       owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
         -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
@@ -2128,7 +2145,19 @@ remove_namespaced_workload() {
       [ "$name" = "$RELEASE" ]; then
       app=$(kubectl -n "$NAMESPACE" get deployment "$name" \
         -o 'jsonpath={.metadata.labels.app}' 2>/dev/null || true)
-      [ "$app" = kwatch ] && owner=kwatch.sh
+      if [ "$app" = kwatch ]; then
+        owner=kwatch.sh
+      else
+        app=$(kubectl -n "$NAMESPACE" get deployment "$name" \
+          -o 'jsonpath={.spec.template.metadata.labels.app}' \
+          2>/dev/null || true)
+        service_account=$(kubectl -n "$NAMESPACE" get deployment "$name" \
+          -o 'jsonpath={.spec.template.spec.serviceAccountName}' \
+          2>/dev/null || true)
+        if [ "$app" = kwatch ] || [ "$service_account" = "$RELEASE" ]; then
+          owner=kwatch.sh
+        fi
+      fi
     fi
     [ "$owner" = kwatch.sh ] || return 0
     if [ "$scope" = namespace ]; then
@@ -2870,6 +2899,7 @@ write_config_secret() {
 
 apply_manifests() {
   local version="$1" tmp crd_tmp apply_tmp="" deployment existing_deployment
+  local rollout_error event_detail
   local manifest_to_apply
   valid_release_version "$version" || die "invalid kwatch release version: $version"
   existing_deployment=$(deployment_name || true)
@@ -2935,6 +2965,9 @@ apply_manifests() {
       return 1
     fi
   fi
+  if ! verify_runtime_dependencies; then
+    return 1
+  fi
   if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
     enable_initial_tls_monitor
   elif [ "$(config_value tlsMonitor.enabled)" = true ]; then
@@ -2942,9 +2975,21 @@ apply_manifests() {
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
-  with_loading "Waiting for kwatch rollout" \
+  if with_loading "Waiting for kwatch rollout" \
     kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout=5m
+    --timeout=5m; then
+    return 0
+  fi
+  rollout_error="${LAST_COMMAND_ERROR:-rollout did not become ready}"
+  event_detail=$(kubectl -n "$NAMESPACE" get events \
+    --field-selector=type=Warning --sort-by=.lastTimestamp \
+    -o custom-columns='REASON:.reason,MESSAGE:.message' --no-headers \
+    2>/dev/null | tail -1 || true)
+  LAST_COMMAND_ERROR="Deployment was applied, but its rollout failed: $rollout_error"
+  [ -n "$event_detail" ] &&
+    LAST_COMMAND_ERROR="$LAST_COMMAND_ERROR Latest warning event: $event_detail"
+  ui_error "❌ Deployment was applied, but the rollout did not become ready."
+  return 1
 }
 
 recreate_deployment() {
@@ -2961,6 +3006,17 @@ recreate_deployment() {
       "KwatchConfig and Secrets were not removed."
     return 1
   }
+}
+
+verify_runtime_dependencies() {
+  if ! kubectl -n "$NAMESPACE" get serviceaccount "$RELEASE" >/dev/null 2>&1; then
+    LAST_COMMAND_ERROR="ServiceAccount $NAMESPACE/$RELEASE is missing; the Deployment cannot create Pods."
+    return 1
+  fi
+  if ! kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" >/dev/null 2>&1; then
+    LAST_COMMAND_ERROR="Configuration Secret $NAMESPACE/$CONFIG_SECRET_NAME is missing; the Deployment cannot mount config.yaml."
+    return 1
+  fi
 }
 
 verify_operational_security() {

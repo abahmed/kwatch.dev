@@ -56,33 +56,27 @@ If your kubeconfig has more than one context, the manager shows the contexts
 and asks you to choose one. It passes that context explicitly to `kubectl`; it
 does not change your current context.
 
-## 📋 Commands
+## 📋 Interactive actions
 
-The same URL can run a command directly:
+The manager is intentionally run without lifecycle arguments:
 
 ```bash
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- status
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- configure
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- upgrade
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- uninstall
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- --help
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-| Command | What it does |
-| --- | --- |
-| `install` | Install the latest stable release, or choose an available RC |
-| `configure-alert` | Add, remove, or change alert providers and credentials |
-| `configure` | Change settings from the generated catalog |
-| `upgrade` | Upgrade to the latest stable release, or choose an available RC |
-| `status` | Show the workload and manager state |
-| `features` | Show the capabilities of the installed release |
-| `uninstall` | Remove the workload and notification Secret |
-| `--help` | Show manager usage and exit |
+After selecting a cluster, it detects the running kwatch Deployment and shows
+only actions that match the detected state:
 
-Running the manager without a command detects the managed Deployment,
-configuration resource, or Secret. That means **Configure** remains available
-even when the Deployment is temporarily missing; **Upgrade** can then repair
-the workload without discarding the saved configuration.
+- No running Deployment: install or exit.
+- A running version below `v1.0.0`: migrate and upgrade or exit.
+- A healthy running version `v1.0.0` or newer: upgrade, edit notification
+  providers, edit settings, view capabilities, view status, or uninstall.
+- An unhealthy or unidentified Deployment: repair by upgrading, view status,
+  or uninstall.
+
+Configuration resources without a running Deployment do not count as an
+installation. They are preserved and the manager explains that a fresh
+installation is available.
 
 ## 🔐 What the manager protects
 
@@ -110,18 +104,23 @@ and add more than one provider in the same run.
 
 When the latest Stable release does not publish the catalogs required by the
 manager, it offers a catalog-ready Release Candidate and asks before using it.
-The manager also confirms any conversion between install
-and upgrade or any Deployment recreation, before making the change.
+The manager confirms target-release selection, legacy migration, namespace
+security changes, and any Deployment recreation before making those changes.
 
 When an older kwatch Deployment is found, the manager reuses its mounted
 configuration Secret when one is present before writing changes. During an
 update it preserves the old immutable selector; if Kubernetes still rejects
 the workload, it
 recreates only that Deployment and keeps the configuration resource and Secret.
-For ConfigMap-based legacy installs, it migrates non-secret settings into
-`KwatchConfig`, moves credentials into Secret-backed files, and keeps the old
-ConfigMap as a recovery copy. Editing providers lists the current providers and
-preserves providers you did not edit unless you explicitly confirm removal.
+For ConfigMap-based legacy installs, **Migrate and upgrade** validates the
+target catalogs, creates a timestamped backup Secret, displays its name, and
+then waits for explicit confirmation before removing the old workload and
+performing a fresh installation. Editing providers lists the current providers
+and preserves providers you did not edit unless you explicitly confirm removal.
+
+Telemetry is a normal `telemetry.enabled` setting under **Edit settings**. It
+is not asked during installation or provider configuration; fresh installs use
+the catalog default and upgrades preserve the existing value.
 
 The release workflow generates these catalogs from Go definitions. When a new
 setting or guided provider is added, update its source definition and regenerate

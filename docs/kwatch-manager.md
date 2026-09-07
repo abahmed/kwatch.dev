@@ -42,21 +42,29 @@ The script is plain Bash and is published in the
 The manager never changes your current `kubectl` context. If you have more than
 one cluster configured, it shows a list and asks you to choose one.
 
-## 🧩 What happens during installation?
+## 🧭 How the interactive flow works
 
-1. 🔎 The manager checks that Kubernetes is reachable.
-2. 🎯 You choose the cluster and zero, one, or several notification providers.
-   Each provider's authentication method and fields come from that release's
-   provider catalog.
-   Choosing none keeps monitoring enabled without sending notifications; you
-   can add providers later from **Configure notification providers**.
-3. 🔐 Credentials are stored as separate files in a Kubernetes Secret.
-4. 🧱 The manager installs the CRD and hardened kwatch workload.
-5. 🛡️ It applies restricted Pod Security labels, then verifies
-   non-root/read-only
-   execution, dropped capabilities, `RuntimeDefault` seccomp, and `0400`
-   Secret volume permissions.
-6. ✅ It waits for the deployment to become ready.
+Every run starts by asking which Kubernetes context to manage. The manager
+does not change your current context. It then checks for a running kwatch
+Deployment and reads its image version. Configuration resources by themselves
+do not count as an installation.
+
+The available menu depends on what is actually running:
+
+- No Deployment: **Install kwatch** or exit.
+- A running version below `v1.0.0`: **Migrate and upgrade** or exit.
+  Catalog-based editing and other management actions are unavailable for these
+  legacy releases.
+- A healthy running version `v1.0.0` or newer: **Upgrade**, **Edit notification
+  providers**, **Edit settings**, **View status**, or **Uninstall**.
+- An unhealthy or unidentified Deployment: **Repair by upgrading**, **View
+  status**, or **Uninstall**.
+
+For a fresh installation, the manager selects a version, downloads and
+validates its catalogs, lets you configure zero, one, or several notification
+providers, stores credentials in a Secret, installs the CRD and hardened
+workload, applies restricted Pod Security labels, and waits for the Deployment
+to become ready.
 
 During installation and upgrade, the manager shows the newest Stable release
 and, when available, the newest Release Candidate. Stable is selected by
@@ -64,14 +72,10 @@ default; choose the RC interactively when you want to test preview changes.
 If a Stable release does not publish the catalogs required by the manager, it
 offers the available catalog-ready RC and asks before using it instead of
 continuing with an unusable Stable release.
-For an existing older installation whose release catalogs are no longer
-published, guided management uses the newest available RC catalog and leaves
-the workload version unchanged until you explicitly choose **Upgrade or repair
-workload**.
-The manager asks for confirmation before using an RC fallback, converting an
-explicit install/upgrade request, applying security labels to an existing
-namespace, or recreating an incompatible Deployment.
-No version argument or manual manifest application is required.
+The manager asks for confirmation before using an RC for a target release,
+applying security labels to an existing namespace, recreating an incompatible
+Deployment, or migrating a legacy installation. No action argument or manual
+manifest application is required.
 
 The default namespace is `kwatch`. Set `KWATCH_NAMESPACE` when you want a
 different namespace:
@@ -128,18 +132,25 @@ recreating only that workload.
 
 When you edit notification providers, the manager shows the providers already
 configured. You can edit or add providers, keep all of them unchanged, or
-explicitly remove them. Providers you do not edit are preserved by default,
-and the current telemetry preference remains the default. Legacy plaintext
-credentials are moved into Secret-backed files during migration.
+explicitly remove them. Providers you do not edit are preserved by default.
+Legacy plaintext credentials are moved into Secret-backed files during
+migration.
 
-For a pre-`v1.0.0` ConfigMap-based installation, upgrade migrates non-secret
-settings into `KwatchConfig` and creates the required configuration Secret
-before changing the workload. The old ConfigMap is preserved as a recovery
-copy.
+Telemetry is not a special installation question. `telemetry.enabled` is a
+normal Operations setting in **Edit settings**. Fresh installs use the catalog
+default, upgrades preserve the existing value, and users can change it with
+the other settings.
 
-## 📋 Commands
+For a pre-`v1.0.0` installation, **Migrate and upgrade** first validates the
+target release catalogs, creates a timestamped backup Secret containing the
+available old configuration and workload manifests, and displays its exact
+name. After explicit confirmation it removes the old kwatch workload and runs
+a fresh installation. The old configuration remains recoverable in the backup.
 
-Run the same command again after a `kwatch.sh`-managed installation. The menu will offer:
+## 📋 Interactive actions
+
+Run the same command again after a `kwatch.sh`-managed installation. The menu
+offers only actions valid for the detected running state:
 
 | Choice | Use it when you want to... |
 | --- | --- |
@@ -151,39 +162,23 @@ Run the same command again after a `kwatch.sh`-managed installation. The menu wi
 | 🧹 Uninstall | Remove the kwatch workload and notification Secret |
 
 The manager tracks the installation with labels on its resources and also
-recognizes legacy app-labelled Deployments. If a Deployment is temporarily
-missing but the managed configuration remains, the menu still opens so you can
-edit settings or choose **Upgrade or repair workload** instead of starting a
-new installation.
+recognizes legacy app-labelled Deployments. A missing Deployment is treated as
+no running installation, even when an old configuration resource remains; the
+manager explains that and offers a fresh installation.
 
 If you installed kwatch with Helm or your own manifests, keep using that method
 to change its configuration. The manager is designed for installations it manages.
 
-You can also run a command directly:
-
-```bash
-kwatch.sh status
-kwatch.sh configure-alert
-kwatch.sh configure
-kwatch.sh upgrade
-kwatch.sh features
-kwatch.sh uninstall
-
-# Show usage without selecting a cluster
-bash kwatch.sh --help
-```
-
-When using the URL form, pass the command through `bash` like this:
-
-```bash
-bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)" -- status
-```
+The manager is intentionally interactive and accepts no lifecycle action
+arguments. Run it without arguments each time.
 
 ## 🔒 Safety and recovery
 
 - The manager validates names, URLs, versions, and required permissions.
 - Temporary Kubernetes and GitHub failures are retried.
 - Configuration is backed up before an upgrade.
+- Legacy migration backs up the old configuration before removing the old
+  workload and prints the backup Secret name and namespace.
 - If an upgrade rollout fails, the previous configuration is restored and the
   deployment is rolled back when possible.
 - Uninstall removes the kwatch workload and its manager-owned notification

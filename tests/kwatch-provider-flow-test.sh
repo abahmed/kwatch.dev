@@ -115,17 +115,22 @@ write_config_secret
 token_line=$(grep -n 'Provider token' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 channel_line=$(grep -n 'Destination channel' "$PROMPT_LOG" | head -1 | cut -d: -f1)
 optional_line=$(grep -n 'optional settings' "$PROMPT_LOG" | head -1 | cut -d: -f1)
-telemetry_line=$(grep -n 'weekly adoption heartbeat' "$PROMPT_LOG" |
-  head -1 | cut -d: -f1)
 [ "$token_line" -lt "$channel_line" ] &&
-  [ "$channel_line" -lt "$optional_line" ] &&
-  [ "$optional_line" -lt "$telemetry_line" ] || {
+  [ "$channel_line" -lt "$optional_line" ] || {
   echo "provider authentication was not prompted before optional settings" >&2
   exit 1
 }
+if grep -Fq 'weekly adoption heartbeat' "$PROMPT_LOG"; then
+  echo "telemetry was presented as a provider-flow prompt" >&2
+  exit 1
+fi
 grep -Fq "token: \"\${file:$CAPTURE_DIR/alpha-token}\"" \
   "$CAPTURE_DIR/last-config.yaml"
 grep -Fq 'channel: "#alerts"' "$CAPTURE_DIR/last-config.yaml"
+if grep -Fq '^telemetry:' "$CAPTURE_DIR/last-config.yaml"; then
+  echo "telemetry was written to the provider Secret config" >&2
+  exit 1
+fi
 
 FLOW=none
 write_config_secret

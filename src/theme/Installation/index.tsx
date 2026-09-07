@@ -42,8 +42,8 @@ function Installation() {
                 <div className={styles.step}>
                   <span className={styles.stepNum}>1</span>
                   <div className={styles.stepContent}>
-                    <span className={styles.stepLabel}>Run the command</span>
-                    <span>Keep your current kubectl context selected.</span>
+                    <span className={styles.stepLabel}>Select your cluster</span>
+                    <span>The manager never changes your kubectl context.</span>
                   </div>
                 </div>
                 <div className={styles.step}>

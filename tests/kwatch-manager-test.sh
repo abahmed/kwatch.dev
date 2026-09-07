@@ -19,25 +19,85 @@ ask() { printf '%s' y; }
 
 kubectl() {
   case "$*" in
-    *"get kwatchconfig kwatch"*) printf '%s' v1; return 0 ;;
+    *"get deployment"*) return 1 ;;
+    *"get kwatchconfig kwatch"*) return 0 ;;
+    *"get secret kwatch-config"*) return 0 ;;
     *) return 1 ;;
   esac
 }
-managed_install_present || {
-  echo "managed configuration was not detected" >&2
+assess_installation
+[ "$INSTALL_STATE" = absent ] || {
+  echo "stale configuration was treated as an installation" >&2
   exit 1
 }
-[ "$(resolve_action install)" = upgrade ] || {
-  echo "existing configuration was not protected from reinstall" >&2
+deployment_name() { printf '%s' kwatch; }
+deployment_is_running() { return 0; }
+MOCK_IMAGE='ghcr.io/abahmed/kwatch:v0.10.5@sha256:deadbeef'
+kubectl() {
+  case "$*" in
+    *spec.template.spec.containers*) printf '%s' "$MOCK_IMAGE" ;;
+    *status.availableReplicas*) printf '1' ;;
+    *) return 1 ;;
+  esac
+}
+assess_installation
+[ "$INSTALL_STATE" = legacy ] || {
+  echo "legacy installation was not detected" >&2
   exit 1
 }
+MOCK_IMAGE='ghcr.io/abahmed/kwatch:v1.0.0@sha256:deadbeef'
+assess_installation
+[ "$INSTALL_STATE" = supported ] || {
+  echo "supported installation was not detected" >&2
+  exit 1
+}
+deployment_is_running() { return 1; }
+assess_installation
+[ "$INSTALL_STATE" = broken ] || {
+  echo "unavailable installation was not detected" >&2
+  exit 1
+}
+deployment_is_running() { return 0; }
+legacy_menu=$( (
+  INSTALL_VERSION=v0.10.5
+  ask() { printf '%s' 2; }
+  show_legacy_menu
+) 2>&1 )
+grep -Fq 'Migrate and upgrade kwatch' <<<"$legacy_menu"
+if grep -Fq 'Uninstall kwatch' <<<"$legacy_menu"; then
+  echo "legacy menu offered an unsupported action" >&2
+  exit 1
+fi
+[ "$(compare_release_versions v1.2.0 v1.1.9)" = 1 ]
+[ "$(compare_release_versions v1.2.0-rc.1 v1.2.0)" = -1 ]
+[ "$(compare_release_versions v1.2.0 v1.2.0-rc.1)" = 1 ]
+if (main install >/dev/null 2>&1); then
+  echo "lifecycle action arguments were accepted" >&2
+  exit 1
+fi
+legacy_backup_output_file="$CAPTURE_DIR/legacy-backup-output"
 (
-  confirm_action() { return 1; }
-  if resolve_action install >/dev/null 2>&1; then
-    echo "install-to-upgrade conversion ignored confirmation" >&2
-    exit 1
-  fi
-)
+  NAMESPACE=kwatch
+  RELEASE=kwatch
+  SELECTED_CONTEXT=production
+  INSTALL_VERSION=v0.10.5
+  MIGRATION_TARGET_VERSION=v1.2.0
+  CONFIG_SECRET_NAME=kwatch-config
+  INSTALL_DEPLOYMENT=kwatch
+  kubectl() {
+    case "$*" in
+      *"apply -f -"*) command cat >/dev/null ;;
+      *" create secret generic "*) printf '%s\n' apiVersion: v1 kind: Secret ;;
+      *" label secret "*) return 0 ;;
+      *" -o yaml"*) printf '%s\n' apiVersion: v1 kind: ConfigMap ;;
+      *) return 1 ;;
+    esac
+  }
+  backup_legacy_install
+) >"$legacy_backup_output_file" 2>&1
+legacy_backup_output=$(<"$legacy_backup_output_file")
+grep -Fq 'Legacy configuration backup created' <<<"$legacy_backup_output"
+grep -Fq 'Backup Secret: kwatch/kwatch-legacy-backup-' <<<"$legacy_backup_output"
 
 feature_file="$CAPTURE_DIR/features.tsv"
 printf '%s\n' \
@@ -98,53 +158,62 @@ ask() {
   esac
 }
 
-latest_version() { printf '%s' v0.10.5; }
-latest_release_candidate() { printf '%s' v0.11.0-rc.7; }
+latest_version() { printf '%s' v1.10.5; }
+latest_release_candidate() { printf '%s' v1.11.0-rc.7; }
 release_catalog_available() { return 0; }
 
 selected_release=$(select_release_version)
-[ "$selected_release" = v0.10.5 ] || {
+[ "$selected_release" = v1.10.5 ] || {
   echo "stable release was not selected by default" >&2
   exit 1
 }
-release_catalog_available() { [ "$1" != v0.10.5 ]; }
+release_catalog_available() { [ "$1" != v1.10.5 ]; }
 selected_release=$(select_release_version)
-[ "$selected_release" = v0.11.0-rc.7 ] || {
+[ "$selected_release" = v1.11.0-rc.7 ] || {
   echo "release candidate was not selected when stable catalogs were missing" >&2
   exit 1
 }
 release_catalog_available() { return 0; }
 RELEASE_CHOICE=2
 selected_release=$(select_release_version)
-[ "$selected_release" = v0.11.0-rc.7 ] || {
+[ "$selected_release" = v1.11.0-rc.7 ] || {
   echo "release candidate was not selected interactively" >&2
   exit 1
 }
 unset RELEASE_CHOICE
+selected_upgrade=$(select_upgrade_version v1.0.0)
+[ "$selected_upgrade" = v1.10.5 ] || {
+  echo "upgrade did not require and select a newer release" >&2
+  exit 1
+}
 
 saved_catalog=("${CATALOG[@]}")
 saved_feature_catalog=("${FEATURE_CATALOG[@]}")
 saved_provider_catalog=("${PROVIDER_CATALOG[@]}")
 load_catalog_for_version() {
-  [ "$1" = v0.11.0-rc.7 ] || return 1
+  [ "$1" = v1.10.5 ] || return 1
   CATALOG=('rc-setting|string|default|Test|RC setting|runtime|')
   CATALOG_SOURCE="release:$1"
 }
 load_feature_catalog_for_version() {
-  [ "$1" = v0.11.0-rc.7 ] || return 1
+  [ "$1" = v1.10.5 ] || return 1
   FEATURE_CATALOG=('rc-feature|runtime|RC feature|')
   FEATURE_CATALOG_SOURCE="release:$1"
 }
 load_provider_catalog_for_version() {
-  [ "$1" = v0.11.0-rc.7 ] || return 1
+  [ "$1" = v1.10.5 ] || return 1
   PROVIDER_CATALOG=('rc|RC|webhook|string|true|true|url||RC webhook')
   PROVIDER_CATALOG_SOURCE="release:$1"
 }
-maybe_load_catalog v0.10.5
-[ "$CATALOG_SOURCE" = release:v0.11.0-rc.7 ] || {
-  echo "old release did not fall back to the RC catalog" >&2
+maybe_load_catalog v1.10.5
+[ "$CATALOG_SOURCE" = release:v1.10.5 ] || {
+  echo "matching modern catalog was not loaded" >&2
   exit 1
 }
+if maybe_load_catalog v0.10.5; then
+  echo "legacy release unexpectedly loaded a different catalog" >&2
+  exit 1
+fi
 CATALOG=("${saved_catalog[@]}")
 FEATURE_CATALOG=("${saved_feature_catalog[@]}")
 PROVIDER_CATALOG=("${saved_provider_catalog[@]}")
@@ -219,6 +288,10 @@ test "$(cat "$CAPTURE_DIR/kwatch-config-heartbeatMonitor-url")" = \
   'https://heartbeat.example.test/ping'
 test "$(cat "$CAPTURE_DIR/kwatch-config-healthCheck-diagnosticsToken")" = \
   'diagnostic-token-that-must-not-enter-config'
+if grep -Fq '^telemetry:' "$CAPTURE_DIR/config.yaml"; then
+  echo "telemetry was written to the provider Secret config" >&2
+  exit 1
+fi
 
 old_config="$CAPTURE_DIR/old-config.yaml"
 preserved_config="$CAPTURE_DIR/preserved-config.yaml"

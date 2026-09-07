@@ -49,15 +49,18 @@ Run one command:
 
 The manager will:
 
-1. 🔎 Check the cluster and your permissions.
-2. 🎯 Ask where alerts should go.
-3. 🔐 Store notification credentials in a Secret.
-4. 🧱 Install the CRD and kwatch workload.
-5. ✅ Wait for kwatch to become ready.
+1. 🧭 Ask which Kubernetes cluster to manage.
+2. 🔎 Check the selected cluster and your permissions.
+3. 🎯 Ask where alerts should go.
+4. 🔐 Store notification credentials in a Secret.
+5. 🧱 Install the CRD and kwatch workload.
+6. ✅ Wait for kwatch to become ready.
 
 Run the same command later to configure, upgrade, check status, or uninstall.
+The manager is fully interactive: select the cluster first, then it detects
+the running kwatch version and shows only the actions valid for that state.
 Read the [kwatch.sh manager guide](/docs/kwatch-manager) for every menu option,
-recovery behavior, and advanced usage.
+legacy migration, recovery behavior, and advanced usage.
 
 The release artifacts below are for inspection only. The supported lifecycle is
 through `kwatch.sh`; do not apply or delete the files directly.
@@ -70,10 +73,10 @@ supported installation path. Do not apply or delete these files directly: the
 manager owns namespace safety, Secret references, upgrades, rollback behavior,
 and ownership-aware cleanup.
 
-Use `kwatch.sh status`, `kwatch.sh configure`, and `kwatch.sh uninstall` for
-the lifecycle of every manager-created installation. If a deployment must be
-customized beyond the manager's options, treat it as an unsupported fork and
-keep it separate from a `kwatch.sh`-managed release.
+Run the interactive manager again for the lifecycle of every manager-created
+installation. If a deployment must be customized beyond the manager's
+options, treat it as an unsupported fork and keep it separate from a
+`kwatch.sh`-managed release.
 
 The main environment variables inside the workload are:
 

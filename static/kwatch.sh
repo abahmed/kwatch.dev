@@ -14,6 +14,12 @@ SUPPORTED_FEATURE_CATALOG_VERSION=1
 SUPPORTED_PROVIDER_CATALOG_VERSION=1
 MAX_KUBECTL_ATTEMPTS=3
 SELECTED_CONTEXT=""
+INSTALL_STATE=""
+INSTALL_DEPLOYMENT=""
+INSTALL_VERSION=""
+INSTALL_REASON=""
+FRESH_INSTALL=false
+MIGRATION_TARGET_VERSION=""
 FEATURE_CATALOG_SOURCE="unavailable"
 FEATURE_CATALOG=()
 PROVIDER_CATALOG_SOURCE="unavailable"
@@ -451,6 +457,7 @@ load_provider_catalog_for_version() {
 }
 
 BACKUP_NAME=""
+LEGACY_BACKUP_NAME=""
 backup_config() {
   local resource timestamp
   resource=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o json)
@@ -459,6 +466,79 @@ backup_config() {
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
     --from-literal=resource.json="$resource" \
     --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+}
+
+backup_legacy_install() {
+  local timestamp tmp_dir metadata_file cache_path
+  local -a files=()
+  timestamp=$(date -u +%Y%m%d%H%M%S)
+  LEGACY_BACKUP_NAME="${RELEASE}-legacy-backup-$timestamp"
+  tmp_dir=$(mktemp -d)
+  trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
+  metadata_file="$tmp_dir/metadata.txt"
+  cat >"$metadata_file" <<EOF
+context=$SELECTED_CONTEXT
+namespace=$NAMESPACE
+release=$RELEASE
+installed-version=${INSTALL_VERSION:-unknown}
+target-version=${MIGRATION_TARGET_VERSION:-unknown}
+created-at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+EOF
+  files+=(--from-file=metadata.txt="$metadata_file")
+
+  if kubectl -n "$NAMESPACE" get deployment "${INSTALL_DEPLOYMENT:-$RELEASE}" \
+    -o yaml >"$tmp_dir/deployment.yaml" 2>/dev/null; then
+    files+=(--from-file=deployment.yaml="$tmp_dir/deployment.yaml")
+  fi
+  if kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
+    -o yaml >"$tmp_dir/legacy-configmap.yaml" 2>/dev/null; then
+    files+=(--from-file=legacy-configmap.yaml="$tmp_dir/legacy-configmap.yaml")
+  fi
+  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+    -o yaml >"$tmp_dir/kwatchconfig.yaml" 2>/dev/null; then
+    files+=(--from-file=kwatchconfig.yaml="$tmp_dir/kwatchconfig.yaml")
+  fi
+  if kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    -o yaml >"$tmp_dir/config-secret.yaml" 2>/dev/null; then
+    files+=(--from-file=config-secret.yaml="$tmp_dir/config-secret.yaml")
+  fi
+  if kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
+    -o yaml >"$tmp_dir/manager-state.yaml" 2>/dev/null; then
+    files+=(--from-file=manager-state.yaml="$tmp_dir/manager-state.yaml")
+  fi
+  if kubectl -n "$NAMESPACE" get configmap "$CATALOG_CACHE_NAME" \
+    -o yaml >"$tmp_dir/config-catalog-cache.yaml" 2>/dev/null; then
+    files+=(
+      --from-file=config-catalog-cache.yaml="$tmp_dir/config-catalog-cache.yaml"
+    )
+  fi
+  if kubectl -n "$NAMESPACE" get configmap "$FEATURE_CATALOG_CACHE_NAME" \
+    -o yaml >"$tmp_dir/feature-catalog-cache.yaml" 2>/dev/null; then
+    cache_path="$tmp_dir/feature-catalog-cache.yaml"
+    files+=("--from-file=feature-catalog-cache.yaml=$cache_path")
+  fi
+  if kubectl -n "$NAMESPACE" get configmap "$PROVIDER_CATALOG_CACHE_NAME" \
+    -o yaml >"$tmp_dir/provider-catalog-cache.yaml" 2>/dev/null; then
+    cache_path="$tmp_dir/provider-catalog-cache.yaml"
+    files+=("--from-file=provider-catalog-cache.yaml=$cache_path")
+  fi
+
+  [ "${#files[@]}" -gt 1 ] ||
+    die "could not collect legacy kwatch configuration"
+  kubectl -n "$NAMESPACE" create secret generic "$LEGACY_BACKUP_NAME" \
+    "${files[@]}" \
+    --from-literal=backup-kind=legacy-install \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null ||
+    die "could not create the legacy kwatch backup"
+  kubectl -n "$NAMESPACE" label secret "$LEGACY_BACKUP_NAME" \
+    app.kubernetes.io/instance="$RELEASE" \
+    app.kubernetes.io/managed-by=kwatch.sh \
+    kwatch.dev/backup-kind=legacy-install --overwrite >/dev/null ||
+    die "could not label the legacy kwatch backup"
+  ui_success "✅ Legacy configuration backup created."
+  ui_info "📦 Backup Secret: $NAMESPACE/$LEGACY_BACKUP_NAME"
+  ui_info \
+    "🔎 Inspect it with: kubectl -n $NAMESPACE get secret $LEGACY_BACKUP_NAME"
 }
 
 restore_backup() {
@@ -486,6 +566,29 @@ config_value() {
   local path="$1"
   kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
     -o "jsonpath={.spec.$path}" 2>/dev/null || true
+}
+
+migrate_legacy_telemetry() {
+  local current encoded tmp old_path value
+  current=$(config_value telemetry.enabled)
+  case "$current" in
+    true|false) return 0 ;;
+  esac
+  encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml || true)
+  [ -n "$encoded" ] || return 0
+  tmp=$(mktemp)
+  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
+  decode_base64_file "$encoded" "$tmp" || return 0
+  old_path="${OLD_CONFIG_PATH:-}"
+  OLD_CONFIG_PATH="$tmp"
+  value=$(old_config_value telemetry.enabled || true)
+  OLD_CONFIG_PATH="$old_path"
+  case "$value" in
+    true|false)
+      patch_config_value telemetry.enabled boolean "$value" || return 1
+      ui_info "🔧 Preserved the existing telemetry setting in KwatchConfig."
+      ;;
+  esac
 }
 
 ensure_config_resource() {
@@ -1177,6 +1280,8 @@ configure_flow() {
   preflight_access manage
   preflight_config_resource
   ensure_config_resource
+  migrate_legacy_telemetry ||
+    die "could not preserve the existing telemetry setting"
   backup_config
   if ! migrate_legacy_silences; then
     echo "Legacy configuration migration failed; restoring the previous configuration." >&2
@@ -1252,7 +1357,7 @@ configure_flow() {
           fi
         else
           ui_info "ℹ️ Configuration saved; no kwatch Deployment is currently running."
-          ui_info "🛠️ Choose 'Upgrade or repair workload' to activate it."
+          ui_info "🛠️ Run the manager again to install or repair the workload."
         fi
         echo "Updated $path."
         break
@@ -1266,6 +1371,11 @@ configure_alert_flow() {
   local backup deployment had_backup=false
   require_provider_catalog
   adopt_existing_config_secret
+  ensure_crd
+  preflight_config_resource
+  ensure_config_resource
+  migrate_legacy_telemetry ||
+    die "could not preserve the existing telemetry setting"
   preflight_alert_access
   backup=$(mktemp)
   trap 'if [ -n "${backup:-}" ]; then rm -f "$backup"; fi' RETURN
@@ -1546,47 +1656,6 @@ deployment_name() {
     -o jsonpath='{.metadata.name}' 2>/dev/null || true
 }
 
-managed_install_present() {
-  local deployment schema owner state_owner config_data namespace_marker
-  deployment=$(deployment_name || true)
-  [ -n "$deployment" ] && return 0
-
-  schema=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
-    -o 'jsonpath={.metadata.labels.kwatch\.dev/config-schema}' \
-    2>/dev/null || true)
-  if [ -z "$schema" ]; then
-    schema=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
-      -o 'jsonpath={.metadata.annotations.kwatch\.dev/config-schema}' \
-      2>/dev/null || true)
-  fi
-  [ -n "$schema" ] && return 0
-
-  owner=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
-    -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
-    2>/dev/null || true)
-  [ "$owner" = kwatch.sh ] && return 0
-
-  config_data=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
-    -o 'jsonpath={.data.config\.yaml}' 2>/dev/null || true)
-  [ -n "$config_data" ] && return 0
-
-  state_owner=$(kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
-    -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
-    2>/dev/null || true)
-  [ "$state_owner" = kwatch.sh ] && return 0
-
-  # Releases before Secret-backed configuration used a ConfigMap named after
-  # the release. Its config.yaml is a reliable legacy installation marker.
-  config_data=$(kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
-    -o 'jsonpath={.data.config\.yaml}' 2>/dev/null || true)
-  [ -n "$config_data" ] && return 0
-
-  namespace_marker=$(kubectl get namespace "$NAMESPACE" \
-    -o 'jsonpath={.metadata.annotations.kwatch\.dev/managed-namespace}' \
-    2>/dev/null || true)
-  [ "$namespace_marker" = true ]
-}
-
 adopt_existing_config_secret() {
   local deployment secret_name
   deployment=$(deployment_name || true)
@@ -1611,43 +1680,6 @@ restart_kwatch() {
     rollout restart "deployment/$deployment" >/dev/null || return 1
   with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
     rollout status "deployment/$deployment" --timeout=5m || return 1
-}
-
-resolve_action() {
-  local requested="$1" existing_deployment has_config has_secret
-  existing_deployment=$(deployment_name || true)
-  has_config=false
-  has_secret=false
-  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
-    has_config=true
-  fi
-  if kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" >/dev/null 2>&1; then
-    has_secret=true
-  fi
-  case "$requested" in
-    install)
-      if [ -n "$existing_deployment" ] || [ "$has_config" = true ] ||
-        [ "$has_secret" = true ]; then
-        ui_warn "🔄 Existing kwatch resources were found; treating install as upgrade to preserve them."
-        confirm_action \
-          "Continue as an upgrade and preserve the existing configuration" \
-          "n" || return 1
-        printf 'upgrade'
-        return 0
-      fi
-      ;;
-    upgrade)
-      if [ -z "$existing_deployment" ] &&
-        [ "$has_config" != true ] && [ "$has_secret" != true ]; then
-        ui_warn "🧭 No existing kwatch resources were found; treating upgrade as install."
-        confirm_action \
-          "Continue as a new installation" "n" || return 1
-        printf 'install'
-        return 0
-      fi
-      ;;
-  esac
-  printf '%s' "$requested"
 }
 
 installed_version() {
@@ -1677,8 +1709,76 @@ installed_version() {
   valid_release_version "$tag" && printf '%s' "$tag"
 }
 
+version_is_legacy() {
+  local version="$1" major
+  major="${version#v}"
+  major="${major%%.*}"
+  [ "$major" = 0 ]
+}
+
+deployment_is_running() {
+  local deployment="$1" available
+  available=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.status.availableReplicas}' 2>/dev/null || true)
+  [[ "$available" =~ ^[1-9][0-9]*$ ]]
+}
+
+assess_installation() {
+  INSTALL_STATE=absent
+  INSTALL_DEPLOYMENT=""
+  INSTALL_VERSION=""
+  INSTALL_REASON=""
+  INSTALL_DEPLOYMENT=$(deployment_name || true)
+  if [ -z "$INSTALL_DEPLOYMENT" ]; then
+    INSTALL_REASON="no kwatch Deployment was found"
+    return 0
+  fi
+
+  INSTALL_VERSION=$(installed_version || true)
+  if [ -z "$INSTALL_VERSION" ]; then
+    INSTALL_STATE=broken
+    INSTALL_REASON="the Deployment image version could not be determined"
+    return 0
+  fi
+  if ! deployment_is_running "$INSTALL_DEPLOYMENT"; then
+    INSTALL_STATE=broken
+    INSTALL_REASON="the Deployment has no available replicas"
+    return 0
+  fi
+  if version_is_legacy "$INSTALL_VERSION"; then
+    INSTALL_STATE=legacy
+  else
+    INSTALL_STATE=supported
+  fi
+}
+
+stale_resources_present() {
+  kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+    >/dev/null 2>&1 && return 0
+  kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    >/dev/null 2>&1 && return 0
+  kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
+    >/dev/null 2>&1
+}
+
+confirm_config_secret_replacement() {
+  local owner
+  if ! kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    >/dev/null 2>&1; then
+    return 0
+  fi
+  owner=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
+    2>/dev/null || true)
+  [ "$owner" = kwatch.sh ] && return 0
+  ui_warn "⚠️ An unowned Secret named '$CONFIG_SECRET_NAME' already exists."
+  confirm_action \
+    "Replace this Secret with the new kwatch configuration" "n" ||
+    die "installation cancelled; the existing Secret was preserved"
+}
+
 maybe_load_catalog() {
-  local version="${1:-}" fallback
+  local version="${1:-}"
   CATALOG=()
   FEATURE_CATALOG=()
   PROVIDER_CATALOG=()
@@ -1698,27 +1798,81 @@ maybe_load_catalog() {
   if load_catalog_bundle "$version" false; then
     return 0
   fi
+  ui_error "❌ No usable catalogs were found for $version."
+  return 1
+}
 
-  fallback=$(latest_release_candidate || true)
-  if [ -n "$fallback" ] && [ "$fallback" != "$version" ]; then
-    CATALOG=()
-    FEATURE_CATALOG=()
-    PROVIDER_CATALOG=()
-    CATALOG_SOURCE="unavailable"
-    FEATURE_CATALOG_SOURCE="unavailable"
-    PROVIDER_CATALOG_SOURCE="unavailable"
-    ui_warn \
-      "⚠️ Catalogs for installed release $version are unavailable;" \
-      "trying RC $fallback for guided management."
-    confirm_action \
-      "Use RC $fallback for guided management without upgrading the workload" \
-      "n" || return 1
-    if load_catalog_bundle "$fallback"; then
+select_modern_release_version() {
+  local version
+  while true; do
+    version=$(select_release_version) || return 1
+    if version_is_legacy "$version"; then
+      ui_warn "⚠️ $version is older than v1.0.0; choose a modern release."
+      continue
+    fi
+    printf '%s' "$version"
+    return 0
+  done
+}
+
+compare_release_versions() {
+  local left="${1#v}" right="${2#v}"
+  local left_base right_base left_rc right_rc
+  local left_major left_minor left_patch right_major right_minor right_patch
+  local pair left_part right_part
+  left_base="${left%%-rc.*}"
+  right_base="${right%%-rc.*}"
+  IFS=. read -r left_major left_minor left_patch <<<"$left_base"
+  IFS=. read -r right_major right_minor right_patch <<<"$right_base"
+  for pair in \
+    "$left_major:$right_major" "$left_minor:$right_minor" \
+    "$left_patch:$right_patch"; do
+    left_part="${pair%%:*}"
+    right_part="${pair#*:}"
+    if [ "$left_part" -gt "$right_part" ]; then
+      printf '1'
       return 0
     fi
+    if [ "$left_part" -lt "$right_part" ]; then
+      printf '%s' '-1'
+      return 0
+    fi
+  done
+  if [[ "$left" == *-rc.* ]] && [[ "$right" != *-rc.* ]]; then
+    printf '%s' '-1'
+    return 0
   fi
-  ui_error "❌ No usable catalogs were found for $version or an available RC."
-  return 1
+  if [[ "$left" != *-rc.* ]] && [[ "$right" == *-rc.* ]]; then
+    printf '1'
+    return 0
+  fi
+  if [[ "$left" == *-rc.* ]]; then
+    left_rc="${left#*-rc.}"
+    right_rc="${right#*-rc.}"
+  else
+    left_rc=0
+    right_rc=0
+  fi
+  if [ "$left_rc" -gt "$right_rc" ]; then
+    printf '1'
+  elif [ "$left_rc" -lt "$right_rc" ]; then
+    printf '%s' '-1'
+  else
+    printf '0'
+  fi
+}
+
+select_upgrade_version() {
+  local current="$1" target comparison
+  while true; do
+    target=$(select_modern_release_version) || return 1
+    comparison=$(compare_release_versions "$target" "$current")
+    if [ "$comparison" = 1 ]; then
+      printf '%s' "$target"
+      return 0
+    fi
+    ui_warn "⚠️ Choose a release newer than the installed version $current."
+  done
 }
 
 load_catalog_bundle() {
@@ -2320,7 +2474,7 @@ choose_provider_config_action() {
 
 write_config_secret() {
   local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
-  local tmp_dir config_tmp telemetry_enabled telemetry_default provider_action
+  local tmp_dir config_tmp provider_action
   local add_provider keep_existing
   local entry path type default category description status replacement value
   local old_value
@@ -2332,17 +2486,20 @@ write_config_secret() {
   config_tmp="$tmp_dir/config.yaml"
   trap 'if [ -n "${tmp_dir:-}" ]; then rm -rf "$tmp_dir"; fi' RETURN
   OLD_CONFIG_PATH="$tmp_dir/old-config.yaml"
-  encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml)
-  if [ -n "$encoded" ]; then
-    if ! decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
-      die "existing configuration Secret contains invalid config.yaml data"
-    fi
-  else
-    legacy_config=$(kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
-      -o 'go-template={{index .data "config.yaml"}}' 2>/dev/null || true)
-    if [ -n "$legacy_config" ] && [ "$legacy_config" != '<no value>' ]; then
-      printf '%s\n' "$legacy_config" >"$OLD_CONFIG_PATH"
-      ui_info "🔐 Migrating the legacy ConfigMap configuration into a Secret."
+  if [ "$FRESH_INSTALL" != true ]; then
+    encoded=$(secret_data_base64 "$CONFIG_SECRET_NAME" config.yaml)
+    if [ -n "$encoded" ]; then
+      if ! decode_base64_file "$encoded" "$OLD_CONFIG_PATH"; then
+        die "existing configuration Secret contains invalid config.yaml data"
+      fi
+    else
+      legacy_config=$(kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
+        -o 'go-template={{index .data "config.yaml"}}' 2>/dev/null || true)
+      if [ -n "$legacy_config" ] && [ "$legacy_config" != '<no value>' ]; then
+        printf '%s\n' "$legacy_config" >"$OLD_CONFIG_PATH"
+        ui_info \
+          "🔐 Migrating the legacy ConfigMap configuration into a Secret."
+      fi
     fi
   fi
   provider_action=$(choose_provider_config_action)
@@ -2381,20 +2538,6 @@ write_config_secret() {
     printf 'crd:\n  enabled: true\nalert: {}\n' >"$config_tmp"
     ;;
   esac
-  telemetry_enabled=$(old_config_value telemetry.enabled || true)
-  case "$telemetry_enabled" in
-    true|false) ;;
-    *) telemetry_enabled=true ;;
-  esac
-  if [ "$telemetry_enabled" = true ]; then
-    telemetry_default=y
-  else
-    telemetry_default=n
-  fi
-  telemetry_enabled=$(ask_yes_no \
-    "📊 Send a weekly adoption heartbeat (random installation ID + kwatch version only)" \
-    "$telemetry_default")
-  printf 'telemetry:\n  enabled: %s\n' "$telemetry_enabled" >>"$config_tmp"
   for entry in "${CATALOG[@]}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
@@ -2644,13 +2787,22 @@ clear_managed_namespace_labels() {
 install_flow() {
   with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
     die "cannot reach the Kubernetes cluster"
-  confirm_resume
-  local version
-  version=$(select_release_version) || die "could not determine kwatch release from GitHub"
-  maybe_load_catalog "$version" ||
-    die "release catalogs are unavailable; installation cannot continue"
+  local version="${1:-}" skip_resume="${2:-false}"
+  local catalogs_ready="${3:-false}"
+  [ "$skip_resume" = true ] || confirm_resume
+  if [ -z "$version" ]; then
+    version=$(select_modern_release_version) ||
+      die "could not determine a modern kwatch release from GitHub"
+  fi
+  version_is_legacy "$version" &&
+    die "a fresh installation requires a kwatch release >= v1.0.0"
+  if [ "$catalogs_ready" != true ]; then
+    maybe_load_catalog "$version" ||
+      die "release catalogs are unavailable; installation cannot continue"
+  fi
   require_config_catalog
   require_provider_catalog
+  confirm_config_secret_replacement
   if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
     NAMESPACE_CREATED=false
   else
@@ -2660,9 +2812,9 @@ install_flow() {
   fi
   apply_operational_namespace_labels
   preflight_access install
-  # Adopt a legacy Deployment's mounted Secret before writing configuration so
-  # upgrades modify the Secret the workload actually uses.
+  # Reuse the mounted Secret name when applying an existing workload.
   adopt_existing_config_secret
+  FRESH_INSTALL=true
   record_state preflight "$version" "cluster selected and reachable"
   ui_info "🚀 Installing kwatch $version..."
   record_state backup "$version" "creating notification Secret"
@@ -2676,6 +2828,7 @@ install_flow() {
     die "installation failed; the CRD and any configuration resource were preserved"
   fi
   record_state complete "$version" "installation verified"
+  FRESH_INSTALL=false
   ui_success "✅ kwatch is ready."
   configure_after_install
 }
@@ -2683,7 +2836,13 @@ install_flow() {
 upgrade_flow() {
   local version
   confirm_resume
-  version=$(select_release_version) || die "could not determine kwatch release from GitHub"
+  if [ -n "$INSTALL_VERSION" ]; then
+    version=$(select_upgrade_version "$INSTALL_VERSION") ||
+      die "could not determine a newer kwatch release from GitHub"
+  else
+    version=$(select_modern_release_version) ||
+      die "could not determine a modern kwatch release from GitHub"
+  fi
   maybe_load_catalog "$version" ||
     die "release catalogs are unavailable; upgrade cannot continue"
   ui_info "⬆️ Upgrading kwatch to $version..."
@@ -2694,6 +2853,8 @@ upgrade_flow() {
   preflight_config_resource
   ensure_config_resource
   ensure_runtime_config_secret
+  migrate_legacy_telemetry ||
+    die "could not preserve the existing telemetry setting"
   backup_config
   record_state backup "$version" "configuration backup created"
   if ! migrate_legacy_silences; then
@@ -2712,6 +2873,146 @@ upgrade_flow() {
   fi
   record_state complete "$version" "upgrade verified"
   ui_success "✅ kwatch upgraded successfully."
+}
+
+legacy_migration_flow() {
+  local target confirmation
+  target=$(select_modern_release_version) ||
+    die "could not determine a modern kwatch release from GitHub"
+  MIGRATION_TARGET_VERSION="$target"
+  maybe_load_catalog "$target" ||
+    die "release catalogs are unavailable; migration cannot continue"
+  require_config_catalog
+  require_provider_catalog
+  adopt_existing_config_secret
+  echo >&2
+  ui_warn "⚠️ This is a legacy kwatch migration, not an in-place upgrade."
+  echo "Installed version: ${INSTALL_VERSION:-unknown}" >&2
+  echo "Target version:    $target" >&2
+  echo >&2
+  echo "The manager will back up the old configuration, remove the old" >&2
+  echo "kwatch workload, and perform a fresh installation with the selected" >&2
+  echo "version." >&2
+  echo "You will choose notification providers again." >&2
+  backup_legacy_install
+  confirmation=$(ask "Type migrate to continue" "")
+  [ "$confirmation" = migrate ] || {
+    echo "Cancelled. The legacy installation was not changed." >&2
+    return 0
+  }
+  record_state backup "$target" "legacy installation backup created"
+  remove_namespaced_workload
+  CONFIG_SECRET_NAME="${RELEASE}-config"
+  ui_info "🧹 Legacy kwatch workload removed. Starting fresh installation."
+  install_flow "$target" true true
+  MIGRATION_TARGET_VERSION=""
+}
+
+show_absent_menu() {
+  echo >&2
+  ui_info "No running kwatch installation was found on '$SELECTED_CONTEXT'."
+  if stale_resources_present; then
+    ui_info "Existing kwatch configuration resources were found, but no" \
+      "kwatch workload is running; they are not treated as an installation."
+    ui_info \
+      "Settings are preserved where possible; provider setup starts fresh."
+  fi
+  echo >&2
+  printf '%s\n' "  1) Install kwatch" "  2) Exit" >&2
+  while true; do
+    case "$(ask "Choice" "1")" in
+      1) install_flow; return ;;
+      2) return ;;
+      *) ui_warn "⚠️ Choose 1 to install or 2 to exit." ;;
+    esac
+  done
+}
+
+show_legacy_menu() {
+  echo >&2
+  ui_warn "kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
+  echo "This release predates the guided configuration catalogs." >&2
+  echo "Configuration editing is unavailable until kwatch is migrated." >&2
+  echo >&2
+  printf '%s\n' \
+    "  1) Migrate and upgrade kwatch" \
+    "  2) Exit" >&2
+  while true; do
+    case "$(ask "Choice" "1")" in
+      1) legacy_migration_flow; return ;;
+      2) return ;;
+      *) ui_warn "⚠️ Choose 1 or 2." ;;
+    esac
+  done
+}
+
+show_supported_menu() {
+  echo >&2
+  ui_success "✅ kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
+  echo >&2
+  printf '%s\n' \
+    "  1) Upgrade kwatch" \
+    "  2) Edit notification providers" \
+    "  3) Edit settings" \
+    "  4) View status" \
+    "  5) View capabilities" \
+    "  6) Uninstall kwatch" \
+    "  7) Exit" >&2
+  while true; do
+    case "$(ask "Choice" "1")" in
+      1) upgrade_flow; return ;;
+      2)
+        maybe_load_catalog "$INSTALL_VERSION" ||
+          die \
+            "release catalogs are unavailable; provider editing cannot continue"
+        migration_notice
+        configure_alert_flow
+        return
+        ;;
+      3)
+        maybe_load_catalog "$INSTALL_VERSION" ||
+          die \
+            "release catalogs are unavailable; settings editing cannot continue"
+        migration_notice
+        configure_flow
+        return
+        ;;
+      4) status_flow; return ;;
+      5)
+        maybe_load_catalog "$INSTALL_VERSION" ||
+          die \
+            "release catalogs are unavailable; capabilities cannot be displayed"
+        features_flow
+        return
+        ;;
+      6) uninstall_flow; return ;;
+      7) return ;;
+      *) ui_warn "⚠️ Choose a number from 1 to 7." ;;
+    esac
+  done
+}
+
+show_broken_menu() {
+  echo >&2
+  ui_warn "A kwatch Deployment was found, but it is not healthy."
+  echo "Deployment: ${INSTALL_DEPLOYMENT:-unknown}" >&2
+  echo "Version: ${INSTALL_VERSION:-unknown}" >&2
+  echo "Reason: $INSTALL_REASON" >&2
+  echo >&2
+  printf '%s\n' \
+    "  1) Repair by upgrading kwatch" \
+    "  2) View status" \
+    "  3) Uninstall kwatch" \
+    "  4) Exit" >&2
+  while true; do
+    case "$(ask "Choice" "1")" in
+      1) upgrade_flow; return ;;
+      2) status_flow; return ;;
+      3) uninstall_flow; return ;;
+      4) return ;;
+      *) ui_warn "⚠️ Choose a number from 1 to 4." ;;
+    esac
+  done
 }
 
 status_flow() {
@@ -2745,6 +3046,7 @@ status_flow() {
 
 uninstall_flow() {
   local confirm secret_owner
+  adopt_existing_config_secret
   confirm=$(ask "Type uninstall to remove kwatch" "")
   [ "$confirm" = uninstall ] || { echo "Cancelled."; return; }
   echo "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other namespace resources will be preserved." >&2
@@ -2763,10 +3065,10 @@ uninstall_flow() {
 }
 
 main() {
-  local action="${1:-}" installed
+  local action="${1:-}"
   case "$action" in
     --help|-h)
-      echo "Usage: kwatch.sh [install|configure-alert|configure|upgrade|status|features|uninstall]"
+      echo "Usage: kwatch.sh"
       echo "🧭 Interactive kubectl manager with operational security checks."
       exit 0
       ;;
@@ -2774,64 +3076,20 @@ main() {
       echo "kwatch manager catalog $CATALOG_VERSION"
       exit 0
       ;;
-  esac
-  case "$action" in
-    ""|install|configure-alert|configure|upgrade|status|features|uninstall) ;;
-    *) die "usage: $0 [install|configure-alert|configure|upgrade|status|features|uninstall]" ;;
+    "") ;;
+    *) die "kwatch.sh is interactive; run it without an action argument" ;;
   esac
   require_tools
   select_context
-  if [ -z "$action" ]; then
-    installed=$(deployment_name || true)
-    if managed_install_present; then
-      if [ -n "$installed" ]; then
-        ui_success "✅ kwatch installation detected."
-      else
-        ui_info "🧭 kwatch configuration detected without a running Deployment."
-      fi
-      cat >&2 <<'EOF'
-
-kwatch manager:
-  1) Configure notification providers
-  2) Configure settings
-  3) Upgrade or repair workload
-  4) Show status
-  5) Show capabilities
-  6) Uninstall
-  7) Exit
-EOF
-      while true; do
-        action=$(ask "Choice" "1")
-        case "$action" in
-          1) action=configure-alert; break ;;
-          2) action=configure; break ;;
-          3) action=upgrade; break ;;
-          4) action=status; break ;;
-          5) action=features; break ;;
-          6) action=uninstall; break ;;
-          7) exit 0 ;;
-          *) ui_warn "⚠️ Choose a number from 1 to 7." ;;
-        esac
-      done
-    else
-      confirm_action "No kwatch installation was found. Start a new installation" \
-        "y" || exit 0
-      action=install
-    fi
-  else
-    action=$(resolve_action "$action") || die "operation cancelled"
-  fi
-  case "$action" in
-    configure-alert|configure|features)
-      maybe_load_catalog ||
-        die "release catalogs are unavailable; this action cannot continue"
-      migration_notice
-      ;;
-  esac
-  case "$action" in
-    install) install_flow ;; configure-alert) configure_alert_flow ;; configure) configure_flow ;; upgrade) upgrade_flow ;;
-    status) status_flow ;; features) features_flow ;; uninstall) uninstall_flow ;;
-    *) die "usage: $0 [install|configure-alert|configure|upgrade|status|features|uninstall]" ;;
+  with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
+    die "cannot reach the Kubernetes cluster"
+  assess_installation
+  case "$INSTALL_STATE" in
+    absent) show_absent_menu ;;
+    legacy) show_legacy_menu ;;
+    supported) show_supported_menu ;;
+    broken) show_broken_menu ;;
+    *) die "could not assess the kwatch installation" ;;
   esac
 }
 

@@ -7,7 +7,9 @@ keywords: [kwatch features, Kubernetes monitoring capabilities, feature catalog]
 
 # 🧩 Feature catalog
 
-The current release exposes **70 capabilities** through `kwatch.sh features`. This table is generated from the versioned `feature-catalog.tsv` shipped with the release artifacts.
+The current release exposes **70 capabilities** through the manager's status
+and capabilities view. This table is generated from the versioned
+`feature-catalog.tsv` shipped with the release artifacts.
 
 The catalog describes what the installed release can do; it is not a license tier or a remote feature flag. Capabilities are compiled into the release and may be marked `runtime` or `startup` depending on when they are initialized.
 
@@ -83,4 +85,3 @@ The catalog describes what the installed release can do; it is not a license tie
 | `delivery.escalation` | `runtime` | Escalate incidents through alert tiers | `—` |
 | `delivery.templates` | `runtime` | Render operator-selected alert templates | `—` |
 | `delivery.runbooks` | `runtime` | Attach reason-aware runbook links | `—` |
-

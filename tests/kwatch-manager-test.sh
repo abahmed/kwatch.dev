@@ -10,6 +10,16 @@ export CAPTURE_DIR
 source "$ROOT/static/kwatch.sh"
 CONFIG_MOUNT_PATH="$CAPTURE_DIR"
 
+command_error_file="$CAPTURE_DIR/command-error"
+if with_loading "Test operation" bash -c \
+  'echo "forbidden by Kubernetes" >&2; exit 7' 2>"$command_error_file"; then
+  echo "failed command unexpectedly succeeded" >&2
+  exit 1
+else
+  test "$?" -eq 7
+fi
+grep -Fq 'forbidden by Kubernetes' <<<"$LAST_COMMAND_ERROR"
+
 kubectl() {
   printf '%s\n' 'Warning: permission preflight emitted an informational message' yes
 }
@@ -68,6 +78,28 @@ if grep -Fq 'Uninstall kwatch' <<<"$legacy_menu"; then
   echo "legacy menu offered an unsupported action" >&2
   exit 1
 fi
+(
+  INSTALL_VERSION=v1.2.0
+  INSTALL_DEPLOYMENT=kwatch
+  INSTALL_REASON='deployment is unavailable'
+  repair_called=false
+  upgrade_flow() { repair_called=true; }
+  confirm_repair() { return 1; }
+  choice_file=$(mktemp)
+  printf '0' >"$choice_file"
+  ask() {
+    choice_count=$(cat "$choice_file")
+    choice_count=$((choice_count + 1))
+    printf '%s' "$choice_count" >"$choice_file"
+    [ "$choice_count" -eq 1 ] && printf '%s' 1 || printf '%s' 4
+  }
+  show_broken_menu >/dev/null 2>&1
+  rm -f "$choice_file"
+  [ "$repair_called" = false ] || {
+    echo "broken installation repaired without confirmation" >&2
+    exit 1
+  }
+)
 [ "$(compare_release_versions v1.2.0 v1.1.9)" = 1 ]
 [ "$(compare_release_versions v1.2.0-rc.1 v1.2.0)" = -1 ]
 [ "$(compare_release_versions v1.2.0 v1.2.0-rc.1)" = 1 ]

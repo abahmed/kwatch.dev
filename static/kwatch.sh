@@ -18,6 +18,7 @@ INSTALL_STATE=""
 INSTALL_DEPLOYMENT=""
 INSTALL_VERSION=""
 INSTALL_REASON=""
+LAST_COMMAND_ERROR=""
 FRESH_INSTALL=false
 MIGRATION_TARGET_VERSION=""
 FEATURE_CATALOG_SOURCE="unavailable"
@@ -72,11 +73,26 @@ ui_detail() { printf '%s%s%s\n' "$UI_DIM" "$*" "$UI_RESET" >&2; }
 
 with_loading() {
   local label="$1"; shift
-  local output_file error_file pid frame=0 index char rc
+  local output_file error_file pid frame=0 index char rc diagnostic
   local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
+  LAST_COMMAND_ERROR=""
   if [ ! -t 2 ] || [ "${KWATCH_PLAIN_UI:-false}" = true ]; then
-    "$@"
-    return
+    error_file=$(mktemp)
+    if "$@" 2>"$error_file"; then
+      cat "$error_file" >&2
+      rm -f "$error_file"
+      return 0
+    else
+      rc=$?
+      diagnostic=$(cat "$error_file" || true)
+      LAST_COMMAND_ERROR=$(printf '%s\n' "$diagnostic" |
+        sed '/^[[:space:]]*$/d' | tail -20 || true)
+      [ -n "$LAST_COMMAND_ERROR" ] ||
+        LAST_COMMAND_ERROR="$label failed (exit status $rc)."
+      cat "$error_file" >&2
+      rm -f "$error_file"
+      return "$rc"
+    fi
   fi
   output_file=$(mktemp)
   error_file=$(mktemp)
@@ -109,6 +125,11 @@ with_loading() {
     return 0
   fi
   printf '%s%s❌ %s%s%s\n' "$UI_CLEAR_LINE" "$UI_RED" "$label" "$UI_RESET" "$UI_CLEAR" >&2
+  LAST_COMMAND_ERROR=$(cat "$error_file" "$output_file" |
+    sed '/^[[:space:]]*$/d' | tail -20 || true)
+  if [ -z "$LAST_COMMAND_ERROR" ]; then
+    LAST_COMMAND_ERROR="$label failed (exit status $rc)."
+  fi
   cat "$output_file"
   cat "$error_file" >&2
   rm -f "$output_file" "$error_file"
@@ -173,6 +194,24 @@ ask_yes_no_or_back() {
 confirm_action() {
   local prompt="$1" default="${2:-n}"
   [ "$(ask_yes_no "$prompt" "$default")" = true ]
+}
+
+confirm_change() {
+  local title="$1" details="$2" answer
+  ui_heading "⚠️ Confirmation required"
+  ui_warn "$title"
+  ui_detail "$details"
+  if answer=$(ask_yes_no_or_back "Do you want to continue" "n"); then
+    [ "$answer" = true ]
+    return
+  fi
+  return 1
+}
+
+confirm_repair() {
+  local action="$1" details="$2"
+  confirm_change "🛠️ The manager can $action." \
+    "$details No changes will be made unless you answer yes."
 }
 valid_name() { [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; }
 valid_kubernetes_name() { [ "${#1}" -le 40 ] && valid_name "$1"; }
@@ -593,6 +632,18 @@ restore_backup() {
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   restart_kwatch
+}
+
+restore_backup_after_failure() {
+  local details="$1"
+  if confirm_repair \
+    "restore the previous configuration" \
+    "$details The saved backup will be applied and kwatch will be restarted."; then
+    restore_backup
+    return 0
+  fi
+  ui_warn "⚠️ Configuration restore skipped; the current state was left in place."
+  return 1
 }
 
 config_value() {
@@ -1273,6 +1324,12 @@ migrate_legacy_silences() {
 configure_flow() {
   local deployment
   require_config_catalog
+  confirm_change \
+    "⚙️ The manager will prepare the configuration for editing." \
+    "It may create the configuration resource and save a backup; the selected setting will be confirmed again before it is changed." || {
+    ui_info "↩️ Configuration editing cancelled; no changes were made."
+    return 0
+  }
   ensure_crd
   preflight_access manage
   preflight_config_resource
@@ -1281,8 +1338,9 @@ configure_flow() {
     die "could not preserve the existing telemetry setting"
   backup_config
   if ! migrate_legacy_silences; then
-    ui_error "❌ Legacy configuration migration failed; restoring the previous configuration."
-    restore_backup
+    ui_error "❌ Legacy configuration migration failed; the previous configuration can be restored."
+    restore_backup_after_failure \
+      "This reverses the legacy settings migration that just failed." || true
     die "configuration migration failed"
   fi
   while true; do
@@ -1333,16 +1391,24 @@ configure_flow() {
           "$prompt_default")
         is_back_choice "$value" && continue
         [ -n "$value" ] || continue
+        confirm_change \
+          "⚙️ Change $path to '$value'." \
+          "The current value is '$current'. kwatch will validate the new value and restart the workload if needed." || {
+          ui_info "↩️ Keeping the existing value for $path."
+          continue
+        }
         backup_config
         if ! patch_config_value "$path" "$type" "$value"; then
-          ui_error "❌ Invalid configuration value; restoring the previous configuration."
-          restore_backup
+          ui_error "❌ Invalid configuration value; the previous configuration can be restored."
+          restore_backup_after_failure \
+            "The attempted value was rejected by Kubernetes." || true
           continue
         fi
         if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
           if ! verify_runtime_tls_access; then
             ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
-            restore_backup
+            restore_backup_after_failure \
+              "TLS monitoring requires Secret access that is not available." || true
             die "TLS RBAC validation failed"
           fi
         fi
@@ -1351,8 +1417,9 @@ configure_flow() {
         deployment=$(deployment_name || true)
         if [ -n "$deployment" ]; then
           if ! restart_kwatch; then
-            ui_error "❌ Configuration failed validation; restoring backup."
-            restore_backup
+            ui_error "❌ Configuration failed validation; the previous configuration can be restored."
+            restore_backup_after_failure \
+              "The workload did not become ready after this configuration change." || true
             die "configuration update failed"
           fi
         else
@@ -1370,6 +1437,12 @@ configure_flow() {
 configure_alert_flow() {
   local backup deployment had_backup=false rc
   require_provider_catalog
+  confirm_change \
+    "🔌 The manager will prepare notification provider settings." \
+    "It may create the configuration resource and save a backup; no provider values are saved unless you confirm this operation." || {
+    ui_info "↩️ Provider editing cancelled; no changes were made."
+    return 0
+  }
   adopt_existing_config_secret
   ensure_crd
   preflight_config_resource
@@ -1396,9 +1469,15 @@ configure_alert_flow() {
   deployment=$(deployment_name)
   if [ -n "$deployment" ] && ! restart_kwatch; then
     if [ "$had_backup" = true ]; then
-      ui_warn "⚠️ Notification rollout failed; restoring the previous configuration."
-      kubectl apply -f "$backup" >/dev/null 2>&1 || true
-      restart_kwatch || true
+      ui_warn "⚠️ Notification rollout failed; the previous configuration can be restored."
+      if confirm_repair \
+        "restore the previous notification configuration" \
+        "The saved Secret will be applied and kwatch will be restarted."; then
+        kubectl apply -f "$backup" >/dev/null 2>&1 || true
+        restart_kwatch || true
+      else
+        ui_warn "⚠️ Notification restore skipped; the current Secret was left in place."
+      fi
     else
       ui_warn \
         "⚠️ No previous Secret existed; the new configuration was preserved" \
@@ -2921,7 +3000,8 @@ install_flow() {
     die "cannot reach the Kubernetes cluster"
   local version="${1:-}" skip_resume="${2:-false}"
   local catalogs_ready="${3:-false}"
-  local write_rc
+  local change_confirmed="${4:-false}"
+  local write_rc install_failure=""
   [ "$skip_resume" = true ] || confirm_resume
   if [ -z "$version" ]; then
     version=$(select_modern_release_version) ||
@@ -2935,6 +3015,14 @@ install_flow() {
   fi
   require_config_catalog
   require_provider_catalog
+  if [ "$change_confirmed" != true ]; then
+    confirm_change \
+      "🚀 The manager will install kwatch $version on '$SELECTED_CONTEXT'." \
+      "It will create or update resources in namespace '$NAMESPACE' and may create a configuration Secret." || {
+      ui_info "↩️ Installation cancelled; no changes were made."
+      return 0
+    }
+  fi
   confirm_config_secret_replacement
   if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
     NAMESPACE_CREATED=false
@@ -2965,11 +3053,26 @@ install_flow() {
   fi
   choose_tls_monitor
   record_state apply "$version" "applying CRD and Deployment"
-  if ! apply_manifests "$version" || ! verify_operational_security; then
-    record_state failed "$version" "installation failed; workload cleanup attempted"
-    ui_error "Installation failed; removing the workload resources that were created."
-    remove_namespaced_workload
-    die "installation failed; the CRD and any configuration resource were preserved"
+  if apply_manifests "$version"; then
+    if ! verify_operational_security; then
+      install_failure="operational security verification failed"
+    fi
+  else
+    install_failure="${LAST_COMMAND_ERROR:-kwatch resources could not be applied}"
+  fi
+  if [ -n "$install_failure" ]; then
+    record_state failed "$version" "installation failed; cleanup requires confirmation"
+    ui_error "❌ Installation failed; the created workload can be cleaned up."
+    ui_error "Reason: $install_failure"
+    if confirm_repair \
+      "remove the kwatch workload resources created by this failed install" \
+      "The CRD and configuration resource will be preserved; only manager-owned workload resources will be removed."; then
+      remove_namespaced_workload
+      ui_info "🧹 Failed-install workload cleanup completed."
+    else
+      ui_warn "⚠️ Cleanup skipped; the failed workload resources were left in place."
+    fi
+    die "installation failed; review the reason above"
   fi
   record_state complete "$version" "installation verified"
   FRESH_INSTALL=false
@@ -2978,7 +3081,7 @@ install_flow() {
 }
 
 upgrade_flow() {
-  local version
+  local version upgrade_failure="" change_confirmed="${1:-false}"
   confirm_resume
   if [ -n "$INSTALL_VERSION" ]; then
     version=$(select_upgrade_version "$INSTALL_VERSION") ||
@@ -2989,6 +3092,14 @@ upgrade_flow() {
   fi
   maybe_load_catalog "$version" ||
     die "release catalogs are unavailable; upgrade cannot continue"
+  if [ "$change_confirmed" != true ]; then
+    confirm_change \
+      "⬆️ The manager will upgrade kwatch to $version on '$SELECTED_CONTEXT'." \
+      "It will update the CRD and Deployment. A configuration backup will be created first." || {
+      ui_info "↩️ Upgrade cancelled; no changes were made."
+      return 0
+    }
+  fi
   ui_info "⬆️ Upgrading kwatch to $version..."
   apply_operational_namespace_labels
   record_state preflight "$version" "upgrade started"
@@ -3002,17 +3113,33 @@ upgrade_flow() {
   backup_config
   record_state backup "$version" "configuration backup created"
   if ! migrate_legacy_silences; then
-    ui_error "❌ Legacy configuration migration failed; restoring the previous configuration."
-    restore_backup
+    ui_error "❌ Legacy configuration migration failed; the previous configuration can be restored."
+    restore_backup_after_failure \
+      "This reverses the legacy settings migration that just failed." || true
     record_state failed "$version" "legacy configuration migration failed"
     die "upgrade migration failed"
   fi
   record_state apply "$version" "applying upgraded Deployment"
-  if ! apply_manifests "$version" || ! verify_operational_security; then
-    ui_error "❌ Upgrade failed; restoring the previous configuration."
-    restore_backup
-    rollback_deployment
-    record_state failed "$version" "deployment rollout failed; rollback attempted"
+  if apply_manifests "$version"; then
+    if ! verify_operational_security; then
+      upgrade_failure="operational security verification failed"
+    fi
+  else
+    upgrade_failure="${LAST_COMMAND_ERROR:-kwatch resources could not be applied}"
+  fi
+  if [ -n "$upgrade_failure" ]; then
+    ui_error "❌ Upgrade failed; the previous configuration can be restored."
+    ui_error "Reason: $upgrade_failure"
+    if confirm_repair \
+      "restore the previous configuration and roll back the Deployment" \
+      "The backup created before this upgrade will be applied, then Kubernetes will roll back the Deployment."; then
+      restore_backup
+      rollback_deployment
+      record_state failed "$version" "deployment rollout failed; rollback completed"
+    else
+      ui_warn "⚠️ Rollback skipped; the failed upgrade state was left in place."
+      record_state failed "$version" "deployment rollout failed; rollback skipped"
+    fi
     die "upgrade failed"
   fi
   record_state complete "$version" "upgrade verified"
@@ -3036,17 +3163,23 @@ legacy_reinstall_flow() {
   ui_detail "The old configuration will be backed up before uninstalling."
   ui_detail "A fresh installation will configure providers again."
   ui_detail "No legacy settings migration will be attempted."
-  backup_legacy_install
+  confirm_change \
+    "🔁 The manager will uninstall the legacy workload and install kwatch $target." \
+    "The old configuration will be backed up first; the legacy workload will then be removed." || {
+    ui_info "↩️ Legacy replacement cancelled; no changes were made."
+    return 0
+  }
   confirmation=$(ask "Type uninstall to continue" "")
   [ "$confirmation" = uninstall ] || {
     ui_warn "↩️ Cancelled. The legacy installation was not changed."
     return 0
   }
+  backup_legacy_install
   record_state backup "$target" "legacy installation backup created"
   remove_legacy_install
   CONFIG_SECRET_NAME="${RELEASE}-config"
   ui_info "🚀 Starting a fresh kwatch installation."
-  install_flow "$target" true true
+  install_flow "$target" true true true
   MIGRATION_TARGET_VERSION=""
 }
 
@@ -3098,7 +3231,7 @@ show_supported_menu() {
     "  6) 🧹 Uninstall kwatch" \
     "  7) $(exit_label)"
   while true; do
-    case "$(ask "Choice" "1")" in
+    case "$(ask "Choice" "4")" in
       1) upgrade_flow; return ;;
       2)
         maybe_load_catalog "$INSTALL_VERSION" ||
@@ -3143,8 +3276,16 @@ show_broken_menu() {
     "  3) 🧹 Uninstall kwatch" \
     "  4) $(exit_label)"
   while true; do
-    case "$(ask "Choice" "1")" in
-      1) upgrade_flow; return ;;
+    case "$(ask "Choice" "2")" in
+      1)
+        if confirm_repair \
+          "repair kwatch by upgrading it" \
+          "This will let you choose a release, then update the Deployment and roll back if the rollout fails."; then
+          upgrade_flow true
+          return
+        fi
+        ui_info "↩️ Repair cancelled; no changes were made."
+        ;;
       2) status_flow; return ;;
       3) uninstall_flow; return ;;
       4) return ;;
@@ -3186,6 +3327,9 @@ status_flow() {
 uninstall_flow() {
   local confirm secret_owner
   adopt_existing_config_secret
+  ui_warn \
+    "⚠️ This removes the kwatch workload and its manager-owned configuration Secret."
+  ui_detail "KwatchConfig, backups, namespace, and CRD are preserved."
   confirm=$(ask "Type uninstall to remove kwatch" "")
   [ "$confirm" = uninstall ] || { ui_warn "↩️ Cancelled."; return; }
   ui_info \

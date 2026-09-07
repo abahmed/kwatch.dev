@@ -73,6 +73,7 @@ ui_detail() { printf '%s%s%s\n' "$UI_DIM" "$*" "$UI_RESET" >&2; }
 
 with_loading() {
   local label="$1"; shift
+  local command_name="${1:-command}"
   local output_file error_file pid frame=0 index char rc diagnostic
   local -a spinner_frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
   LAST_COMMAND_ERROR=""
@@ -88,7 +89,7 @@ with_loading() {
       LAST_COMMAND_ERROR=$(printf '%s\n' "$diagnostic" |
         sed '/^[[:space:]]*$/d' | tail -20 || true)
       [ -n "$LAST_COMMAND_ERROR" ] ||
-        LAST_COMMAND_ERROR="$label failed (exit status $rc)."
+        LAST_COMMAND_ERROR="$label failed (exit status $rc) while running $command_name; no diagnostic was returned."
       cat "$error_file" >&2
       rm -f "$error_file"
       return "$rc"
@@ -128,7 +129,7 @@ with_loading() {
   LAST_COMMAND_ERROR=$(cat "$error_file" "$output_file" |
     sed '/^[[:space:]]*$/d' | tail -20 || true)
   if [ -z "$LAST_COMMAND_ERROR" ]; then
-    LAST_COMMAND_ERROR="$label failed (exit status $rc)."
+    LAST_COMMAND_ERROR="$label failed (exit status $rc) while running $command_name; no diagnostic was returned."
   fi
   cat "$output_file"
   cat "$error_file" >&2
@@ -222,6 +223,88 @@ is_transient_kubectl_error() {
     *[Tt]imeout*|*[Uu]navailable*|*"connection refused"*|*"connection reset"*|*"too many requests"*|*"rate limit"*|*"embedded etcd"*|*"leader changed"*) return 0 ;;
   esac
   return 1
+}
+
+failure_hint() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *forbidden*|*unauthorized*|*permission*denied*)
+      printf '%s' "Kubernetes denied this operation. Check your account and RBAC permissions." ;;
+    *immutable*|*field\ is\ immutable*|*invalid\ value*)
+      printf '%s' "Kubernetes rejected a field that cannot be changed in place. Review the resources." ;;
+    *imagepullbackoff*|*errimagepull*|*pull\ access\ denied*)
+      printf '%s' "The cluster could not pull the kwatch image. Check registry access and network policy." ;;
+    *timeout*|*timed\ out*|*connection\ refused*|*unavailable*)
+      printf '%s' "The Kubernetes API or rollout did not respond in time. Check connectivity and nodes." ;;
+    *admission*|*webhook*|*podsecurity*|*violat*)
+      printf '%s' "An admission or Pod Security policy rejected the resource. Review that policy." ;;
+    *)
+      printf '%s' "Review the Kubernetes details below; no safe automatic fix was identified." ;;
+  esac
+}
+
+failure_fix() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *forbidden*|*unauthorized*|*permission*denied*)
+      printf '%s' "Use a Kubernetes identity allowed to create, patch, and delete kwatch resources; the manager will not grant cluster-admin automatically." ;;
+    *immutable*|*field\ is\ immutable*)
+      printf '%s' "Approve Deployment recreation when offered; KwatchConfig and Secrets are preserved." ;;
+    *imagepullbackoff*|*errimagepull*|*pull\ access\ denied*)
+      printf '%s' "Make the kwatch image reachable from the cluster or configure the required imagePullSecret, then retry." ;;
+    *timeout*|*timed\ out*|*connection\ refused*|*unavailable*|*too\ many\ requests*|*rate\ limit*)
+      printf '%s' "Check API/network health; the manager can safely retry this operation after you approve it." ;;
+    *admission*|*webhook*|*podsecurity*|*violat*)
+      printf '%s' "Ask the cluster administrator to allow the kwatch manifest or namespace policy, then retry." ;;
+    *)
+      printf '%s' "Review the details and events, correct the named resource or permission, then run the manager again." ;;
+  esac
+}
+
+failure_is_retryable() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *timeout*|*timed\ out*|*connection\ refused*|*connection\ reset*|*unavailable*|*too\ many\ requests*|*rate\ limit*) return 0 ;;
+  esac
+  return 1
+}
+
+show_failure_diagnostics() {
+  local operation="$1" reason="$2" deployment pod pods
+  ui_heading "🔎 $operation diagnostics"
+  ui_error "❌ Kubernetes reported: $reason"
+  ui_info "💡 Likely cause: $(failure_hint "$reason")"
+  ui_info "🛠️ Recommended fix: $(failure_fix "$reason")"
+  ui_detail "The following read-only checks help identify the exact cause."
+  deployment=$(deployment_name || true)
+  if [ -z "$deployment" ]; then
+    deployment=$(kubectl -n "$NAMESPACE" get deployment "$RELEASE" \
+      -o jsonpath='{.metadata.name}' 2>/dev/null || true)
+  fi
+  if [ -n "$deployment" ]; then
+    ui_detail "📦 Deployment: $NAMESPACE/$deployment"
+    kubectl -n "$NAMESPACE" describe deployment "$deployment" 2>/dev/null ||
+      ui_detail "Deployment details are unavailable."
+    pods=$(kubectl -n "$NAMESPACE" get pods \
+      -l "app.kubernetes.io/instance=$RELEASE" \
+      -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+      2>/dev/null || true)
+    [ -n "$pods" ] || pods=$(kubectl -n "$NAMESPACE" get pods \
+      -l app=kwatch \
+      -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+      2>/dev/null || true)
+    while IFS= read -r pod; do
+      [ -n "$pod" ] || continue
+      ui_detail "🧩 Pod: $NAMESPACE/$pod"
+      kubectl -n "$NAMESPACE" describe pod "$pod" 2>/dev/null || true
+    done <<< "$pods"
+  fi
+  ui_detail "🕒 Recent namespace events:"
+  kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp \
+    2>/dev/null | tail -20 || ui_detail "Namespace events are unavailable."
 }
 
 kubectl() {
@@ -2810,7 +2893,10 @@ apply_manifests() {
   with_loading "Downloading deployment for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/deploy.yaml" -o "$tmp" || return 1
-  grep -q '^kind: Deployment$' "$tmp" || return 1
+  if ! grep -q '^kind: Deployment$' "$tmp"; then
+    LAST_COMMAND_ERROR="Downloaded deployment manifest for $version does not contain a Deployment."
+    return 1
+  fi
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
     -e "s/^\( *name: \)kwatch$/\1$RELEASE/g" \
@@ -2841,6 +2927,8 @@ apply_manifests() {
         "🛠️ Recreated the kwatch Deployment" \
         "while preserving configuration."
     else
+      [ -n "$LAST_COMMAND_ERROR" ] ||
+        LAST_COMMAND_ERROR="Kubernetes rejected the kwatch Deployment manifest."
       ui_error \
         "❌ Could not apply the kwatch Deployment." \
         "Existing configuration and Secrets were preserved."
@@ -2995,6 +3083,56 @@ clear_managed_namespace_labels() {
     kwatch.dev/managed-namespace- >/dev/null 2>&1 || true
 }
 
+retry_install_apply() {
+  local version="$1" failure=""
+  confirm_repair \
+    "retry applying kwatch $version" \
+    "This repeats the failed Kubernetes apply and rollout checks; no additional configuration is requested." ||
+    return 1
+  record_state apply "$version" "retrying failed installation"
+  if apply_manifests "$version"; then
+    if verify_operational_security; then
+      record_state complete "$version" "installation verified after retry"
+      FRESH_INSTALL=false
+      ui_success "✅ kwatch is ready after the retry."
+      configure_after_install
+      return 0
+    fi
+    failure="operational security verification failed"
+  else
+    failure="${LAST_COMMAND_ERROR:-kwatch resources could not be applied}"
+  fi
+  LAST_COMMAND_ERROR="$failure"
+  ui_error "❌ Retry failed."
+  ui_error "Reason: $failure"
+  show_failure_diagnostics "Installation retry" "$failure"
+  return 1
+}
+
+retry_upgrade_apply() {
+  local version="$1" failure=""
+  confirm_repair \
+    "retry upgrading kwatch to $version" \
+    "This repeats the failed Kubernetes apply and rollout checks using the existing backup." ||
+    return 1
+  record_state apply "$version" "retrying failed upgrade"
+  if apply_manifests "$version"; then
+    if verify_operational_security; then
+      record_state complete "$version" "upgrade verified after retry"
+      ui_success "✅ kwatch upgraded successfully after the retry."
+      return 0
+    fi
+    failure="operational security verification failed"
+  else
+    failure="${LAST_COMMAND_ERROR:-kwatch resources could not be applied}"
+  fi
+  LAST_COMMAND_ERROR="$failure"
+  ui_error "❌ Upgrade retry failed."
+  ui_error "Reason: $failure"
+  show_failure_diagnostics "Upgrade retry" "$failure"
+  return 1
+}
+
 install_flow() {
   with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
     die "cannot reach the Kubernetes cluster"
@@ -3064,6 +3202,13 @@ install_flow() {
     record_state failed "$version" "installation failed; cleanup requires confirmation"
     ui_error "❌ Installation failed; the created workload can be cleaned up."
     ui_error "Reason: $install_failure"
+    show_failure_diagnostics "Installation" "$install_failure"
+    if failure_is_retryable "$install_failure"; then
+      if retry_install_apply "$version"; then
+        return 0
+      fi
+      install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
+    fi
     if confirm_repair \
       "remove the kwatch workload resources created by this failed install" \
       "The CRD and configuration resource will be preserved; only manager-owned workload resources will be removed."; then
@@ -3130,6 +3275,13 @@ upgrade_flow() {
   if [ -n "$upgrade_failure" ]; then
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $upgrade_failure"
+    show_failure_diagnostics "Upgrade" "$upgrade_failure"
+    if failure_is_retryable "$upgrade_failure"; then
+      if retry_upgrade_apply "$version"; then
+        return 0
+      fi
+      upgrade_failure="${LAST_COMMAND_ERROR:-$upgrade_failure}"
+    fi
     if confirm_repair \
       "restore the previous configuration and roll back the Deployment" \
       "The backup created before this upgrade will be applied, then Kubernetes will roll back the Deployment."; then

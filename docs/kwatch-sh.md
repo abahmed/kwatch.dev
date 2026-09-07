@@ -68,7 +68,8 @@ After selecting a cluster, it detects the running kwatch Deployment and shows
 only actions that match the detected state:
 
 - No running Deployment: install or exit.
-- A running version below `v1.0.0`: migrate and upgrade or exit.
+- A running version below `v1.0.0`: uninstall legacy kwatch and fresh-install
+  or exit.
 - A healthy running version `v1.0.0` or newer: upgrade, edit notification
   providers, edit settings, view capabilities, view status, or uninstall.
 - An unhealthy or unidentified Deployment: repair by upgrading, view status,
@@ -104,7 +105,7 @@ and add more than one provider in the same run.
 
 When the latest Stable release does not publish the catalogs required by the
 manager, it offers a catalog-ready Release Candidate and asks before using it.
-The manager confirms target-release selection, legacy migration, namespace
+The manager confirms target-release selection, legacy replacement, namespace
 security changes, and any Deployment recreation before making those changes.
 
 When an older kwatch Deployment is found, the manager reuses its mounted
@@ -112,15 +113,20 @@ configuration Secret when one is present before writing changes. During an
 update it preserves the old immutable selector; if Kubernetes still rejects
 the workload, it
 recreates only that Deployment and keeps the configuration resource and Secret.
-For ConfigMap-based legacy installs, **Migrate and upgrade** validates the
-target catalogs, creates a timestamped backup Secret, displays its name, and
-then waits for explicit confirmation before removing the old workload and
-performing a fresh installation. Editing providers lists the current providers
-and preserves providers you did not edit unless you explicitly confirm removal.
+For ConfigMap-based legacy installs, **Uninstall legacy kwatch and
+fresh-install** validates the target catalogs, creates a timestamped backup
+Secret, displays its name, and then waits for explicit confirmation before
+removing the old namespaced resources and performing a fresh installation. No
+automatic settings migration is attempted. Editing providers lists the current
+providers and preserves providers you did not edit unless you explicitly
+confirm removal.
 
 Telemetry is a normal `telemetry.enabled` setting under **Edit settings**. It
 is not asked during installation or provider configuration; fresh installs use
 the catalog default and upgrades preserve the existing value.
+
+Provider and settings prompts support `back`. It discards the current partial
+edit and returns to the previous menu without saving a partial configuration.
 
 The release workflow generates these catalogs from Go definitions. When a new
 setting or guided provider is added, update its source definition and regenerate

@@ -52,7 +52,8 @@ do not count as an installation.
 The available menu depends on what is actually running:
 
 - No Deployment: **Install kwatch** or exit.
-- A running version below `v1.0.0`: **Migrate and upgrade** or exit.
+- A running version below `v1.0.0`: **Uninstall legacy kwatch and fresh-install**
+  or exit.
   Catalog-based editing and other management actions are unavailable for these
   legacy releases.
 - A healthy running version `v1.0.0` or newer: **Upgrade**, **Edit notification
@@ -74,7 +75,7 @@ offers the available catalog-ready RC and asks before using it instead of
 continuing with an unusable Stable release.
 The manager asks for confirmation before using an RC for a target release,
 applying security labels to an existing namespace, recreating an incompatible
-Deployment, or migrating a legacy installation. No action argument or manual
+Deployment, or replacing a legacy installation. No action argument or manual
 manifest application is required.
 
 The default namespace is `kwatch`. Set `KWATCH_NAMESPACE` when you want a
@@ -135,17 +136,21 @@ configured. You can edit or add providers, keep all of them unchanged, or
 explicitly remove them. Providers you do not edit are preserved by default.
 Legacy plaintext credentials are moved into Secret-backed files during
 migration.
+At provider and setting prompts, type `back` to discard the current partial
+edit and return to the previous selection. No partial Secret is saved.
 
 Telemetry is not a special installation question. `telemetry.enabled` is a
 normal Operations setting in **Edit settings**. Fresh installs use the catalog
 default, upgrades preserve the existing value, and users can change it with
 the other settings.
 
-For a pre-`v1.0.0` installation, **Migrate and upgrade** first validates the
-target release catalogs, creates a timestamped backup Secret containing the
-available old configuration and workload manifests, and displays its exact
-name. After explicit confirmation it removes the old kwatch workload and runs
-a fresh installation. The old configuration remains recoverable in the backup.
+For a pre-`v1.0.0` installation, **Uninstall legacy kwatch and fresh-install**
+first validates the target release catalogs, creates a timestamped backup
+Secret containing the available old configuration and workload manifests, and
+displays its exact name. After explicit confirmation it uninstalls the old
+namespaced resources and runs a fresh installation. No automatic settings
+migration is attempted; the old configuration remains recoverable in the
+backup.
 
 ## 📋 Interactive actions
 
@@ -177,8 +182,8 @@ arguments. Run it without arguments each time.
 - The manager validates names, URLs, versions, and required permissions.
 - Temporary Kubernetes and GitHub failures are retried.
 - Configuration is backed up before an upgrade.
-- Legacy migration backs up the old configuration before removing the old
-  workload and prints the backup Secret name and namespace.
+- Legacy replacement backs up the old configuration before uninstalling the
+  old namespaced resources and prints the backup Secret name and namespace.
 - If an upgrade rollout fails, the previous configuration is restored and the
   deployment is rolled back when possible.
 - Uninstall removes the kwatch workload and its manager-owned notification

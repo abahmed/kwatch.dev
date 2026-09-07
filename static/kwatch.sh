@@ -56,6 +56,19 @@ ui_info() { printf '%s%s%s\n' "$UI_CYAN" "$*" "$UI_RESET" >&2; }
 ui_success() { printf '%s%s%s\n' "$UI_GREEN" "$*" "$UI_RESET" >&2; }
 ui_warn() { printf '%s%s%s\n' "$UI_YELLOW" "$*" "$UI_RESET" >&2; }
 ui_error() { printf '%s%s%s\n' "$UI_RED" "$*" "$UI_RESET" >&2; }
+back_hint() { printf '%s(↩️ type back)%s' "$UI_DIM" "$UI_RESET"; }
+back_label() { printf '%s↩️ Back%s' "$UI_CYAN" "$UI_RESET"; }
+exit_label() { printf '%s🚪 Exit%s' "$UI_DIM" "$UI_RESET"; }
+ui_heading() {
+  printf '\n%s%s%s\n' "$UI_BOLD$UI_CYAN" "$*" "$UI_RESET" >&2
+}
+ui_menu() {
+  local item
+  for item in "$@"; do
+    printf '%s%s%s\n' "$UI_CYAN" "$item" "$UI_RESET" >&2
+  done
+}
+ui_detail() { printf '%s%s%s\n' "$UI_DIM" "$*" "$UI_RESET" >&2; }
 
 with_loading() {
   local label="$1"; shift
@@ -108,7 +121,7 @@ require_tools() { need kubectl; need curl; }
 ask() {
   local prompt="$1" default="${2:-}" answer
   [ -n "$default" ] && prompt="$prompt [$default]"
-  printf '%s%s%s: ' "$UI_BOLD" "$prompt" "$UI_RESET" >&2
+  printf '%s%s%s%s: ' "$UI_BOLD" "$UI_CYAN" "$prompt" "$UI_RESET" >&2
   if ! IFS= read -r answer; then
     printf '\n' >&2
     die "input ended before the operation was complete"
@@ -117,7 +130,7 @@ ask() {
 }
 ask_secret() {
   local prompt="$1" answer
-  printf '%s%s%s: ' "$UI_BOLD" "$prompt" "$UI_RESET" >&2
+  printf '%s%s%s%s: ' "$UI_BOLD" "$UI_CYAN" "$prompt" "$UI_RESET" >&2
   if ! IFS= read -r -s answer; then
     printf '\n' >&2
     die "input ended before the operation was complete"
@@ -136,6 +149,27 @@ ask_yes_no() {
     esac
   done
 }
+
+is_back_choice() {
+  case "$1" in
+    b|B|back|Back|BACK) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+ask_yes_no_or_back() {
+  local prompt="$1" default="$2" answer
+  while true; do
+    answer=$(ask "$prompt $(back_hint)" "$default")
+    is_back_choice "$answer" && return 2
+    case "$answer" in
+      y|Y|yes|Yes) printf 'true'; return 0 ;;
+      n|N|no|No) printf 'false'; return 0 ;;
+      *) ui_warn "⚠️ Please answer yes, no, or back." ;;
+    esac
+  done
+}
+
 confirm_action() {
   local prompt="$1" default="${2:-n}"
   [ "$(ask_yes_no "$prompt" "$default")" = true ]
@@ -200,14 +234,13 @@ select_context() {
     SELECTED_CONTEXT="${contexts[0]}"
   else
     [ -t 0 ] || die "multiple Kubernetes contexts found; an interactive terminal is required to choose one"
-    echo >&2
-    ui_info "🧭 Select the Kubernetes cluster to manage:"
+    ui_heading "🧭 Select the Kubernetes cluster to manage"
     for index in "${!contexts[@]}"; do
       if [ "${contexts[$index]}" = "$current" ]; then
-        echo "  $((index + 1))) ${contexts[$index]} (current)" >&2
+        ui_menu "  $((index + 1))) ${contexts[$index]} ${UI_GREEN}(current)${UI_RESET}"
         default_choice=$((index + 1))
       else
-        echo "  $((index + 1))) ${contexts[$index]}" >&2
+        ui_menu "  $((index + 1))) ${contexts[$index]}"
       fi
     done
     [ -n "$default_choice" ] || default_choice=1
@@ -600,9 +633,6 @@ ensure_config_resource() {
       app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
     return 0
   fi
-  if migrate_legacy_config_resource; then
-    return 0
-  fi
   kubectl -n "$NAMESPACE" apply -f - <<EOF >/dev/null
 apiVersion: kwatch.abahmed.dev/v1alpha1
 kind: KwatchConfig
@@ -617,44 +647,6 @@ spec:
   crd:
     enabled: true
 EOF
-}
-
-migrate_legacy_config_resource() {
-  local legacy tmp
-  legacy=$(kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
-    -o 'go-template={{index .data "config.yaml"}}' 2>/dev/null || true)
-  [ -n "$legacy" ] && [ "$legacy" != '<no value>' ] || return 1
-  tmp=$(mktemp)
-  trap 'if [ -n "${tmp:-}" ]; then rm -f "$tmp"; fi' RETURN
-  cat >"$tmp" <<EOF
-apiVersion: kwatch.abahmed.dev/v1alpha1
-kind: KwatchConfig
-metadata:
-  name: $RELEASE
-  namespace: $NAMESPACE
-  labels:
-    app.kubernetes.io/instance: "$RELEASE"
-    app.kubernetes.io/managed-by: kwatch.sh
-    kwatch.dev/config-schema: "$CATALOG_VERSION"
-spec:
-  crd:
-    enabled: true
-EOF
-  printf '%s\n' "$legacy" | awk '
-    /^[^ #][^:]*:/ {
-      section=$0
-      sub(/:.*/, "", section)
-    }
-    section == "alert" || section == "crd" { next }
-    section == "heartbeatMonitor" && $0 ~ /^  url:/ { next }
-    section == "healthCheck" && $0 ~ /^  diagnosticsToken:/ { next }
-    { print "  " $0 }
-  ' >>"$tmp"
-  if ! with_loading "Migrating legacy settings" kubectl apply -f "$tmp" \
-    >/dev/null; then
-    die "legacy ConfigMap settings could not be migrated safely"
-  fi
-  ui_success "✅ Legacy settings migrated to KwatchConfig."
 }
 
 ensure_crd() {
@@ -1105,7 +1097,8 @@ preserve_provider_optional() {
 write_webhook_headers() {
   local file="$1" tmp_dir="$2" count name value i secret_key value_file
   while true; do
-    count=$(ask "Number of custom webhook headers" "0")
+    count=$(ask "Number of custom webhook headers $(back_hint)" "0")
+    is_back_choice "$count" && return 2
     [[ "$count" =~ ^[0-9]+$ ]] && break
     ui_warn "⚠️ Header count must be a non-negative integer."
   done
@@ -1113,12 +1106,14 @@ write_webhook_headers() {
   printf '    headers:\n' >>"$file"
   for ((i = 1; i <= count; i++)); do
     while true; do
-      name=$(ask "Header $i name")
+      name=$(ask "Header $i name $(back_hint)")
+      is_back_choice "$name" && return 2
       [ -n "$name" ] && break
       ui_warn "⚠️ Header name cannot be empty."
     done
     while true; do
-      value=$(ask_secret "Header $i value")
+      value=$(ask_secret "Header $i value $(back_hint)")
+      is_back_choice "$value" && return 2
       if [ -n "$value" ] && [[ "$value" != *$'\n'* &&
         "$value" != *$'\r'* ]]; then
         break
@@ -1169,7 +1164,7 @@ verify_runtime_tls_access() {
   local deployment service_account subject result verb
   deployment=$(deployment_name)
   if [ -z "$deployment" ]; then
-    echo "Cannot verify TLS access: kwatch deployment was not found." >&2
+    ui_error "❌ Cannot verify TLS access: kwatch deployment was not found."
     return 1
   fi
   service_account=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
@@ -1187,7 +1182,8 @@ verify_runtime_tls_access() {
     case "$result" in
       yes) ;;
       no)
-        echo "TLS monitoring needs the kwatch ServiceAccount to $verb Secrets; RBAC is missing." >&2
+        ui_error \
+          "❌ TLS monitoring needs the kwatch ServiceAccount to $verb Secrets; RBAC is missing."
         return 1
         ;;
       *)
@@ -1201,7 +1197,7 @@ enable_initial_tls_monitor() {
   [ "${TLS_MONITOR_ENABLED:-false}" = true ] || return 0
   kubectl -n "$NAMESPACE" patch kwatchconfig "$RELEASE" --type merge \
     -p '{"spec":{"tlsMonitor":{"enabled":true}}}' >/dev/null || \
-    { echo "Could not enable TLS monitoring in KwatchConfig." >&2; return 1; }
+    { ui_error "❌ Could not enable TLS monitoring in KwatchConfig."; return 1; }
   verify_runtime_tls_access
 }
 
@@ -1210,12 +1206,11 @@ show_catalog_entry() {
   IFS='|' read -r path type default category description status replacement <<<"$entry"
   current=$(config_value "$path")
   [ -n "$current" ] || current="default ($default)"
-  echo
-  echo "$path"
-  echo "  $description"
-  echo "  Type: $type | Current: $current | Default: $default"
+  ui_heading "⚙️ $path"
+  ui_detail "$description"
+  ui_detail "Type: $type | Current: $current | Default: $default"
   if [ "$status" = deprecated ]; then
-    echo "  Deprecated: use $replacement instead."
+    ui_warn "⚠️ Deprecated: use $replacement instead."
   fi
 }
 
@@ -1225,14 +1220,16 @@ migration_notice() {
   schema=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
     -o 'jsonpath={.metadata.labels.kwatch\.dev/config-schema}' 2>/dev/null || true)
   if [ -n "$schema" ] && [ "$schema" -lt "$CATALOG_VERSION" ] 2>/dev/null; then
-    echo "Configuration schema $schema is older than this manager's schema $CATALOG_VERSION." >&2
-    echo "New settings will use their documented defaults; existing settings are preserved." >&2
+    ui_warn \
+      "⚠️ Configuration schema $schema is older than this manager's schema $CATALOG_VERSION."
+    ui_info "ℹ️ New settings use documented defaults; existing settings are preserved."
   fi
   for entry in "${CATALOG[@]-}"; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = deprecated ] || continue
     current=$(config_value "$path")
-    [ -n "$current" ] && echo "Deprecated config detected: $path (use $replacement)" >&2
+    [ -n "$current" ] &&
+      ui_warn "⚠️ Deprecated config detected: $path (use $replacement)"
   done
 }
 
@@ -1270,7 +1267,7 @@ migrate_legacy_silences() {
   done
   kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
     "kwatch.dev/legacy-silences-migrated=$CATALOG_VERSION" --overwrite >/dev/null
-  echo "Legacy ignore settings were migrated into scoped silences." >&2
+  ui_success "✅ Legacy ignore settings migrated into scoped silences."
 }
 
 configure_flow() {
@@ -1284,17 +1281,16 @@ configure_flow() {
     die "could not preserve the existing telemetry setting"
   backup_config
   if ! migrate_legacy_silences; then
-    echo "Legacy configuration migration failed; restoring the previous configuration." >&2
+    ui_error "❌ Legacy configuration migration failed; restoring the previous configuration."
     restore_backup
     die "configuration migration failed"
   fi
   while true; do
-    echo
-    echo "kwatch configuration"
-    printf '%s\n' "1) Alerts" "2) Scope" "3) Performance" \
-      "4) Incident memory" "5) Noise reduction" "6) Monitors" \
-      "7) Operations" "8) Compatibility" "9) Product control" \
-      "10) Security" "11) Back"
+    ui_heading "⚙️ kwatch configuration"
+    ui_menu "1) 🚨 Alerts" "2) 🎯 Scope" "3) ⚡ Performance" \
+      "4) 🧠 Incident memory" "5) 🔇 Noise reduction" "6) 🔍 Monitors" \
+      "7) 🛠️ Operations" "8) 🔄 Compatibility" "9) 🎛️ Product control" \
+      "10) 🔒 Security" "11) $(back_label)"
     local choice category entry path type default category_name description status replacement current value
     choice=$(ask "Category" "1")
     case "$choice" in
@@ -1304,7 +1300,7 @@ configure_flow() {
       10) category="Security" ;; 11) return ;;
       *) echo "Unknown choice"; continue ;;
     esac
-    echo
+    ui_heading "📋 $category settings"
     local i=1 display_value prompt_default
     for entry in "${CATALOG[@]}"; do
       IFS='|' read -r path type default category_name description status replacement <<<"$entry"
@@ -1312,10 +1308,11 @@ configure_flow() {
       current=$(config_value "$path")
       display_value="$current"
       [ -n "$display_value" ] || display_value="default ($default)"
-      printf '%s) %s — %s\n' "$i" "$path" "$display_value"
+      ui_menu "$i) ⚙️ $path — $display_value"
       i=$((i + 1))
     done
-    choice=$(ask "Setting" "")
+    choice=$(ask "Setting $(back_hint)" "")
+    is_back_choice "$choice" && continue
     [ "$choice" -ge 1 ] 2>/dev/null || { echo "Unknown setting"; continue; }
     i=1
     for entry in "${CATALOG[@]}"; do
@@ -1323,25 +1320,28 @@ configure_flow() {
       [ "$category_name" = "$category" ] || continue
       if [ "$i" = "$choice" ]; then
         if [ "$status" = secret ]; then
-          echo "Secret-backed settings are changed with configure-alert."
+          ui_info "🔐 Secret-backed settings are changed with Edit notification providers."
           break
         fi
         current=$(config_value "$path")
         show_catalog_entry "$entry"
-        [ "$status" = deprecated ] && echo "  Existing values are preserved; migration is not destructive."
+        [ "$status" = deprecated ] &&
+          ui_warn "⚠️ Existing values are preserved; migration is not destructive."
         prompt_default="$current"
         [ -n "$prompt_default" ] || prompt_default="$default"
-        value=$(ask "New value (Enter keeps current)" "$prompt_default")
+        value=$(ask "New value (Enter keeps current) $(back_hint)" \
+          "$prompt_default")
+        is_back_choice "$value" && continue
         [ -n "$value" ] || continue
         backup_config
         if ! patch_config_value "$path" "$type" "$value"; then
-          echo "Invalid configuration value; restoring the previous configuration." >&2
+          ui_error "❌ Invalid configuration value; restoring the previous configuration."
           restore_backup
           continue
         fi
         if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
           if ! verify_runtime_tls_access; then
-            echo "TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access." >&2
+            ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
             restore_backup
             die "TLS RBAC validation failed"
           fi
@@ -1351,7 +1351,7 @@ configure_flow() {
         deployment=$(deployment_name || true)
         if [ -n "$deployment" ]; then
           if ! restart_kwatch; then
-            echo "Configuration failed validation; restoring backup." >&2
+            ui_error "❌ Configuration failed validation; restoring backup."
             restore_backup
             die "configuration update failed"
           fi
@@ -1359,7 +1359,7 @@ configure_flow() {
           ui_info "ℹ️ Configuration saved; no kwatch Deployment is currently running."
           ui_info "🛠️ Run the manager again to install or repair the workload."
         fi
-        echo "Updated $path."
+        ui_success "✅ Updated $path."
         break
       fi
       i=$((i + 1))
@@ -1368,7 +1368,7 @@ configure_flow() {
 }
 
 configure_alert_flow() {
-  local backup deployment had_backup=false
+  local backup deployment had_backup=false rc
   require_provider_catalog
   adopt_existing_config_secret
   ensure_crd
@@ -1383,7 +1383,16 @@ configure_alert_flow() {
     -o yaml >"$backup" 2>/dev/null; then
     had_backup=true
   fi
-  write_config_secret
+  if write_config_secret; then
+    :
+  else
+    rc=$?
+    if [ "$rc" -eq 2 ]; then
+      ui_info "↩️ Provider configuration cancelled; no changes were saved."
+      return 0
+    fi
+    die "could not save the notification configuration"
+  fi
   deployment=$(deployment_name)
   if [ -n "$deployment" ] && ! restart_kwatch; then
     if [ "$had_backup" = true ]; then
@@ -1397,7 +1406,7 @@ configure_alert_flow() {
     fi
     die "could not restart kwatch after changing notification providers"
   fi
-  echo "Notification providers updated."
+  ui_success "✅ Notification providers updated."
 }
 
 configure_after_install() {
@@ -1471,7 +1480,7 @@ confirm_resume() {
   phase=$(previous_state)
   [ -n "$phase" ] && [ "$phase" != complete ] || return 0
   [ -t 0 ] || die "a previous kwatch operation is '$phase'; an interactive terminal is required to resume safely"
-  echo "A previous kwatch operation stopped during: $phase" >&2
+  ui_warn "⚠️ A previous kwatch operation stopped during: $phase"
   choice=$(ask_yes_no "Continue and resume the operation" "y")
   [ "$choice" = true ] || die "operation cancelled; no changes were made"
 }
@@ -1913,15 +1922,17 @@ require_provider_catalog() {
 
 features_flow() {
   [ "${#FEATURE_CATALOG[@]}" -gt 0 ] || die "feature catalog is unavailable; retry while the release artifact is reachable"
-  echo "kwatch capabilities:"
-  local entry id lifecycle description dependencies
+  ui_heading "🧩 kwatch capabilities"
+  local entry id lifecycle description dependencies line
   for entry in "${FEATURE_CATALOG[@]}"; do
     IFS='|' read -r id lifecycle description dependencies <<<"$entry"
     if [ -n "$dependencies" ]; then
-      printf '%-42s %-7s %s (needs: %s)\n' "$id" "$lifecycle" "$description" "$dependencies"
+      printf -v line '%-42s %-7s %s (needs: %s)' \
+        "$id" "$lifecycle" "$description" "$dependencies"
     else
-      printf '%-42s %-7s %s\n' "$id" "$lifecycle" "$description"
+      printf -v line '%-42s %-7s %s' "$id" "$lifecycle" "$description"
     fi
+    ui_detail "$line"
   done
 }
 
@@ -1976,6 +1987,39 @@ remove_namespaced_workload() {
   delete_owned cluster clusterrole "$RELEASE"
 }
 
+remove_legacy_install() {
+  local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
+  local secret_owner
+  ui_info "🧹 Uninstalling the legacy kwatch installation."
+  remove_namespaced_workload
+  check_access delete configmaps namespace
+  kubectl -n "$NAMESPACE" delete configmap "$RELEASE" \
+    --ignore-not-found >/dev/null
+  kubectl -n "$NAMESPACE" delete configmap "$STATE_CONFIGMAP_NAME" \
+    --ignore-not-found >/dev/null
+  if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
+    >/dev/null 2>&1; then
+    check_access delete kwatchconfigs namespace
+    kubectl -n "$NAMESPACE" delete kwatchconfig "$RELEASE" \
+      --ignore-not-found >/dev/null
+  fi
+  if kubectl -n "$NAMESPACE" get secret "$secret_name" \
+    >/dev/null 2>&1; then
+    secret_owner=$(kubectl -n "$NAMESPACE" get secret "$secret_name" \
+      -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
+      2>/dev/null || true)
+    if [ "$secret_owner" = kwatch.sh ]; then
+      check_access delete secrets namespace
+      kubectl -n "$NAMESPACE" delete secret "$secret_name" \
+        --ignore-not-found >/dev/null
+    else
+      ui_info "🔐 Preserving unowned Secret '$secret_name'."
+    fi
+  fi
+  ui_success \
+    "✅ Legacy kwatch workload and configuration removed; the backup was preserved."
+}
+
 rollback_deployment() {
   local deployment
   deployment=$(deployment_name)
@@ -2003,14 +2047,17 @@ choose_provider() {
     seen="${seen}${provider}|"
   done
   while true; do
-    echo >&2
-    echo "📣 Where should kwatch send alerts?" >&2
-    query=$(ask "🔎 Provider name, number, or search (Enter to browse)" "")
+    ui_heading "📣 Where should kwatch send alerts?"
+    query=$(ask \
+      "🔎 Provider name, number, or search (Enter to browse) $(back_hint)" \
+      "")
+    is_back_choice "$query" && return 2
     if [ -z "$query" ]; then
       for i in "${!providers[@]}"; do
-        printf '  %d) %s\n' "$((i + 1))" "${displays[$i]}" >&2
+        ui_menu "  $((i + 1))) 🔌 ${displays[$i]}"
       done
-      query=$(ask "🎯 Choose provider number or name" "")
+      query=$(ask "🎯 Choose provider number or name $(back_hint)" "")
+      is_back_choice "$query" && return 2
     fi
     if [[ "$query" =~ ^[0-9]+$ ]]; then
       if [ "$query" -ge 1 ] && [ "$query" -le "${#providers[@]}" ]; then
@@ -2056,14 +2103,14 @@ choose_provider() {
       return 0
     fi
     if [ "${#matches[@]}" -gt 1 ]; then
-      echo "🔎 Matching providers for '$query':" >&2
+      ui_info "🔎 Matching providers for '$query':"
       local match_number=1
       for i in "${matches[@]}"; do
-        printf '  %d) %s (%s)\n' "$match_number" \
-          "${displays[$i]}" "${providers[$i]}" >&2
+        ui_menu "  $match_number) 🔌 ${displays[$i]} (${providers[$i]})"
         match_number=$((match_number + 1))
       done
-      choice=$(ask "🎯 Choose a matching provider number" "")
+      choice=$(ask "🎯 Choose a matching provider number $(back_hint)" "")
+      is_back_choice "$choice" && return 2
       if [[ "$choice" =~ ^[0-9]+$ ]] &&
         [ "$choice" -ge 1 ] && [ "$choice" -le "${#matches[@]}" ]; then
         i="${matches[$((choice - 1))]}"
@@ -2160,16 +2207,16 @@ select_provider_groups() {
       esac
     done
     [ "${#values[@]}" -gt 0 ] || continue
-    echo >&2
-    printf '🔐 Choose %s:%s\n' "$group" >&2
+    ui_heading "🔐 Choose $group"
     i=1
     for value in "${values[@]}"; do
       IFS='|' read -r selected field description <<<"$value"
-      printf '  %d) %s (%s)\n' "$i" "$selected" "$field" >&2
+      ui_menu "  $i) 🔑 $selected ($field)"
       i=$((i + 1))
     done
     while true; do
-      choice=$(ask "🎯 $group option" "1")
+      choice=$(ask "🎯 $group option $(back_hint)" "1")
+      is_back_choice "$choice" && return 2
       if [[ "$choice" =~ ^[0-9]+$ ]] &&
         [ "$choice" -ge 1 ] && [ "$choice" -le "${#values[@]}" ]; then
         value="${values[$((choice - 1))]}"
@@ -2214,10 +2261,11 @@ prompt_provider_value() {
   esac
   while true; do
     if [ "$secret" = true ]; then
-      value=$(ask_secret "$description")
+      value=$(ask_secret "$description $(back_hint)")
     else
-      value=$(ask "$description" "$default")
+      value=$(ask "$description $(back_hint)" "$default")
     fi
+    is_back_choice "$value" && return 2
     [ -n "$value" ] || { printf ''; return 0; }
     case "$type" in
       boolean)
@@ -2306,7 +2354,7 @@ apply_config_secret() {
 write_provider_field() {
   local entry="$1" mode="$2" configure_optional="$3" priority="$4"
   local provider display field type required secret validation default description
-  local group condition field_description value field_required field_priority
+  local group condition field_description value field_required field_priority rc
   IFS='|' read -r provider display field type required secret validation default \
     description group condition <<<"$entry"
   [ "$provider" = "$PROVIDER" ] || return 0
@@ -2368,8 +2416,13 @@ write_provider_field() {
     field_description="$description"
     [ "$field_required" = true ] ||
       field_description="$description (optional; Enter to skip)"
-    value=$(prompt_provider_value "$field" "$type" "$secret" \
-      "$validation" "$default" "$field_description") || return 1
+    if value=$(prompt_provider_value "$field" "$type" "$secret" \
+      "$validation" "$default" "$field_description"); then
+      :
+    else
+      rc=$?
+      return "$rc"
+    fi
     if [ -z "$value" ]; then
       if [ "$secret" = true ] &&
         preserve_provider_secret "$config_tmp" "$provider" "$field" "$tmp_dir"; then
@@ -2407,7 +2460,7 @@ write_provider_field() {
 }
 
 write_provider_block() {
-  local entry mode configure_optional priority
+  local entry mode configure_optional priority rc
   WRITTEN_PROVIDER_SECTIONS="|"
   PROVIDER_GROUP_PRESENCE="|"
   printf '  %s:\n' "$PROVIDER" >>"$config_tmp"
@@ -2418,33 +2471,45 @@ write_provider_block() {
   for priority in 1 2 3; do
     for entry in "${PROVIDER_CATALOG[@]}"; do
       write_provider_field "$entry" required "$configure_optional" \
-        "$priority" || return 1
+        "$priority" || { rc=$?; return "$rc"; }
     done
   done
   # Keep at-least-one destination groups in catalog order. This lets the user
   # choose the first destination without being forced into the last row.
   for entry in "${PROVIDER_CATALOG[@]}"; do
-    write_provider_field "$entry" group true 3 || return 1
+    write_provider_field "$entry" group true 3 || { rc=$?; return "$rc"; }
   done
   ui_info "⚙️ Optional settings for $PROVIDER"
-  configure_optional=$(ask_yes_no \
-    "Configure optional settings for $PROVIDER too?" "n")
+  if configure_optional=$(ask_yes_no_or_back \
+    "Configure optional settings for $PROVIDER too?" "n"); then
+    :
+  else
+    rc=$?
+    return "$rc"
+  fi
   for priority in 1 2 3; do
     for entry in "${PROVIDER_CATALOG[@]}"; do
       write_provider_field "$entry" optional "$configure_optional" \
-        "$priority" || return 1
+        "$priority" || { rc=$?; return "$rc"; }
     done
   done
 }
 
 choose_provider_config_action() {
-  local choice provider display
+  local choice provider display result rc
   local -a existing=()
   while IFS='|' read -r provider display; do
     [ -n "$provider" ] && existing+=("$display")
   done < <(existing_provider_names)
   if [ "${#existing[@]}" -eq 0 ]; then
-    if [ "$(ask_yes_no "📣 Configure notification providers now?" "y")" = true ]; then
+    if result=$(ask_yes_no_or_back \
+      "📣 Configure notification providers now?" "y"); then
+      :
+    else
+      rc=$?
+      return "$rc"
+    fi
+    if [ "$result" = true ]; then
       printf 'edit'
     else
       printf 'empty'
@@ -2452,10 +2517,11 @@ choose_provider_config_action() {
     return
   fi
   ui_info "📣 Existing providers: ${existing[*]}"
-  printf '%s\n' \
+  ui_menu \
     "  1) Edit or add providers" \
     "  2) Keep providers unchanged" \
-    "  3) Remove all providers" >&2
+    "  3) Remove all providers" \
+    "  4) $(back_label)"
   while true; do
     choice=$(ask "Provider configuration action" "1")
     case "$choice" in
@@ -2467,18 +2533,20 @@ choose_provider_config_action() {
         printf 'empty'
         return
         ;;
-      *) ui_warn "⚠️ Choose a number from 1 to 3." ;;
+      4) printf 'back'; return ;;
+      *) ui_warn "⚠️ Choose a number from 1 to 4." ;;
     esac
   done
 }
 
 write_config_secret() {
   local secret_name="${CONFIG_SECRET_NAME:-${RELEASE}-config}"
-  local tmp_dir config_tmp provider_action
+  local tmp_dir config_tmp provider_action provider_snapshot rc
   local add_provider keep_existing
   local entry path type default category description status replacement value
   local old_value
   local encoded legacy_config
+  local -a secret_args_before=()
   SECRET_ARGS=()
   WRITTEN_CONFIG_SECTIONS="|"
   CONFIGURED_PROVIDERS="|"
@@ -2502,24 +2570,82 @@ write_config_secret() {
       fi
     fi
   fi
-  provider_action=$(choose_provider_config_action)
+  if provider_action=$(choose_provider_config_action); then
+    :
+  else
+    rc=$?
+    return "$rc"
+  fi
   case "$provider_action" in
   edit)
     printf 'crd:\n  enabled: true\nalert:\n' >"$config_tmp"
     while true; do
-      choose_provider
-      select_provider_groups
-      write_provider_block || return 1
+      if choose_provider; then
+        :
+      else
+        rc=$?
+        return "$rc"
+      fi
+      provider_snapshot="$tmp_dir/provider-before.yaml"
+      cp "$config_tmp" "$provider_snapshot"
+      secret_args_before=()
+      if [ "${#SECRET_ARGS[@]}" -gt 0 ]; then
+        secret_args_before=("${SECRET_ARGS[@]}")
+      fi
+      if select_provider_groups; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          cp "$provider_snapshot" "$config_tmp"
+          SECRET_ARGS=()
+          if [ "${#secret_args_before[@]}" -gt 0 ]; then
+            SECRET_ARGS=("${secret_args_before[@]}")
+          fi
+          ui_info "↩️ Returning to provider selection."
+          continue
+        fi
+        return "$rc"
+      fi
+      if write_provider_block; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          cp "$provider_snapshot" "$config_tmp"
+          SECRET_ARGS=()
+          if [ "${#secret_args_before[@]}" -gt 0 ]; then
+            SECRET_ARGS=("${secret_args_before[@]}")
+          fi
+          ui_info "↩️ Returning to provider selection."
+          continue
+        fi
+        return "$rc"
+      fi
       CONFIGURED_PROVIDERS="${CONFIGURED_PROVIDERS}${PROVIDER}|"
       provider_available || break
-      add_provider=$(ask_yes_no "➕ Add another notification provider?" "n")
+      if add_provider=$(ask_yes_no_or_back \
+        "➕ Add another notification provider?" "n"); then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          ui_info "↩️ Provider configuration cancelled."
+        fi
+        return "$rc"
+      fi
       if [ "$add_provider" != true ]; then
         break
       fi
     done
     if has_unselected_existing_provider; then
-      keep_existing=$(ask_yes_no \
-        "Keep existing providers you did not edit unchanged?" "y")
+      if keep_existing=$(ask_yes_no_or_back \
+        "Keep existing providers you did not edit unchanged?" "y"); then
+        :
+      else
+        rc=$?
+        return "$rc"
+      fi
       if [ "$keep_existing" = true ]; then
         preserve_existing_providers "$config_tmp" "$tmp_dir" true || true
       else
@@ -2528,6 +2654,10 @@ write_config_secret() {
           die "provider configuration cancelled; no changes were saved"
       fi
     fi
+    ;;
+  back)
+    ui_info "↩️ Provider configuration cancelled."
+    return 2
     ;;
   keep)
     printf 'crd:\n  enabled: true\nalert:\n' >"$config_tmp"
@@ -2542,7 +2672,9 @@ write_config_secret() {
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = secret ] || continue
     while true; do
-      value=$(ask_secret "$description (leave empty to skip)")
+      value=$(ask_secret \
+        "$description (leave empty to skip) $(back_hint)")
+      is_back_choice "$value" && return 2
       if [ -z "$value" ]; then
         if preserve_config_secret "$config_tmp" "$path" "$tmp_dir"; then
           break
@@ -2683,34 +2815,34 @@ verify_operational_security() {
   secret_mode=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
     -o 'jsonpath={.spec.template.spec.volumes[?(@.name=="config-volume")].secret.defaultMode}')
   [ "$enforce" = restricted ] || {
-    echo "namespace Pod Security enforcement is not restricted" >&2
+    ui_error "❌ Namespace Pod Security enforcement is not restricted."
     return 1
   }
   [ "$non_root" = true ] || {
-    echo "kwatch deployment is not configured as non-root" >&2
+    ui_error "❌ kwatch deployment is not configured as non-root."
     return 1
   }
   [ "$read_only" = true ] || {
-    echo "kwatch deployment root filesystem is writable" >&2
+    ui_error "❌ kwatch deployment root filesystem is writable."
     return 1
   }
   [ "$no_escalation" = false ] || {
-    echo "kwatch deployment allows privilege escalation" >&2
+    ui_error "❌ kwatch deployment allows privilege escalation."
     return 1
   }
   [ "$seccomp" = RuntimeDefault ] || {
-    echo "kwatch deployment lacks RuntimeDefault seccomp" >&2
+    ui_error "❌ kwatch deployment lacks RuntimeDefault seccomp."
     return 1
   }
   [ "$dropped" = ALL ] || {
-    echo "kwatch deployment does not drop all capabilities" >&2
+    ui_error "❌ kwatch deployment does not drop all capabilities."
     return 1
   }
   [ "$secret_mode" = 256 ] || {
-    echo "kwatch Secret volume is not mode 0400" >&2
+    ui_error "❌ kwatch Secret volume is not mode 0400."
     return 1
   }
-  echo "🛡️ Kubernetes operational protection verified."
+  ui_success "🛡️ Kubernetes operational protection verified."
 }
 
 apply_operational_namespace_labels() {
@@ -2789,6 +2921,7 @@ install_flow() {
     die "cannot reach the Kubernetes cluster"
   local version="${1:-}" skip_resume="${2:-false}"
   local catalogs_ready="${3:-false}"
+  local write_rc
   [ "$skip_resume" = true ] || confirm_resume
   if [ -z "$version" ]; then
     version=$(select_modern_release_version) ||
@@ -2818,7 +2951,18 @@ install_flow() {
   record_state preflight "$version" "cluster selected and reachable"
   ui_info "🚀 Installing kwatch $version..."
   record_state backup "$version" "creating notification Secret"
-  write_config_secret
+  if write_config_secret; then
+    :
+  else
+    write_rc=$?
+    if [ "$write_rc" -eq 2 ]; then
+      FRESH_INSTALL=false
+      ui_info \
+        "↩️ Installation cancelled before notification configuration was saved."
+      return 0
+    fi
+    die "could not save the notification configuration"
+  fi
   choose_tls_monitor
   record_state apply "$version" "applying CRD and Deployment"
   if ! apply_manifests "$version" || ! verify_operational_security; then
@@ -2858,14 +3002,14 @@ upgrade_flow() {
   backup_config
   record_state backup "$version" "configuration backup created"
   if ! migrate_legacy_silences; then
-    echo "Legacy configuration migration failed; restoring the previous configuration." >&2
+    ui_error "❌ Legacy configuration migration failed; restoring the previous configuration."
     restore_backup
     record_state failed "$version" "legacy configuration migration failed"
     die "upgrade migration failed"
   fi
   record_state apply "$version" "applying upgraded Deployment"
   if ! apply_manifests "$version" || ! verify_operational_security; then
-    echo "Upgrade failed; restoring the previous configuration." >&2
+    ui_error "❌ Upgrade failed; restoring the previous configuration."
     restore_backup
     rollback_deployment
     record_state failed "$version" "deployment rollout failed; rollback attempted"
@@ -2875,41 +3019,39 @@ upgrade_flow() {
   ui_success "✅ kwatch upgraded successfully."
 }
 
-legacy_migration_flow() {
+legacy_reinstall_flow() {
   local target confirmation
   target=$(select_modern_release_version) ||
     die "could not determine a modern kwatch release from GitHub"
   MIGRATION_TARGET_VERSION="$target"
   maybe_load_catalog "$target" ||
-    die "release catalogs are unavailable; migration cannot continue"
+    die "release catalogs are unavailable; legacy replacement cannot continue"
   require_config_catalog
   require_provider_catalog
   adopt_existing_config_secret
-  echo >&2
-  ui_warn "⚠️ This is a legacy kwatch migration, not an in-place upgrade."
-  echo "Installed version: ${INSTALL_VERSION:-unknown}" >&2
-  echo "Target version:    $target" >&2
-  echo >&2
-  echo "The manager will back up the old configuration, remove the old" >&2
-  echo "kwatch workload, and perform a fresh installation with the selected" >&2
-  echo "version." >&2
-  echo "You will choose notification providers again." >&2
+  ui_heading "🔁 Replace legacy kwatch"
+  ui_warn "⚠️ This is a legacy kwatch replacement, not an in-place upgrade."
+  ui_detail "Installed version: ${INSTALL_VERSION:-unknown}"
+  ui_detail "Target version:    $target"
+  ui_detail "The old configuration will be backed up before uninstalling."
+  ui_detail "A fresh installation will configure providers again."
+  ui_detail "No legacy settings migration will be attempted."
   backup_legacy_install
-  confirmation=$(ask "Type migrate to continue" "")
-  [ "$confirmation" = migrate ] || {
-    echo "Cancelled. The legacy installation was not changed." >&2
+  confirmation=$(ask "Type uninstall to continue" "")
+  [ "$confirmation" = uninstall ] || {
+    ui_warn "↩️ Cancelled. The legacy installation was not changed."
     return 0
   }
   record_state backup "$target" "legacy installation backup created"
-  remove_namespaced_workload
+  remove_legacy_install
   CONFIG_SECRET_NAME="${RELEASE}-config"
-  ui_info "🧹 Legacy kwatch workload removed. Starting fresh installation."
+  ui_info "🚀 Starting a fresh kwatch installation."
   install_flow "$target" true true
   MIGRATION_TARGET_VERSION=""
 }
 
 show_absent_menu() {
-  echo >&2
+  ui_heading "🚀 Install kwatch"
   ui_info "No running kwatch installation was found on '$SELECTED_CONTEXT'."
   if stale_resources_present; then
     ui_info "Existing kwatch configuration resources were found, but no" \
@@ -2917,8 +3059,7 @@ show_absent_menu() {
     ui_info \
       "Settings are preserved where possible; provider setup starts fresh."
   fi
-  echo >&2
-  printf '%s\n' "  1) Install kwatch" "  2) Exit" >&2
+  ui_menu "  1) 🚀 Install kwatch" "  2) $(exit_label)"
   while true; do
     case "$(ask "Choice" "1")" in
       1) install_flow; return ;;
@@ -2929,17 +3070,16 @@ show_absent_menu() {
 }
 
 show_legacy_menu() {
-  echo >&2
+  ui_heading "⚠️ Legacy kwatch detected"
   ui_warn "kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
-  echo "This release predates the guided configuration catalogs." >&2
-  echo "Configuration editing is unavailable until kwatch is migrated." >&2
-  echo >&2
-  printf '%s\n' \
-    "  1) Migrate and upgrade kwatch" \
-    "  2) Exit" >&2
+  ui_detail "This release predates the guided configuration catalogs."
+  ui_detail "Configuration editing is unavailable until it is replaced."
+  ui_menu \
+    "  1) 🔁 Uninstall legacy kwatch and fresh-install" \
+    "  2) $(exit_label)"
   while true; do
     case "$(ask "Choice" "1")" in
-      1) legacy_migration_flow; return ;;
+      1) legacy_reinstall_flow; return ;;
       2) return ;;
       *) ui_warn "⚠️ Choose 1 or 2." ;;
     esac
@@ -2947,17 +3087,16 @@ show_legacy_menu() {
 }
 
 show_supported_menu() {
-  echo >&2
+  ui_heading "✅ kwatch is ready"
   ui_success "✅ kwatch $INSTALL_VERSION is running on '$SELECTED_CONTEXT'."
-  echo >&2
-  printf '%s\n' \
-    "  1) Upgrade kwatch" \
-    "  2) Edit notification providers" \
-    "  3) Edit settings" \
-    "  4) View status" \
-    "  5) View capabilities" \
-    "  6) Uninstall kwatch" \
-    "  7) Exit" >&2
+  ui_menu \
+    "  1) ⬆️ Upgrade kwatch" \
+    "  2) 🔌 Edit notification providers" \
+    "  3) ⚙️ Edit settings" \
+    "  4) 📊 View status" \
+    "  5) 🧩 View capabilities" \
+    "  6) 🧹 Uninstall kwatch" \
+    "  7) $(exit_label)"
   while true; do
     case "$(ask "Choice" "1")" in
       1) upgrade_flow; return ;;
@@ -2993,17 +3132,16 @@ show_supported_menu() {
 }
 
 show_broken_menu() {
-  echo >&2
-  ui_warn "A kwatch Deployment was found, but it is not healthy."
-  echo "Deployment: ${INSTALL_DEPLOYMENT:-unknown}" >&2
-  echo "Version: ${INSTALL_VERSION:-unknown}" >&2
-  echo "Reason: $INSTALL_REASON" >&2
-  echo >&2
-  printf '%s\n' \
-    "  1) Repair by upgrading kwatch" \
-    "  2) View status" \
-    "  3) Uninstall kwatch" \
-    "  4) Exit" >&2
+  ui_heading "🩺 kwatch needs attention"
+  ui_warn "⚠️ A kwatch Deployment was found, but it is not healthy."
+  ui_detail "Deployment: ${INSTALL_DEPLOYMENT:-unknown}"
+  ui_detail "Version: ${INSTALL_VERSION:-unknown}"
+  ui_detail "Reason: $INSTALL_REASON"
+  ui_menu \
+    "  1) 🛠️ Repair by upgrading kwatch" \
+    "  2) 📊 View status" \
+    "  3) 🧹 Uninstall kwatch" \
+    "  4) $(exit_label)"
   while true; do
     case "$(ask "Choice" "1")" in
       1) upgrade_flow; return ;;
@@ -3017,12 +3155,13 @@ show_broken_menu() {
 
 status_flow() {
   local deployment version pod_instance
-  echo "Context: $SELECTED_CONTEXT"
-  echo "Namespace: $NAMESPACE"
+  ui_heading "📊 kwatch status"
+  ui_detail "📍 Context: $SELECTED_CONTEXT"
+  ui_detail "📦 Namespace: $NAMESPACE"
   version=$(installed_version || true)
-  echo "Version: ${version:-unknown}"
+  ui_detail "🏷️ Version: ${version:-unknown}"
   if [ "$CATALOG_SOURCE" != unavailable ]; then
-    echo "Configuration catalog: $CATALOG_SOURCE"
+    ui_detail "📚 Configuration catalog: $CATALOG_SOURCE"
   fi
   deployment=$(deployment_name || true)
   if [ -n "$deployment" ]; then
@@ -3041,15 +3180,16 @@ status_flow() {
   fi
   kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
     -o 'custom-columns=PHASE:.data.phase,VERSION:.data.version,MESSAGE:.data.message' \
-    --no-headers 2>/dev/null || echo "Manager state: not available"
+    --no-headers 2>/dev/null || ui_detail "🧭 Manager state: not available"
 }
 
 uninstall_flow() {
   local confirm secret_owner
   adopt_existing_config_secret
   confirm=$(ask "Type uninstall to remove kwatch" "")
-  [ "$confirm" = uninstall ] || { echo "Cancelled."; return; }
-  echo "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other namespace resources will be preserved." >&2
+  [ "$confirm" = uninstall ] || { ui_warn "↩️ Cancelled."; return; }
+  ui_info \
+    "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other resources remain."
   remove_namespaced_workload
   secret_owner=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
     -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
@@ -3058,28 +3198,30 @@ uninstall_flow() {
     kubectl -n "$NAMESPACE" delete secret "$CONFIG_SECRET_NAME" \
       --ignore-not-found
   else
-    echo "Preserving unowned Secret '$CONFIG_SECRET_NAME'." >&2
+    ui_info "🔐 Preserving unowned Secret '$CONFIG_SECRET_NAME'."
   fi
   clear_managed_namespace_labels
-  echo "✅ kwatch workload removed. KwatchConfig, backups, namespace, and CRD were preserved." >&2
+  ui_success \
+    "✅ kwatch workload removed. KwatchConfig, backups, namespace, and CRD remain."
 }
 
 main() {
   local action="${1:-}"
   case "$action" in
     --help|-h)
-      echo "Usage: kwatch.sh"
-      echo "🧭 Interactive kubectl manager with operational security checks."
+      echo "🧭 Usage: kwatch.sh"
+      echo "Interactive kubectl manager with operational security checks."
       exit 0
       ;;
     --version|-v)
-      echo "kwatch manager catalog $CATALOG_VERSION"
+      echo "🏷️ kwatch manager catalog $CATALOG_VERSION"
       exit 0
       ;;
     "") ;;
     *) die "kwatch.sh is interactive; run it without an action argument" ;;
   esac
   require_tools
+  ui_heading "🧭 kwatch interactive manager"
   select_context
   with_loading "Checking Kubernetes cluster" kubectl cluster-info >/dev/null ||
     die "cannot reach the Kubernetes cluster"

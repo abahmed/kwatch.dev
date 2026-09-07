@@ -142,4 +142,44 @@ write_config_secret
 grep -Eq '^  alpha:' "$CAPTURE_DIR/last-config.yaml"
 grep -Eq '^  beta:' "$CAPTURE_DIR/last-config.yaml"
 
+rm -f "$CAPTURE_DIR/last-config.yaml"
+BACK_FLOW_STEP_FILE="$CAPTURE_DIR/back-flow-step"
+printf '0' >"$BACK_FLOW_STEP_FILE"
+ask() {
+  case "$1" in
+    *Configure\ notification\ providers*) printf 'y' ;;
+    *Provider\ name*)
+      count=$(cat "$BACK_FLOW_STEP_FILE")
+      count=$((count + 1))
+      printf '%s' "$count" >"$BACK_FLOW_STEP_FILE"
+      [ "$count" -eq 1 ] && printf 'alpha' || printf 'beta'
+      ;;
+    *authentication\ option*) printf '2' ;;
+    *Destination\ channel*) printf 'back' ;;
+    *Channel\ ID*) printf '%s' '-100123' ;;
+    *optional\ settings*) printf 'n' ;;
+    *Add\ another\ notification\ provider*) printf 'n' ;;
+    *) printf '%s' "${2:-}" ;;
+  esac
+}
+write_config_secret
+grep -Eq '^  beta:' "$CAPTURE_DIR/last-config.yaml"
+if grep -Eq '^  alpha:' "$CAPTURE_DIR/last-config.yaml"; then
+  echo "provider back action kept the discarded provider" >&2
+  exit 1
+fi
+
+rm -f "$CAPTURE_DIR/last-config.yaml"
+ask() { printf '%s' back; }
+if write_config_secret; then
+  echo "provider configuration back action unexpectedly saved" >&2
+  exit 1
+else
+  test "$?" -eq 2
+fi
+[ ! -e "$CAPTURE_DIR/last-config.yaml" ] || {
+  echo "provider configuration back action wrote a Secret" >&2
+  exit 1
+}
+
 echo "kwatch provider flow test passed"

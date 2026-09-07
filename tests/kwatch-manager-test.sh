@@ -63,7 +63,7 @@ legacy_menu=$( (
   ask() { printf '%s' 2; }
   show_legacy_menu
 ) 2>&1 )
-grep -Fq 'Migrate and upgrade kwatch' <<<"$legacy_menu"
+grep -Fq 'Uninstall legacy kwatch and fresh-install' <<<"$legacy_menu"
 if grep -Fq 'Uninstall kwatch' <<<"$legacy_menu"; then
   echo "legacy menu offered an unsupported action" >&2
   exit 1
@@ -362,33 +362,42 @@ if grep -Fq 'legacy-plain-token' "$secured_provider"; then
 fi
 test "$(cat "$CAPTURE_DIR/slack-token")" = 'legacy-plain-token'
 
-legacy_resource="$CAPTURE_DIR/legacy-resource.yaml"
-kubectl() {
-  case "$*" in
-    *"get configmap kwatch"*)
-      printf '%s\n' \
-        'alert:' \
-        '  slack:' \
-        '    token: "legacy-token"' \
-        'heartbeatMonitor:' \
-        '  enabled: true' \
-        '  url: "https://secret.example.test"' \
-        'workers: 5'
-      ;;
-    *"apply -f "*)
-      cp "${*: -1}" "$legacy_resource"
-      ;;
-    *) return 1 ;;
-  esac
-}
-migrate_legacy_config_resource
-grep -Fq '  workers: 5' "$legacy_resource"
-grep -Fq '    enabled: true' "$legacy_resource"
-if grep -Fq 'legacy-token' "$legacy_resource" ||
-  grep -Fq 'secret.example.test' "$legacy_resource"; then
-  echo "legacy credential entered KwatchConfig during migration" >&2
-  exit 1
-fi
+legacy_uninstall_log="$CAPTURE_DIR/legacy-uninstall.log"
+(
+  NAMESPACE=kwatch
+  RELEASE=kwatch
+  CONFIG_SECRET_NAME=kwatch-config
+  check_access() { :; }
+  remove_namespaced_workload() {
+    printf '%s\n' workload >>"$legacy_uninstall_log"
+  }
+  kubectl() {
+    case "$*" in
+      *"jsonpath={.metadata.labels.app\\.kubernetes\\.io/managed-by}"*)
+        printf '%s' kwatch.sh
+        ;;
+      *"get kwatchconfig kwatch"*|*"get secret kwatch-config"*) return 0 ;;
+      *"delete configmap kwatch-manager-state"*)
+        printf '%s\n' state >>"$legacy_uninstall_log"
+        ;;
+      *"delete configmap kwatch"*)
+        printf '%s\n' configmap >>"$legacy_uninstall_log"
+        ;;
+      *"delete kwatchconfig kwatch"*)
+        printf '%s\n' kwatchconfig >>"$legacy_uninstall_log"
+        ;;
+      *"delete secret kwatch-config"*)
+        printf '%s\n' secret >>"$legacy_uninstall_log"
+        ;;
+      *) return 0 ;;
+    esac
+  }
+  remove_legacy_install
+) >/dev/null 2>&1
+grep -Fxq workload "$legacy_uninstall_log"
+grep -Fxq configmap "$legacy_uninstall_log"
+grep -Fxq kwatchconfig "$legacy_uninstall_log"
+grep -Fxq secret "$legacy_uninstall_log"
 
 kubectl() {
   case "$*" in

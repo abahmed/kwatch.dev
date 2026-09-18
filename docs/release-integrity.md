@@ -14,6 +14,17 @@ Every published container release includes a source commit, image digest, checks
 and a release manifest. The image is signed with Cosign using GitHub Actions
 OIDC; kwatch does not connect to Sigstore at runtime.
 
+## Installer trust boundary
+
+`kwatch.sh` downloads release-tagged manifests and catalogs over HTTPS from the
+Kwatch GitHub repository. Before applying them, it validates the release
+version, catalog format, required manifest objects, named persistence
+resources, rollout, RBAC, and workload security settings. It does not perform
+local Cosign verification of the downloaded YAML. Environments that require
+artifact verification before the installer runs should verify the release
+checksum/signature and image digest first, then use the pinned release
+artifacts according to their change-control process.
+
 ## Pin the image
 
 Use the immutable digest from the GitHub Release instead of a mutable tag:
@@ -58,4 +69,3 @@ docker run --rm ghcr.io/abahmed/kwatch@sha256:<digest> version --json
 ```
 
 The returned `version` and `commit` should match the release tag and manifest.
-

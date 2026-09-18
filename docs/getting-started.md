@@ -29,7 +29,8 @@ and sends a clear message when something needs attention:
 3. 📣 **Alert** — it sends the reason, impact, and next step to your team.
 
 You do not need Prometheus, Grafana, or a new dashboard to get started. kwatch
-is small, runs in your cluster, and stores no logs or metrics database.
+is small, runs in your cluster, and keeps restart-safe incident state in
+Kubernetes ConfigMaps; it does not store a separate logs or metrics database.
 
 ## 🚨 What an alert looks like
 
@@ -90,7 +91,10 @@ installs kwatch, and waits until it is ready. No Helm is required.
 kubectl get pods -n kwatch
 ```
 
-You should see a kwatch pod with `READY 1/1` and `STATUS Running`. 🎉
+By default you should see two kwatch pods with `STATUS Running`: one active
+leader and one standby. Both pods should show their container as `READY 1/1`;
+only the leader is ready for monitoring. A one-replica installation is also
+supported, but it has no kwatch self-failover. 🎉
 
 ## 🛠️ What next?
 

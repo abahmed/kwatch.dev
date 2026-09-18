@@ -40,11 +40,15 @@ credentials in examples. Emojis are welcome when they improve scanning. 🙌
 ## 🧪 Check your changes
 
 ```bash
+yarn docs:verify
 yarn test:manager
 yarn typecheck
 yarn build
+bash -n static/kwatch.sh tests/*.sh
 ```
 
+`yarn docs:verify` reads the catalogs from a checkout of the Kwatch repository
+and refreshes the generated configuration, provider, and feature references.
 Do not commit the generated `build/` directory.
 
 ## 📦 Release updates

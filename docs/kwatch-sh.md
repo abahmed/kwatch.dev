@@ -44,7 +44,8 @@ Security labels, non-root/read-only execution, dropped capabilities,
 success. It applies the namespace's restricted Pod Security labels itself, so
 the normal install does not require a separate `kubectl apply` or label step.
 Choosing no provider is valid for a monitor-only installation; providers can be
-added later with `configure-alert`.
+added later by running the manager again and choosing **Edit notification
+providers**.
 
 This is the supported installation path. It downloads and applies the matching
 release resources itself; do not apply `deploy.yaml` or `config.yaml` manually,
@@ -55,6 +56,18 @@ because that bypasses the guided Secret handling and security verification.
 If your kubeconfig has more than one context, the manager shows the contexts
 and asks you to choose one. It passes that context explicitly to `kubectl`; it
 does not change your current context.
+
+For a non-interactive inspection of the script itself, use `--help` or
+`--version`:
+
+```bash
+bash kwatch.sh --help
+bash kwatch.sh --version
+```
+
+`--version` reports the guided-catalog format version, not the installed Kwatch
+application version. The application version is shown by the manager's status
+screen after it connects to a cluster.
 
 ## 📋 Interactive actions
 
@@ -71,7 +84,8 @@ only actions that match the detected state:
 - A running version below `v1.0.0`: uninstall legacy kwatch and fresh-install
   or exit.
 - A healthy running version `v1.0.0` or newer: upgrade, edit notification
-  providers, edit settings, view capabilities, view status, or uninstall.
+  providers, edit settings, edit Deployment resources and placement, view
+  capabilities, restore a previous configuration, view status, or uninstall.
 - An unhealthy or unidentified Deployment: repair by upgrading, view status,
   or uninstall.
 
@@ -127,6 +141,28 @@ the catalog default and upgrades preserve the existing value.
 
 Provider and settings prompts support `back`. It discards the current partial
 edit and returns to the previous menu without saving a partial configuration.
+
+## Environment variables
+
+The manager remains interactive, but these variables make a controlled run
+repeatable:
+
+| Variable | Purpose |
+| --- | --- |
+| `KWATCH_CONTEXT` | Select a kubeconfig context without opening the picker. |
+| `KWATCH_NAMESPACE` | Installation namespace; defaults to `kwatch`. |
+| `KWATCH_RELEASE` | Managed release name; defaults to `kwatch`. |
+| `KWATCH_PLAIN_UI=true` | Disable colour, cursor control, and spinners. |
+| `KWATCH_ALLOW_NAMESPACE_LABELS=true` | Permit labels on an existing shared namespace after review. |
+| `KWATCH_SKIP_ADMISSION_PREFLIGHT=true` | Skip the injector dry-run only when the cluster requires it. |
+| `KWATCH_SHOW_DIFF=true` | Show the Kubernetes diff during upgrades. |
+| `KWATCH_ROLLOUT_TIMEOUT` | Deployment rollout timeout; defaults to `5m`. |
+| `KWATCH_BACKUP_KEEP` | Number of configuration backups to retain; defaults to `5`. |
+
+The manager does not accept lifecycle action arguments. Run it without an
+action and choose the operation from the state-aware menu. A non-interactive
+session must provide `KWATCH_CONTEXT` when more than one kubeconfig context is
+available.
 
 The release workflow generates these catalogs from Go definitions. When a new
 setting or guided provider is added, update its source definition and regenerate

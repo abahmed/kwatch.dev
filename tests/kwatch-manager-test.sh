@@ -25,6 +25,93 @@ kubectl() {
 }
 check_access get pods namespace
 
+manifest_fixture="$CAPTURE_DIR/deploy.yaml"
+printf '%s\n' \
+  'kind: ClusterRole' \
+  'rules:' \
+  '- apiGroups: [""]' \
+  '  resources: ["configmaps"]' \
+  '  resourceNames: ["ignore-this-cluster-role-name"]' \
+  '---' \
+  'kind: Role' \
+  'rules:' \
+  '- apiGroups: [""]' \
+  '  resources: ["configmaps"]' \
+  '  resourceNames:' \
+  '  - "custom-state"' \
+  '  - "custom-telemetry"' \
+  '  verbs: ["get", "update", "patch"]' \
+  >"$manifest_fixture"
+load_runtime_configmap_names_from_manifest "$manifest_fixture"
+[ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -eq 2 ] || {
+  echo "manifest parser returned the wrong number of ConfigMaps" >&2
+  exit 1
+}
+[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
+  echo "manifest parser returned the wrong first ConfigMap" >&2
+  exit 1
+}
+[ "${RUNTIME_CONFIGMAP_NAMES[1]}" = custom-telemetry ] || {
+  echo "manifest parser returned the wrong second ConfigMap" >&2
+  exit 1
+}
+RUNTIME_CONFIGMAP_NAMES=()
+INSTALL_VERSION=v9.9.9
+curl() {
+  local output=""
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = -o ]; then
+      output="$2"
+      shift 2
+    else
+      shift
+    fi
+  done
+  cp "$manifest_fixture" "$output"
+}
+ensure_runtime_configmap_names
+[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
+  echo "lazy manifest loading did not populate ConfigMaps" >&2
+  exit 1
+}
+
+rbac_check_log="$CAPTURE_DIR/rbac-check.log"
+kubectl() {
+  printf '%s\n' "$*" >>"$rbac_check_log"
+  printf '%s\n' yes
+}
+if self_check_rbac_missing; then
+  echo "named RBAC check reported a granted Role as missing" >&2
+  exit 1
+fi
+[ "$(wc -l <"$rbac_check_log" | tr -d ' ')" -eq 4 ] || {
+  echo "named RBAC check did not inspect every verb and ConfigMap" >&2
+  exit 1
+}
+grep -Fq -- '--resource-name=custom-telemetry' "$rbac_check_log"
+if grep -Fq 'auth can-i update configmaps -n' "$rbac_check_log" ||
+  grep -Fq 'auth can-i patch configmaps -n' "$rbac_check_log"; then
+  echo "RBAC check used an unnamed ConfigMap permission" >&2
+  exit 1
+fi
+
+rbac_repair_log="$CAPTURE_DIR/rbac-repair.log"
+kubectl() {
+  printf '%s\n' "$*" >>"$rbac_repair_log"
+  return 0
+}
+check_access() { :; }
+confirm_repair() { return 0; }
+restart_kwatch() { :; }
+repair_self_check_rbac >/dev/null
+grep -Fq '"resourceNames":["custom-state"' "$rbac_repair_log"
+grep -Fq 'custom-telemetry' "$rbac_repair_log"
+if grep -Fq '"resources":["configmaps"],"verbs"' \
+  "$rbac_repair_log"; then
+  echo "RBAC repair generated a broad ConfigMap rule" >&2
+  exit 1
+fi
+
 ask() { printf '%s' y; }
 
 kubectl() {
@@ -74,7 +161,7 @@ legacy_menu=$( (
   show_legacy_menu
 ) 2>&1 )
 grep -Fq 'Uninstall legacy kwatch and fresh-install' <<<"$legacy_menu"
-if grep -Fq 'Uninstall kwatch' <<<"$legacy_menu"; then
+if grep -Fq '  4) 🧹 Uninstall kwatch' <<<"$legacy_menu"; then
   echo "legacy menu offered an unsupported action" >&2
   exit 1
 fi
@@ -182,6 +269,8 @@ choose_provider() {
 
 ask() {
   case "$1" in
+    Choice) printf '%s' "${RELEASE_CHOICE:-${2:-}}" ;;
+    *"Secret-backed extras"*) printf 'y' ;;
     *"Release channel"*) printf '%s' "${RELEASE_CHOICE:-1}" ;;
     *"Use release candidate"*|*"Use RC"*) printf 'y' ;;
     *anonymous*) printf 'n' ;;
@@ -434,6 +523,8 @@ grep -Fxq secret "$legacy_uninstall_log"
 kubectl() {
   case "$*" in
     *"get namespace"*) printf '%s' restricted ;;
+    *"runAsNonRoot"*"readOnlyRootFilesystem"*)
+      printf '%s' 'true|true|false|RuntimeDefault|ALL|256' ;;
     *"runAsNonRoot"*) printf '%s' true ;;
     *"readOnlyRootFilesystem"*) printf '%s' true ;;
     *"allowPrivilegeEscalation"*) printf '%s' false ;;

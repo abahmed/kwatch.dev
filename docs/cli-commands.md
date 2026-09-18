@@ -144,7 +144,9 @@ alert:
 | `1` | Config error, lint failure, or runtime error |
 
 When `kwatch` receives SIGTERM/SIGINT, it shuts down gracefully:
-1. Stops informers and drains workqueues
-2. Waits up to 10s for the alert manager to flush pending notifications
-3. Saves baseline state to ConfigMap
-4. Exits with code `0`
+1. Marks readiness false and stops accepting new work.
+2. Cancels active monitoring and stops informer workers and watcher generations.
+3. Stops delivery intake and drains or cancels provider workers.
+4. Waits for persistence writers and performs one bounded final snapshot when
+   leadership fencing still permits it.
+5. Exits with code `0`.

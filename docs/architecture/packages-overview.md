@@ -1,8 +1,8 @@
 ---
 sidebar_position: 2
 title: Core Packages
-description: kwatch core internals — entry point, config, controller, handler, filter pipeline, enricher, event types, and domain model
-keywords: [kwatch, kubernetes, architecture, packages, cmd, config, controller, handler, filter, enricher, event, model]
+description: kwatch core internals — entry point, config, controller, monitor families, incident lifecycle, delivery, and domain model
+keywords: [kwatch, kubernetes, architecture, packages, cmd, config, controller, monitor, incident, delivery, model]
 pagination_prev: architecture/overview
 pagination_next: architecture/correlation-and-alerting
 ---
@@ -30,23 +30,28 @@ Only one mode runs at a time; the runtime mode is the default.
 
 ### Startup sequence (runtime mode)
 
-`internal/app.Run()` is the composition root. It wires everything in order:
+`internal/app.Run()` is the composition root. It wires everything in phases:
 
-1. `config.LoadConfig()` — reads `CONFIG_FILE` (default `/config/config.yaml`), applies defaults, validates, and builds the suppression index
-2. `k8s.InitHTTPClient()` — configures proxy and TLS for outbound HTTP
-3. `client.Create()` — builds the Kubernetes clientset
-4. `startup.HandleStartup()` — cluster ID, state ConfigMaps, liveness stamp
-5. `health.NewHealthServer()` — starts the health/metrics HTTP server
-6. `alert.AlertManager` — initialized by the startup manager, then silences/templates/max-log-lines applied and delivery started
-7. `upgrader.NewUpgrader()` — background daily (24h) update check
-8. `state.GetBaseline()` — loads pre-existing problems; legacy baseline migrated
-9. `kwcontext.NewChangeTracker()` + `kwcontext.NewResourceGraph()` — the change log and dependency graph
-10. `insight.NewEngine()` — cause / impact / what-changed analysis over the graph
-11. `correlation.NewEngine()` — the incident lifecycle engine (the only emitter of notifications)
-12. `pvc.NewPvcMonitor()`, `heartbeat.NewHeartbeatMonitor()` — periodic watchdogs
-13. `handler.NewHandler()` — the event processor
-14. `controller.New()` — wires informers and starts workqueues
-15. `serve()` — blocks until SIGTERM/SIGINT
+1. Load and validate the external YAML configuration.
+2. Compile one immutable `config.RuntimeConfig` snapshot after defaults and
+   CRD overlays.
+3. Build the application-owned Kubernetes, dynamic, discovery, REST, HTTP,
+   DNS, kubelet, and clock dependencies.
+4. Open the health listener and initialize delivery, persistence, and startup
+   state without starting active monitoring.
+5. Acquire the Kubernetes Lease. Standby replicas keep only election and
+   health serving active.
+6. Restore persisted incident, group, baseline, engine, thread, PVC, and
+   migration state before active processing begins.
+7. Construct the graph, insight engine, incident engine, monitor families, and
+   typed source bundles.
+8. Start the controller, wait for required informer synchronization, then
+   start optional monitors and integrations through the application supervisor.
+9. Serve until cancellation, leadership loss, or a required component failure.
+
+The application owns component ordering, cancellation, completion, failure
+reporting, and bounded shutdown. Health owns only its HTTP listener; delivery
+owns provider-generation internals but not top-level application shutdown.
 
 ### CLI flags
 
@@ -68,7 +73,9 @@ The central configuration system. Defines the full `Config` struct, applies
 defaults, performs semantic validation, and resolves Secret-backed
 `${file:/absolute/path}` values. `${VAR}` expansion is limited to
 non-sensitive strings. It also builds the suppression index from `silences`
-and the legacy `ignore*` fields.
+and the legacy `ignore*` fields. After overlays and validation, the application
+compiles one immutable `RuntimeConfig` snapshot. Production components receive
+grouped runtime views rather than reparsing the YAML-shaped `Config`.
 
 ### Key types
 
@@ -156,9 +163,10 @@ an `Enabled` bool plus the monitor's own timing/threshold fields.
 | `SilenceRule` | `namespaces`, `reasons`, `podNamePatterns`, `logPatterns`, `containerMessages`, `eventMessages`, `nodeReasons`, ... | Alert suppression rules |
 | `AlertRoute` | `namespaces`, `severities`, `reasons` | Per-provider routing filters |
 
-`config.KnownProviders` is the canonical set of provider names (56). Both
-`alert.Init` and config validation reference it, so a typo is caught before a
-provider is silently skipped.
+`config.IsKnownProvider` and `config.KnownProviderNames` expose the canonical
+provider registry without allowing callers to mutate it. Delivery and config
+validation share that registry, so a typo is caught before a provider is
+silently skipped.
 
 ### Loading flow
 
@@ -169,7 +177,13 @@ provider is silently skipped.
 5. Runs semantic validation
 6. Builds the suppression index from `Silences` plus the deprecated `ignore*`
    fields (folded into synthetic `SilenceRule`s)
-7. The `*Config` is passed to every component
+7. The immutable `RuntimeConfig` snapshot is passed through grouped views to
+   runtime components
+
+Raw `config.Config` is kept at the external-schema boundary. Production
+components do not retain it or reparse YAML-shaped maps. Raw configuration is
+limited to loading, decoding, overlays, migrations, command boundaries, and
+explicit compatibility code.
 
 There is no storm-digest or LLM configuration: kwatch ships exactly one kind
 of notification pipeline.
@@ -195,7 +209,7 @@ type Controller struct {
     pipelines map[string]*resourcePipeline
     graph     *graphcontext.ResourceGraph
     tracker   *graphcontext.ChangeTracker
-    handler   *handler.Handler
+    runtimes  controller.RuntimeSet // narrow family capabilities
     ...
 }
 ```
@@ -241,107 +255,105 @@ persisted to the `kwatch-baseline` ConfigMap.
 
 ---
 
-## 4. `internal/handler/` — Event Handler
+## 4. `internal/monitor/` — Monitor Families
 
-**Path:** `internal/handler/`
+**Paths:** `internal/monitor/pod/`, `internal/monitor/pod/policy/`,
+`internal/monitor/pod/enrichment/`, `internal/monitor/workload/`,
+`internal/monitor/node/`, `internal/monitor/network/`,
+`internal/monitor/security/`
+
+Monitor families own detection policy for a cohesive domain. The Pod family is
+the reference implementation:
+
+- `monitor/pod/policy` contains deterministic, clock-injected Pod and
+  container decisions. It has no listers, Kubernetes clients, event sources,
+  logs, delivery, or persistence.
+- `monitor/pod` owns detector ordering and the boundary between policy and
+  enrichment.
+- `monitor/pod/enrichment` owns event, owner, log, and API-backed suppression
+  enrichment. It receives explicit read-only sources.
+Each family produces observations for the incident engine. It does not build
+incident keys, notify providers, or write persisted state. The controller
+dispatches through `controller.RuntimeSet`; there is no broad handler façade
+in the production detection path.
+
+## 5. `internal/controller.RuntimeSet` — Family Wiring Boundary
+
+**Path:** `internal/controller/runtime.go`
 
 ### Role
 
-Turns raw Kubernetes objects into candidate incidents (filters + hints). One
-interface is implemented once; the controller's sync functions call into it.
+Connects controller-owned informer sources to the matching monitor family.
+The controller owns queues, listers, synchronization, and resource keys; each
+family runtime owns detection and observation construction. There is no broad
+handler contract in the production path.
 
 ```go
-type Handler interface {
-    ProcessPod(ctx, key, deleted) error
-    ProcessNode(key, deleted) error
-    ProcessDeployment(key, deleted) error
-    ProcessJob(key, deleted) error
-    ProcessDaemonSet(key, deleted) error
-    ProcessCronJob(key, deleted) error
-    ProcessStatefulSet(key, deleted) error
-    ProcessPdb(key, deleted) error
-    ProcessHorizontalPodAutoscaler(key, deleted) error
-    ProcessMutatingWebhookConfiguration(key, deleted) error
-    ProcessValidatingWebhookConfiguration(key, deleted) error
-    ProcessService(key, deleted) error
-    ProcessNetworkPolicy(key, deleted) error
-    ProcessIngress(key, deleted) error
-    ProcessControlPlanePod(pod) error
-    ProcessNodeResourceOvercommit(...)
-    ProcessClusterAutoscalerEvent(ev *corev1.Event)
-    SetListers(Listers)
+type RuntimeSet struct {
+    IncidentSources IncidentSourceConfig
+    Pod             PodRuntime
+    Workload        WorkloadRuntime
+    Node            NodeRuntime
+    Network         NetworkRuntime
+    Security        SecurityRuntime
+    Cluster         ClusterRuntime
+    Integration     IntegrationRuntime
 }
 ```
 
-The handler gets all its informer-backed lookups in one `handler.Listers`
-value via `SetListers`, installed after all informers are wired. A nil lister
-means "that monitor is off". When a pod evaluation finishes the filter
-pipeline, the handler builds an `event.Signal`/`event.Event` and hands it to
-`correlation.Engine.Process` — it never notifies on its own.
+Each bundle exposes only the processor and source configuration needed by its
+family. The application constructs the bundles explicitly, while the
+controller supplies synchronized sources through each family’s one-time
+`ConfigureSources` operation. Missing sources skip detection and are
+reported through health diagnostics; they never create synthetic incidents.
+Families send observations to the incident sink; they never notify providers
+or write persistence directly.
 
 ---
 
-## 5. `internal/filter/` — Filter Pipeline
+## 6. `internal/monitor/pod/enrichment/` — Pod Evidence Enrichment
 
-**Path:** `internal/filter/`
+**Path:** `internal/monitor/pod/enrichment/`
 
 ### Role
 
-Provides the detector and enricher interfaces the handler uses to evaluate a
-pod. Data flows through a `filter.Context`, which is composed of three parts:
+The package adds Kubernetes-backed evidence after deterministic policy has
+identified a possible problem. Data flows through an explicit enrichment
+context:
 
-- **Sources** — read-only lookups the handler sets once (client, config,
-  listers, an injected `Now` clock). A filter never writes Sources.
-- the **object under evaluation** (Pod, EvType, Owner, Events);
-- **Findings** — what the detectors concluded.
+- **Sources** — read-only enrichment lookups (client, listers, event index,
+  log cache, and injected clock). Enrichers never write Sources.
+- **Object** — Pod, owner, and loaded Events.
+- **Findings** — policy conclusions copied from `pod/policy`.
 
 ```go
-type Status int
-
-const (
-    StatusSkip     Status = iota // stop evaluating this pod
-    StatusAlert                  // this pod needs an alert
-    StatusContinue               // keep checking
-)
-
-type Detector interface {
-    Detect(ctx *Context) Status
-}
-
 type Enricher interface {
     Enrich(ctx *Context) (shouldSkip bool)
 }
 ```
 
-### The filters
+The Pod family packages are the canonical implementation. New code should
+import `monitor/pod/policy` for deterministic rules and
+`monitor/pod/enrichment` for Kubernetes-backed evidence.
+
+### The enrichers
 
 | File | Type | Purpose |
 |------|------|---------|
-| `namespace_filter.go` | Detector | Skips forbidden namespaces |
-| `pod_name_filter.go` | Detector | Skips ignored pod-names (regexp) |
-| `pod_status_filter.go` | Detector | Detects pod-level issues (Unschedulable, etc.) |
-| `pending_pod_filter.go` | Detector | Detects pods stuck in Pending beyond threshold |
-| `not_ready_filter.go` | Detector | Detects sustained not-ready pods |
-| `disruption_filter.go` | Detector | Suppresses evictions/drains when `ignoreDisruptionTerminations` |
-| `container_name_filter.go` | Detector | Skips ignored container names |
-| `container_restarts_filter.go` | Detector | Detects restarts exceeding threshold |
-| `container_state_filter.go` | Detector | Detects waiting/terminated container states |
-| `container_reasons_filter.go` | Detector | Extracts a reason, dedups by last known state |
-| `noise_filter.go` | Detector | Suppresses transient reasons (`Started`, `Created`, ...) |
-| `container_message_filter.go` | Detector | Checks container status messages for patterns |
-| `pod_events_filter.go` | Enricher | Fetches pod events from the informer cache |
-| `pod_owners_filter.go` | Enricher | Resolves owner (Deployment/StatefulSet/DaemonSet) |
-| `container_killing_filter.go` | Enricher | Detects graceful-shutdown failures |
-| `container_logs_filter.go` | Enricher | Fetches container logs from the K8s API |
+| `monitor/pod/policy` | Detector rules | Pure Pod/container policy decisions |
+| `enrichment/pod_events.go` | Enricher | Uses indexed or cached Pod events |
+| `enrichment/pod_owners.go` | Enricher | Resolves owner through shared listers |
+| `enrichment/container_killing.go` | Enricher | Detects graceful-shutdown failures |
+| `enrichment/container_logs.go` | Enricher | Fetches bounded container logs |
 
-Detectors write `Findings`; enrichers fill in logs, events, owner, and hint.
-Time-based decisions read the injected clock (`Sources.Now`), never
+Policy writes only policy `Findings`; enrichers fill in logs, events, and
+owner. Time-based decisions read the injected clock, never
 `time.Now()` directly, so "unready for 5 minutes" is testable without waiting
 5 minutes.
 
 ---
 
-## 6. `internal/enricher/` — Severity & Hints
+## 7. `internal/enricher/` — Severity & Hints
 
 **Path:** `internal/enricher/`
 
@@ -381,8 +393,8 @@ signatures (repeating OOM, probe failures, image pull errors).
 
 ### Role
 
-Defines `event.Event` (the notification payload), `event.Signal` (the internal
-incident source), formatters, and the HTTP-status classification every
+Defines `event.Event` (the provider-facing notification payload), observation
+conversion helpers, formatters, and the HTTP-status classification every
 provider shares.
 
 ### Key types
@@ -412,10 +424,10 @@ type Event struct {
 }
 ```
 
-`event.Signal` (in `signal.go`) is the structured incident source the handler
-builds and the correlation engine consumes: kind, namespace, owner, resource,
-reason, node, container, image, restart count, severity, logs/events, pod
-name, hint, facts, labels, and an optional pre-built `ContainerState`.
+`model.Observation` is the structured source a monitor builds. The incident
+engine converts it to `event.Event` in one place, preserving kind, namespace,
+owner, resource, reason, node, container, evidence, facts, labels, and the
+optional pre-built `ContainerState`.
 
 ### Formatters
 

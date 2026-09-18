@@ -42,7 +42,6 @@ const sidebars: SidebarsConfig = {
       label: '🎯 Monitors',
       items: [
         'general-configuration',
-        'configuration-reference',
         'rollout-monitor-configuration',
         'daemonset-monitor-configuration',
         'job-monitor-configuration',
@@ -57,6 +56,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: '🏗️ How kwatch works',
       items: [
+        'architecture/target-architecture',
         'architecture/overview',
         'architecture/packages-overview',
         'architecture/correlation-and-alerting',
@@ -67,14 +67,29 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '📚 Reference & trust',
+      label: '🛠️ Operations',
       items: [
+        'operations/production-readiness',
+        'operations/replication-and-failover',
+        'operations/persistence-recovery',
+        'operations/rbac-and-security',
+        'operations/troubleshooting',
+      ],
+    },
+    {
+      type: 'category',
+      label: '📖 Reference',
+      items: [
+        {
+          type: 'category',
+          label: 'Generated reference',
+          items: [
+            'reference/generated/configuration',
+            'reference/generated/providers',
+            'reference/generated/features',
+          ],
+        },
         'kubernetes-coverage',
-        'feature-reference',
-        'release-integrity',
-        'licensing',
-        'third-party-notices',
-        'trademarks',
       ],
     },
     {
@@ -82,9 +97,24 @@ const sidebars: SidebarsConfig = {
       label: '🤝 Contributing',
       items: [
         'contributing/contributing',
+        'contributing/architecture-tour',
+        'contributing/adding-monitor',
+        'contributing/adding-provider',
+        'contributing/documentation',
         'contributing/cloning-and-building',
         'contributing/github-workflow',
         'contributing/release-process',
+      ],
+    },
+    {
+      type: 'category',
+      label: '📦 Release and trust',
+      items: [
+        'release/documentation-versioning',
+        'release-integrity',
+        'licensing',
+        'third-party-notices',
+        'trademarks',
       ],
     },
   ],

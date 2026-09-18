@@ -18,17 +18,17 @@ metrics, and periodic monitors.
 
 ### Role
 
-Shared Kubernetes access helpers: HTTP transport configuration, log/event
-fetching, node summary queries, and namespace detection.
+Shared Kubernetes access helpers: log/event fetching, node summary queries,
+and namespace detection. `internal/client` owns application-wide Kubernetes,
+HTTP, DNS, and clock construction; `internal/kubelet` owns bounded
+container-log requests used by Pod enrichment.
 
 ### Key Functions
 
 | Function | Purpose |
 |----------|---------|
-| `InitHTTPClient(cfg)` | Configures proxy, TLS, and CA bundle for outbound HTTP |
-| `GetDefaultClient()` | The shared HTTP client used by every provider send (`alert/util.Send`) |
 | `GetNamespace()` | Returns `POD_NAMESPACE` env var, falling back to `"kwatch"` |
-| `FetchContainerLogs(ctx, c, pod, opts)` | Fetches container logs from the K8s API (with a 15s timeout and one retry) |
+| `kubelet.GetPodContainerLogs(...)` | Fetches bounded container logs (with a 15s timeout and one retry) |
 | `GetPodEvents(ctx, c, name, ns)` | Fetches recent events for a pod via field selector |
 | `GetNodeSummary(ctx, c, node)` | Fetches a node's kubelet `/stats/summary` through the API server proxy |
 | `IsNodeReady(n)` / `GetNodes(ctx, c)` | Node condition helpers |
@@ -36,10 +36,8 @@ fetching, node summary queries, and namespace detection.
 ### HTTP transport
 
 ```
-// Default timeout: 30s
-// Proxy support via App.ProxyURL
-// Custom CA via App.CABundlePath
-// Insecure skip verify via App.InsecureSkipTLSVerify
+// Outbound HTTP is created once by internal/client from RuntimeConfig.
+// Operation-specific deadlines are supplied with context.Context.
 ```
 
 ---
@@ -50,40 +48,55 @@ fetching, node summary queries, and namespace detection.
 
 ### Role
 
-Creates and configures the Kubernetes clientset (`kubernetes.Interface`) used
-by all components.
+Creates the application-owned external dependency bundle. Consumers receive
+only the narrow dependency they need.
 
 ```go
-func Create(appConfig *config.App) kubernetes.Interface {
-    // Reads in-cluster config (service account)
-    // OR ~/.kube/config for local development
-    // Applies proxy settings from App.ProxyURL
-    // Returns typed clientset
+type ClientSet struct {
+    Kubernetes kubernetes.Interface
+    Dynamic    dynamic.Interface
+    Discovery  discovery.DiscoveryInterface
+    REST       rest.Interface
+    HTTP       *http.Client
+    Resolver   HostResolver
+    Clock      clock.Clock
 }
 
-func GetRestConfig(appConfig *config.App) (*rest.Config, error)
+func NewClientSetWithRuntime(
+    runtime config.RuntimeConfig,
+    resolver HostResolver,
+    now clock.Clock,
+) (ClientSet, error)
 ```
 
-`GetRestConfig` is used by the CRD watcher to build its dynamic client.
+The application calls this once after configuration overlays are compiled.
+Canonical constructors reject missing required dependencies; they do not use
+default HTTP clients, DNS resolvers, clocks, or hidden context values.
 
 ---
 
-## 14. `internal/state/` — State Persistence
+## 14. `internal/persistence/` — State Persistence
 
-**Path:** `internal/state/state.go`, `retry.go`
+**Domain path:** `internal/persistence/`
+
+The ConfigMap implementation lives in `internal/persistence/`. The persisted
+wire format and ConfigMap names remain unchanged.
 
 ### Role
 
 kwatch keeps its state in **plain ConfigMaps** in its own namespace — no
-database, no volume. The `StateManager` manages four of them, each through its
-own `RetryConfigMapManager`:
+database, no volume. The `Manager` exposes narrow stores for restart-critical
+state and migration reporting:
 
 | ConfigMap | Contents |
 |-----------|----------|
-| `kwatch-state` | Cluster identity (`cluster-id`), `first-run`, upgrade bookkeeping, and a `last-seen` liveness stamp |
-| `kwatch-baseline` | Pre-existing problems seen at startup (gzip-compressed JSON) |
-| `kwatch-incidents` | Every active incident (`PersistedIncident` records), trimmed to fit |
-| `kwatch-pvc` | Last-known PVC usage (`PvcSample` records), gzip-compressed |
+| `kwatch-state` | Cluster identity, startup metadata, upgrade bookkeeping, and `last-seen` |
+| `kwatch-baseline` | Pre-existing problems seen at startup |
+| `kwatch-incidents` / `kwatch-groups` | Active incidents and smart-group state |
+| `kwatch-engine` / `kwatch-threads` | Engine and provider thread state |
+| `kwatch-pvc` | Last-known PVC usage samples |
+| `kwatch-changes` / `kwatch-telemetry` | Change history and telemetry state |
+| `kwatch-rca` | Persisted RCA feedback and analysis state when enabled |
 
 ### Optimistic concurrency
 
@@ -118,9 +131,10 @@ gap). On the next start, a gap longer than **5 minutes** is reported alongside
 the startup welcome message ("No monitoring for 52m before this start") so
 silence can't hide a dead kwatch.
 
-State written by older kwatch versions used a different layout (`kwatch-state`
-held the baseline inline); `MigrateLegacyBaseline` reads and migrates it on
-first start, so an upgrade keeps its incident memory.
+Startup produces one migration report containing every store operation. Missing
+state is a safe first-run condition; corrupt, malformed, or future-version
+state is preserved and reported rather than silently overwritten. Active
+monitoring and delivery do not start until required restore operations succeed.
 
 ---
 
@@ -138,18 +152,19 @@ and (when enabled) diagnostic endpoints.
 | Path | Method | Description |
 |------|--------|-------------|
 | `/healthz` | GET | Liveness probe (always 200) |
-| `/health` | GET | `{"status":"ok"}` |
-| `/readyz` | GET | Readiness probe (200 once informer cache sync sets ready) |
+| `/health` | GET | Leadership, component, and bounded degradation status |
+| `/readyz` | GET | Ready after required restore, sources, and cache sync |
 | `/metrics` | GET | Prometheus metrics (text format) |
 | `/incidents` | GET | Active incidents as JSON (diagnostics only) |
 | `/test-alert` | POST | Send a test notification (diagnostics only) |
 | `/deadletters` | GET | Failed-delivery ring buffer (diagnostics only) |
 
-Diagnostic endpoints require `healthCheck.diagnostics: true` and honour an
-optional Bearer token (`diagnosticsToken`, constant-time compared).
+Diagnostic endpoints require `healthCheck.diagnostics: true` and a configured
+Bearer token in production (`diagnosticsToken`, constant-time compared).
 `healthCheck.pprof` adds `/debug/pprof/*` behind the same guard. `/metrics` is
-always served. The readiness flag is set by the controller once all informers
-have synced.
+always served. Optional API absence remains degraded but does not fail
+readiness. Health owns only the HTTP listener; application supervision owns
+serving, cancellation, and shutdown.
 
 ---
 
@@ -191,11 +206,10 @@ decides whether to send a welcome/update message.
 
 | Function | Purpose |
 |----------|---------|
-| `NewStartupManager(k8sClient, ns, alertCfg, appCfg)` | Creates the manager (and the alert manager) |
-| `HandleStartup(ctx)` | Ensures `cluster-id`, creates state ConfigMaps |
+| `NewStartupManagerWithClock(state, appCfg, clock)` | Creates the startup decision component |
+| `Start(ctx)` | Ensures cluster state and returns the startup decision |
 | `RecordAlive(ctx)` | Stamps `last-seen` once a minute |
-| `NotifyStartup()` | Sends the welcome message when it is news (first run, upgrade, or downtime) |
-| `GetAlertManager()` / `GetStateManager()` | Hand out the wired components |
+| `Result.ShouldNotify` | Tells application composition whether startup is news |
 
 `shouldNotify` is true only for the first run, an upgrade, or a detected
 monitoring gap — an ordinary restart stays quiet.
@@ -262,10 +276,11 @@ reports incidents at the configured thresholds.
 ### Role
 
 When `crd.enabled: true`, watches `KwatchConfig` custom resources and applies
-config changes at runtime without restarting kwatch. The CR's spec carries a
-subset of the live-reloadable fields (silences, templates, severity maps, ...).
-On change, the watcher pushes the new values into the alert manager — no
-restart required.
+the supported live-reloadable fields at runtime. A change is compiled into a
+new immutable runtime snapshot and applied through the reload boundary; it does
+not mutate provider or source state in place. Missing CRDs are reported as a
+waiting/degraded condition, while discovery and cache-sync failures have
+bounded deadlines and safe diagnostics.
 
 ---
 
@@ -404,22 +419,24 @@ always has an answer without drowning the log in duplicate lines.
 
 ## 28. `internal/app/` — Composition Root
 
-**Path:** `internal/app/run.go`, `correlator.go`, `serve.go`
+**Path:** `internal/app/`
 
 ### Role
 
-`app.Run()` loads the config and wires every component in order — HTTP client,
-clientset, startup/state, alert manager, health server, upgrader, change
-tracker, resource graph, insight engine, correlation engine, PVC and heartbeat
-monitors, handler, controller — then runs until shutdown. It also owns the
-hooks that make the engine the single notification door:
+`app.Run()` loads the config and wires every component in order — the shared
+client set, startup/persistence, delivery manager, health listener, Lease
+election, graph, insight engine, incident engine, monitor runtimes, and
+controller — then runs until shutdown. Semantic files separate bootstrap,
+runtime construction, election, supervision, persistence gates, optional
+components, and serving. The application also owns the hooks that make the
+engine the single notification door:
 
 - **`lifecycleHook`** — for every non-skipped incident edge, audits the event
-  and calls `AlertManager.NotifyIncident(inc, action, insight)` with a
+  and calls `delivery.Manager.NotifyIncident(inc, action, insight)` with a
   diagnosis computed by `insight.Engine.Analyze`.
 - **`massFailureHook`** — runs `insight.ScanMassFailures` on the lifecycle
   tick, opening and resolving shared-dependency incidents.
-- **`onBaselineChange` / persistence goroutines** — forward baseline and
-  incident snapshots to the state ConfigMaps.
+- **`onBaselineChange` / persistence components** — forward baseline and
+  incident snapshots to the state ConfigMaps after producer shutdown rules.
 - **`restoreIncidents`** — rehydrates `kwatch-incidents` back into the engine
   at startup so a restart resumes exactly where it left off.

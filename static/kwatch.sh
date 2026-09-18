@@ -43,6 +43,8 @@ CATALOG_SOURCE="unavailable"
 CATALOG=()
 PROVIDER_CATALOG=()
 CONFIG_MOUNT_PATH="/config"
+# Filled from the release deployment manifest before named RBAC checks.
+RUNTIME_CONFIGMAP_NAMES=()
 # Deployment resources and placement are the operator's, not the release's: the
 # manifest is re-downloaded on every run, so a hand-edited Deployment would be
 # reverted by the next upgrade. Recording the choices on the workload itself --
@@ -1005,7 +1007,110 @@ confirm_repair() {
 }
 valid_name() { [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; }
 valid_kubernetes_name() { [ "${#1}" -le 40 ] && valid_name "$1"; }
+valid_configmap_name() {
+  [ "${#1}" -le 253 ] &&
+    [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$ ]]
+}
 valid_release_version() { [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; }
+
+# Read persistence ConfigMap names from the namespaced Role in a release
+# manifest. ClusterRole rules are intentionally ignored: they describe the
+# workload's read access, not the ConfigMaps it persists.
+load_runtime_configmap_names_from_manifest() {
+  local manifest="$1" name
+  RUNTIME_CONFIGMAP_NAMES=()
+  [ -r "$manifest" ] || return 1
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    valid_configmap_name "$name" || {
+      RUNTIME_CONFIGMAP_NAMES=()
+      return 1
+    }
+    RUNTIME_CONFIGMAP_NAMES+=("$name")
+  done < <(
+    awk '
+      function emit_inline(line, parts, count, i, item) {
+        sub(/.*\[/, "", line)
+        sub(/\].*/, "", line)
+        count = split(line, parts, ",")
+        for (i = 1; i <= count; i++) {
+          item = parts[i]
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
+          gsub(/"/, "", item)
+          gsub(/\047/, "", item)
+          if (item != "" && !seen[item]++) print item
+        }
+      }
+      /^kind:[[:space:]]*Role[[:space:]]*$/ {
+        in_role = 1
+        in_rule = 0
+        in_configmaps = 0
+        in_names = 0
+        next
+      }
+      /^---[[:space:]]*$/ {
+        in_role = 0
+        in_rule = 0
+        in_configmaps = 0
+        in_names = 0
+        next
+      }
+      !in_role { next }
+      /^[[:space:]]*-[[:space:]]*apiGroups:/ {
+        in_rule = 1
+        in_configmaps = 0
+        in_names = 0
+        next
+      }
+      in_rule && /resources:[[:space:]]*\[/ && /configmaps/ {
+        in_configmaps = 1
+        next
+      }
+      in_rule && in_configmaps &&
+        /^[[:space:]]*resourceNames:[[:space:]]*\[/ {
+        emit_inline($0)
+        in_names = 0
+        next
+      }
+      in_rule && in_configmaps &&
+        /^[[:space:]]*resourceNames:[[:space:]]*$/ {
+        in_names = 1
+        next
+      }
+      in_rule && in_names && /^[[:space:]]*-[[:space:]]*/ {
+        item = $0
+        sub(/^[[:space:]]*-[[:space:]]*/, "", item)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
+        gsub(/"/, "", item)
+        gsub(/\047/, "", item)
+        if (item != "" && !seen[item]++) print item
+        next
+      }
+      in_names { in_names = 0 }
+    ' "$manifest"
+  )
+  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ]
+}
+
+ensure_runtime_configmap_names() {
+  local manifest rc version="${INSTALL_VERSION:-}"
+  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ] && return 0
+  [ -n "$version" ] || return 1
+  manifest=$(mktemp) || return 1
+  if ! curl -fsSL --location --retry 2 --retry-delay 1 \
+    --connect-timeout 8 "$BASE_URL/$version/deploy/deploy.yaml" \
+    -o "$manifest"; then
+    rm -f "$manifest"
+    return 1
+  fi
+  if load_runtime_configmap_names_from_manifest "$manifest"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  rm -f "$manifest"
+  return "$rc"
+}
 
 is_transient_kubectl_error() {
   case "$1" in
@@ -4976,48 +5081,54 @@ preview_manifest_changes() {
   ui_rule
 }
 
-# kwatch's readiness self-check asks the API server whether it may update and
-# patch configmaps in its namespace *without* naming one, and the Role the
-# release ships scopes those verbs with resourceNames, which can never answer
-# yes. The security component then reports rbacDenied, /readyz stays 503, and the
-# Pod never becomes Ready even though every write it makes succeeds. Add the
-# unnamed rule the check needs; it is a no-op once the release grants it.
-# kwatch's readiness self-check asks the API server whether it may update and
-# patch configmaps in its namespace *without* naming one, which a
-# resourceNames-scoped rule can never answer yes to. Rather than assume every
-# release has that mismatch and widen the Role on every install, ask the same
-# question the component asks. A release that fixes the check, or a Role that
-# already grants it, answers yes and nothing is changed.
+# Check the named persistence permissions used by the workload. The Role is
+# intentionally scoped with resourceNames, so an unnamed authorization query
+# would report a false denial and tempt the installer to widen the Role.
+# A release that grants every named permission answers yes and nothing changes.
 self_check_rbac_missing() {
-  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" verb answer
+  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" verb answer name
+  ensure_runtime_configmap_names || return 1
   for verb in update patch; do
-    answer=$(kubectl auth can-i "$verb" configmaps -n "$NAMESPACE" \
-      --as="$subject" 2>/dev/null || true)
-    case "$answer" in
-      *no*) return 0 ;;
-      *yes*) ;;
-      # Impersonation is not allowed here, so the question cannot be asked.
-      *) return 1 ;;
-    esac
+    for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
+      answer=$(kubectl auth can-i "$verb" configmaps \
+        --resource-name="$name" -n "$NAMESPACE" \
+        --as="$subject" 2>/dev/null || true)
+      case "$answer" in
+        *no*) return 0 ;;
+        *yes*) ;;
+        # Impersonation is not allowed here, so the question cannot be asked.
+        *) return 1 ;;
+      esac
+    done
   done
   return 1
 }
 
 repair_self_check_rbac() {
-  local role="${RELEASE}-configmap-manager" details
+  local role="${RELEASE}-configmap-manager" details name
+  local names_json="[" separator="" patch
+  ensure_runtime_configmap_names || return 1
   kubectl -n "$NAMESPACE" get role "$role" >/dev/null 2>&1 || return 1
-  details="kwatch checks this permission without naming a ConfigMap, so the"
-  details+=" scoped rule the release ships can never satisfy it and the Pod"
-  details+=" never reports ready. This adds get/update/patch on configmaps in"
-  details+=" $NAMESPACE to $role. It widens that Role inside this namespace only."
-  confirm_repair "grant the permission the readiness check asks for" "$details" ||
+  for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
+    names_json+="${separator}\"${name}\""
+    separator=","
+  done
+  names_json+="]"
+  details="kwatch needs named update/patch access to its persistence ConfigMaps."
+  details+=" This adds the complete named rule to $role in $NAMESPACE."
+  confirm_repair "grant the named persistence permissions" "$details" ||
     return 1
   check_access patch roles namespace
+  patch=$(printf '%s%s%s%s' \
+    '[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],' \
+    '"resources":["configmaps"],"resourceNames":' \
+    "$names_json" \
+    ',"verbs":["get","update","patch"]}}]')
   with_loading "Updating $role" kubectl -n "$NAMESPACE" patch role "$role" \
-    --type=json -p '[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],"resources":["configmaps"],"verbs":["get","update","patch"]}}]' \
+    --type=json -p "$patch" \
     >/dev/null || return 1
   restart_kwatch || return 1
-  ui_success "✅ Readiness check permission granted."
+  ui_success "✅ Named persistence permissions granted."
   return 0
 }
 
@@ -5051,6 +5162,11 @@ apply_manifests() {
     LAST_COMMAND_ERROR="Downloaded deployment manifest for $version does not contain a Deployment."
     return 1
   fi
+  # Keep named RBAC checks tied to the exact release being installed. Older
+  # manifests without resourceNames remain installable, but cannot be checked
+  # or repaired by this narrow path.
+  load_runtime_configmap_names_from_manifest "$tmp" ||
+    RUNTIME_CONFIGMAP_NAMES=()
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
     -e "s/^\( *name: \)kwatch$/\1$RELEASE/g" \
@@ -5440,7 +5556,7 @@ install_flow() {
       fi
       install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
     elif self_check_rbac_missing && repair_self_check_rbac; then
-      record_state complete "$version" "installation repaired after granting the readiness permission"
+      record_state complete "$version" "installation repaired after granting named persistence permissions"
       FRESH_INSTALL=false
       configure_after_install
       return 0
@@ -5644,13 +5760,11 @@ show_legacy_menu() {
     "🔁 Uninstall legacy kwatch and fresh-install" \
     "📊 View status" \
     "📜 View recent logs" \
-    "🧹 Uninstall kwatch" \
     "🚪 Exit"); then
     case "$choice" in
       0) legacy_reinstall_flow; return ;;
       1) status_flow; MENU_READ_ONLY=true; return ;;
       2) logs_flow; MENU_READ_ONLY=true; return ;;
-      3) uninstall_flow; return ;;
     esac
   fi
   MENU_EXIT=true
@@ -5782,7 +5896,7 @@ show_broken_menu() {
   fi
   if [ "$selfcheck_missing" = true ]; then
     actions+=(selfcheck)
-    labels+=("🔑 Grant the permission the readiness check asks for")
+    labels+=("🔑 Grant named persistence permissions")
   fi
   actions+=(status logs upgrade settings providers)
   labels+=(

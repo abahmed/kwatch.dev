@@ -35,8 +35,9 @@ Check access before installing:
 kubectl cluster-info
 ```
 
-kwatch runs as one small pod and reads cluster resources through Kubernetes
-RBAC. The official manifests include the required read-only permissions. TLS
+The default installation runs two small Pods with one active leader and one
+standby. Each Pod reads cluster resources through Kubernetes RBAC. The official
+manifests include the required permissions. TLS
 monitoring needs additional Secret access and is off by default.
 
 ## 🧭 Interactive manager (recommended)
@@ -106,7 +107,10 @@ curl http://localhost:8060/healthz
 curl http://localhost:8060/readyz
 ```
 
-Both endpoints should return `ok`.
+`/healthz` should return a successful liveness response. `/readyz` returns a
+successful response only for an active leader whose required state, sources,
+and informer caches are ready; a standby or a leader still restoring state is
+expected to be not ready.
 
 ### Change configuration safely
 

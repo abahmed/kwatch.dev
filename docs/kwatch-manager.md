@@ -163,7 +163,9 @@ offers only actions valid for the detected running state:
 | ⚙️ Configure settings | Change monitors, thresholds, or filters |
 | ⬆️ Upgrade | Choose the latest stable or available release candidate |
 | 🔎 Show status | Check the deployment and manager state |
+| 🧮 Edit Deployment resources and placement | Keep CPU/memory and node-selector choices across upgrades |
 | 🧰 Show capabilities | See features supported by the installed release |
+| ♻️ Restore a previous configuration | Replace the current KwatchConfig from a retained backup |
 | 🧹 Uninstall | Remove the kwatch workload and notification Secret |
 
 The manager tracks the installation with labels on its resources and also
@@ -180,6 +182,8 @@ arguments. Run it without arguments each time.
 ## 🔒 Safety and recovery
 
 - The manager validates names, URLs, versions, and required permissions.
+- Deployment resource requests, limits, and node placement can be edited from
+  the resources menu; explicit choices are recorded and reapplied on upgrades.
 - Temporary Kubernetes and GitHub failures are retried.
 - Configuration is backed up before an upgrade.
 - Legacy replacement backs up the old configuration before uninstalling the

@@ -1,0 +1,8 @@
+{
+  "label": "Operations",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Run, observe, troubleshoot, and recover kwatch in production."
+  }
+}

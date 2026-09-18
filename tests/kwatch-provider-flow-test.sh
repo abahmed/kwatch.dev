@@ -34,6 +34,7 @@ ask() {
     case "$prompt" in
       *Provider\ name*) printf 'alpha-' ; return ;;
       *matching\ provider*) printf '2' ; return ;;
+      Choice) printf '4' ; return ;;
     esac
   fi
   printf '%s\n' "$prompt" >>"$PROMPT_LOG"
@@ -50,6 +51,7 @@ ask() {
         printf 'beta'
       fi
       ;;
+    *:*Notification\ endpoint*) printf 'https://alpha.example.test/hook' ;;
     *:*authentication\ option*) printf '2' ;;
     *:*Destination\ channel*) printf '#alerts' ;;
     *:*Channel\ ID*) printf '%s' '-100123' ;;
@@ -70,7 +72,10 @@ ask() {
 
 ask_secret() {
   printf '%s\n' "$1" >>"$PROMPT_LOG"
-  printf 'secret-value'
+  case "$1" in
+    *"Notification endpoint"*) printf 'https://alpha.example.test/hook' ;;
+    *) printf 'secret-value' ;;
+  esac
 }
 
 kubectl() {
@@ -105,11 +110,23 @@ CONFIGURED_PROVIDERS='|'
 SEARCH_MODE=true
 choose_provider
 [ "$PROVIDER" = alpha-ops ] || {
-  echo "provider search did not use the short matching list" >&2
+  echo "provider selection did not use the catalog list" >&2
   exit 1
 }
 SEARCH_MODE=false
 PROVIDER_CATALOG=("${PROVIDER_CATALOG[@]:0:6}")
+
+# Keep the real selector for coverage, but choose the token authentication row
+# deterministically when the flow asks for that specific list.
+eval "$(declare -f ui_select | sed '1s/^ui_select/test_ui_select/')"
+ui_select() {
+  local default_index="$1"
+  shift
+  case "$*" in
+    *token*) printf '1'; return 0 ;;
+  esac
+  test_ui_select "$default_index" "$@"
+}
 
 write_config_secret
 token_line=$(grep -n 'Provider token' "$PROMPT_LOG" | head -1 | cut -d: -f1)
@@ -147,6 +164,12 @@ BACK_FLOW_STEP_FILE="$CAPTURE_DIR/back-flow-step"
 printf '0' >"$BACK_FLOW_STEP_FILE"
 ask() {
   case "$1" in
+    Choice)
+      count=$(cat "$BACK_FLOW_STEP_FILE")
+      count=$((count + 1))
+      printf '%s' "$count" >"$BACK_FLOW_STEP_FILE"
+      [ "$count" -eq 1 ] && printf '1' || printf '2'
+      ;;
     *Configure\ notification\ providers*) printf 'y' ;;
     *Provider\ name*)
       count=$(cat "$BACK_FLOW_STEP_FILE")

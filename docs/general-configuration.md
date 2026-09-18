@@ -126,19 +126,21 @@ app:
 | `healthCheck.enabled` | `bool` | `true` | Expose health endpoints. |
 | `healthCheck.port` | `int` | `8060` | HTTP listen port. |
 | `healthCheck.pprof` | `bool` | `false` | Enable Go `/debug/pprof/*` profiling endpoints. |
-| `healthCheck.diagnostics` | `bool` | `false` | Enable `/incidents`, `/test-alert`, `/deadletters` endpoints. |
-| `healthCheck.diagnosticsToken` | `string` | `""` | Bearer token; must use `${file:/absolute/path}`. |
+| `healthCheck.diagnostics` | `bool` | `false` | Enable protected diagnostics such as `/incidents`, `/test-alert`, and `/deadletters`. |
+| `healthCheck.diagnosticsToken` | `string` | `""` | Bearer token; required when diagnostics or pprof is enabled and must use `${file:/absolute/path}`. |
 
 **Endpoints:**
 | Path | Description | Requires |
 |------|-------------|----------|
 | `GET /healthz` | Liveness probe | — |
 | `GET /readyz` | Readiness probe (waits for cache sync) | — |
-| `GET /health` | `{"status": "ok"}` | — |
+| `GET /health` | Leadership, component, and safe degradation status | — |
 | `GET /metrics` | Prometheus metrics (incidents, notifications, baseline, graph size) | — |
-| `GET /incidents` | Active incidents as JSON | `diagnostics: true` |
-| `POST /test-alert` | Send a test notification | `diagnostics: true` |
-| `GET /deadletters` | Recent delivery failures | `diagnostics: true` |
+| `GET /incidents` | Active incidents as JSON | diagnostics + bearer token |
+| `POST /test-alert` | Send a rate-limited test notification | diagnostics + bearer token |
+| `GET /deadletters` | Recent delivery failures | diagnostics + bearer token |
+| `GET /persistence` | Safe migration and restore status | diagnostics + bearer token |
+| `GET /informer` | Safe informer and watcher status | diagnostics + bearer token |
 
 ```yaml
 healthCheck:

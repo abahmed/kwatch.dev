@@ -2,7 +2,7 @@
 sidebar_position: 5
 title: Data Flow
 description: End-to-end trace of a pod crash through kwatch — from informer detection to Slack notification, with code references
-keywords: [kwatch, kubernetes, architecture, data flow, pod crash, alert pipeline, filter pipeline, correlation, insight]
+keywords: [kwatch, kubernetes, architecture, data flow, pod crash, alert pipeline, monitor policy, incident, insight]
 pagination_prev: architecture/infrastructure-packages
 pagination_next: architecture/design-decisions
 ---
@@ -44,61 +44,64 @@ dispatch functions (`sync.go`) share one signature
 Handlers also feed the two side structures the diagnostic engine needs:
 
 - `recordChange` → `graphcontext.ChangeTracker`, so "what changed recently" has data;
-- the graph-aware pod handler → `graphcontext.ResourceGraph`, so cause/impact
+- the graph-aware Pod event handler → `graphcontext.ResourceGraph`, so cause/impact
   analysis can walk the cluster's family tree.
 
 ---
 
-## Phase 2: Filter Pipeline (Handler → Filter)
+## Phase 2: Pod Family (Controller → Policy → Enrichment)
 
 ```
 Worker goroutine picks up key from the pod queue
        │
        ▼
-handler.ProcessPod() is called with the object
+       monitor/pod.Runtime.ProcessPod() is called with the queue key
        │
        ▼
-Builds filter.Context:
-  • Sources   — client, config, listers, injected Now clock (read-only)
-  • Pod/EvType/Owner/Events — the object under evaluation
-  • Findings  — scratch area for detector conclusions
+`monitor/pod/policy` evaluates a small policy.Context:
+  • Pod/container state and configuration only
+  • an injected clock for time-based decisions
        │
        ▼
-Detector chain (any returns StatusSkip → pod dropped)
+Detector chain (DecisionSuppress → pod dropped)
        │
-       ▼ (StatusContinue / StatusAlert)
+       ▼ (DecisionDefer / DecisionAlert)
 Per-container evaluation (remaining detectors)
        │
        ▼
-Enricher chain (fetch events, resolve owner, collect logs, check killing)
+`monitor/pod` coordinates enrichment (events, owner, bounded logs,
+suppression evidence)
        │
        ▼
-handler builds an event.Signal and calls correlation.Engine.Process()
+monitor/pod builds a model.Observation and calls the incident sink
 ```
 
-The handler is the only place pod evaluation happens. Detectors write
-`Findings` (`PodHasIssues`, `ContainerHasIssues`, `PodReason`, and so on);
-enrichers fill in the incident's evidence and hint. Time-based decisions read
-the injected `Sources.Now` clock rather than the wall clock.
+The Pod family owns evaluation order. Policy writes deterministic findings;
+enrichment adds evidence and ownership; the family runtime assembles the final
+observation. Time-based decisions read the injected clock rather than the wall
+clock.
 
 Key filters for a CrashLoopBackOff → OOM story:
 
-- `pod_status_filter.go` — pod-level issues first;
-- `container_state_filter.go`, `container_reasons_filter.go` — the container
+- `monitor/pod/policy/pod_status.go` — pod-level issues first;
+- `monitor/pod/policy/container_state.go`,
+  `monitor/pod/policy/container_reasons.go` — the container
   is `terminated` with reason `OOMKilled`;
-- `container_restarts_filter.go` — the container is restarting (restart
+- `monitor/pod/policy/container_restarts.go` — the container is restarting (restart
   count increased since `LastState`);
-- `noise_filter.go` — skips banal reasons (`Normal`, `Scheduled`,
+- `monitor/pod/policy/noise.go` — skips banal reasons (`Normal`, `Scheduled`,
   `Pulled`, `Pulling`); `OOMKilled` is not among them, so it passes;
-- `container_killing_filter.go`, `container_logs_filter.go`,
-  `pod_events_filter.go`, `pod_owners_filter.go` — enrichment.
+- `monitor/pod/enrichment/container_killing.go`,
+  `monitor/pod/enrichment/container_logs.go`,
+  `monitor/pod/enrichment/pod_events.go`,
+  `monitor/pod/enrichment/pod_owners.go` — enrichment.
 
 ---
 
-## Phase 3: Correlation Engine (State & Dedup)
+## Phase 3: Incident Engine (State & Dedup)
 
 ```
-correlation.Engine.Process(ev, owner, containerState)
+incident.Engine.Process(observation)
        │
        ▼
 processLocked — every path through the same five stages:
@@ -112,7 +115,7 @@ processLocked — every path through the same five stages:
 emit() → LifecycleHook(inc, action)
        │
        ▼
-app.lifecycleHook: audit once → insight diagnosis → AlertManager.NotifyIncident()
+app.lifecycleHook: audit once → insight diagnosis → delivery.NotifyIncident()
 ```
 
 ### Dedup key
@@ -126,7 +129,7 @@ limits, registry timeouts, DNS, TLS) use a cluster-wide key.
 ### Edge-triggered notification
 
 ```go
-// internal/correlation/engine.go
+// internal/incident/engine.go
 func notifSig(inc *model.Incident) string {
     st := "firing"
     if inc.State == model.StateResolved {
@@ -218,7 +221,7 @@ diagnoses come back empty on a large cluster, check `kwatch_graph_nodes` and
 ## Phase 5: Alert Dispatch (NotifyIncident → Provider)
 
 ```
-AlertManager.NotifyIncident(inc, action, insight)
+delivery.NotifyIncident(inc, action, insight)
        │
        ▼
 Silence check ──── match? → DROP (silence.go, compiled silence index)
@@ -234,7 +237,7 @@ Provider worker: deliverOne (delivery.go)
        ├── routes match? (routing.go) ── no match → Skip provider
        ├── buildMessage → ReportBuilder + provider renderer
        ├── truncate to provider byte limit
-       ├── Send with retry classification (alert/util.Send):
+       ├── Send through shared transport:
        │     • 2xx        → success
        │     • 429        → ratelimit.Error; honour Retry-After (header or body)
        │     • other 4xx  → PermanentError → dead-letter immediately
@@ -246,7 +249,8 @@ Provider worker: deliverOne (delivery.go)
 
 Only retryable failures are retried. A malformed 4xx payload dead-letters
 immediately instead of delaying the alerts queued behind it. Provider
-delivery is through the shared `alert/util.Send` helper; the linter forbids
+delivery is through the shared `delivery/transport` helper; the architecture
+check forbids
 raw `net/http` inside providers.
 
 ### What the message looks like
@@ -302,10 +306,10 @@ the diagnostic block is computed locally from the in-memory dependency graph.
 | # | Phase | Package |
 |---|-------|---------|
 | 1 | Informer detects pod change, enqueues key | `internal/controller` |
-| 2 | Filter pipeline evaluates the pod | `internal/handler` + `internal/filter` |
-| 3 | Correlation engine dedups and decides (five stages) | `internal/correlation` |
-| 4 | Severity resolved, escalation applied | `internal/correlation` + `internal/enricher` |
+| 2 | Pod policy and enrichment evaluate the pod | `internal/monitor/pod/policy` + `internal/monitor/pod/enrichment` |
+| 3 | Incident engine dedups and decides (five stages) | `internal/incident` |
+| 4 | Severity resolved, escalation applied | `internal/incident` + `internal/enricher` |
 | 5 | Insight diagnoses cause / impact / what-changed | `internal/insight` |
-| 6 | Alert manager formats the report | `internal/alert` + `internal/message` |
-| 7 | Provider retry / dispatch | `internal/alert/*` (via `alert/util.Send`) |
+| 6 | Delivery manager formats the report | `internal/delivery` + `internal/message` |
+| 7 | Provider retry / dispatch | `internal/alert/*` (via `delivery/transport`) |
 | 8 | User receives notification | the configured provider |

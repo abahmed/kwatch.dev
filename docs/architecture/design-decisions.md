@@ -1,8 +1,8 @@
 ---
 sidebar_position: 6
 title: Design Decisions
-description: why kwatch uses stateless Kubernetes informers, dependency graphs, workqueues, circuit breakers, and filter pipelines
-keywords: [kwatch, kubernetes, architecture, design decisions, stateless, informers, edge-triggered]
+description: why kwatch uses restart-safe Kubernetes informers, Lease election, dependency graphs, workqueues, and filter pipelines
+keywords: [kwatch, kubernetes, architecture, design decisions, informers, leader election, edge-triggered]
 pagination_prev: architecture/data-flow
 ---
 
@@ -11,12 +11,29 @@ pagination_prev: architecture/data-flow
 These are the choices that shape kwatch: small, local, predictable, and useful
 without a separate monitoring backend.
 
-## Why stateless? No database needed
+## Why Kubernetes-native state instead of a database?
 
 kwatch uses Kubernetes informers (watch + list) to maintain an in-memory
-cache of cluster state. No Prometheus, no Grafana, no TSDB. State persistence
-is limited to ConfigMaps for baseline dedup and PVC history. This makes
-kwatch a ~20 MB single binary with zero external dependencies.
+cache of cluster state. It does not require Prometheus, Grafana, or a TSDB.
+Restart-critical state is persisted in namespace-scoped ConfigMaps, including
+incident, baseline, group, thread, engine, PVC, change, and telemetry state.
+This keeps the deployment small and Kubernetes-native while making recovery
+explicit instead of pretending that the process is stateless.
+
+## Why one leader and standby replicas?
+
+The default deployment runs two replicas using a Kubernetes Lease. Exactly one
+leader starts monitoring, incident processing, delivery, and mutable
+persistence; the other replica participates in election and serves health
+endpoints. With `N` replicas there is one leader and `N-1` standbys. A single
+replica is supported but has no Kwatch self-failover, and more replicas improve
+takeover capacity rather than monitoring throughput.
+
+The Lease is authoritative. Leadership loss makes the active instance not
+ready, cancels its active generation, fences delivery and persistence, and
+lets Kubernetes restart it. This protects against duplicate active processing
+under normal transitions, but does not protect against a total Kubernetes API,
+cluster, node, or network failure. Notification delivery is not exactly once.
 
 ## Why informer-based, not polling?
 
@@ -30,7 +47,9 @@ by default, consuming minimal API server resources.
 Instead of alerting on every reconciliation loop, kwatch computes a
 notification signature (`firing|severity` or `resolved|severity`) and only
 sends when it changes. This prevents duplicate alerts while the incident is
-active and ensures resolution is always delivered exactly once.
+active. Delivery remains at-least-once in the presence of process, provider,
+and leadership failures; operators should not treat notifications as
+exactly-once.
 
 ## Why not use an LLM / cloud AI?
 
@@ -64,18 +83,26 @@ retries prevents races across worker goroutines. The 1 MB ConfigMap limit is
 managed with gzip compression and hard caps (20000 entries / ~1,032,192
 bytes, reserving 16 KB safety margin).
 
-## Why 16 filters instead of if/else chains?
+## Why family policy plus enrichment instead of a handler god object?
 
-The filter pipeline pattern allows each detection and enrichment concern to be
-independently tested, disabled, or reordered. Each filter is a single Go file
-with its own test file. Adding a new detector (e.g., a new container state)
-means adding one filter file and registering it — no changes to the handler.
+Pod monitoring has two different kinds of work. Pure state decisions need
+determinism, an injected clock, and configuration; event lookup, owner
+resolution, kubelet logs, and suppression evidence need listers or a client.
+`internal/monitor/pod/policy` owns the first kind, while
+`internal/monitor/pod/enrichment` owns the second. This keeps policy
+tests fast and makes I/O dependencies visible.
+
+Rules stay independently testable and are registered in the Pod family. A new
+container-state rule changes `monitor/pod/policy`, while a new enrichment
+source changes the enrichment boundary. Neither requires provider or incident
+lifecycle changes, and the controller remains an infrastructure coordinator
+rather than a second policy engine.
 
 ## Why a single binary with no plugins?
 
 All **56 alert providers** are compiled in. There's no plugin system, no
 sidecar injection, and no external hooks. This makes
-deployment trivial (one pod, one container) and eliminates version
+deployment trivial (one small container per replica) and eliminates version
 mismatch issues between components.
 
 ---
@@ -91,9 +118,14 @@ mismatch issues between components.
 | 255 | Exit status out of range |
 
 Graceful shutdown sequence:
-1. Receive SIGTERM/SIGINT
-2. Stop informers and drain workqueues
-3. Wait up to 10s for alert manager to flush pending notifications
-4. Save baseline state to ConfigMap with 5s timeout
-5. Health server marks not-ready and stops
-6. Exit code 0
+1. Mark readiness false and stop accepting new work.
+2. Cancel active monitoring and stop producers and watcher generations.
+3. Stop delivery intake and drain or cancel provider workers.
+4. Wait for persistence writers, then perform one bounded final snapshot when
+   leadership fencing still permits it.
+5. Stop health serving and exit.
+
+The deployment reserves at least 60 seconds for this bounded shutdown. Required
+component failures are observable and cause a restart-eligible exit; optional
+component failures are reported as safe degradation and retried with bounded
+backoff.

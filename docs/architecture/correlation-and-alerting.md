@@ -1,20 +1,27 @@
 ---
 sidebar_position: 3
-title: Correlation & Alerting
-description: kwatch correlation engine, alert manager, and insight engine — incident lifecycle, dedup, escalation, smart grouping, delivery, and cause/impact analysis
-keywords: [kwatch, kubernetes, architecture, correlation, alert, insight, incident lifecycle, dedup, escalation]
+title: Incident lifecycle & delivery
+description: kwatch incident engine, delivery manager, and insight engine — incident lifecycle, dedup, escalation, smart grouping, delivery, and cause/impact analysis
+keywords: [kwatch, kubernetes, architecture, incident, delivery, insight, incident lifecycle, dedup, escalation]
 pagination_prev: architecture/packages-overview
 pagination_next: architecture/infrastructure-packages
 ---
 
-# 🔔 Correlation and alerting
+# 🔔 Incident lifecycle and delivery
 
 This page explains how kwatch turns many raw signals into one useful incident,
 then delivers it reliably to your configured provider.
 
-## 9. `internal/correlation/` — Correlation Engine
+The page keeps the historical filename and the external `correlation.*`
+configuration vocabulary for compatibility. The implementation boundary is
+`internal/incident`; no internal package named `correlation` is required.
 
-**Path:** `internal/correlation/`
+## 9. `internal/incident/` — Incident Engine
+
+**Domain path:** `internal/incident/`
+
+The implementation lives in this package. There is one runtime engine and one
+discoverable owner for incident lifecycle decisions.
 
 ### Role
 
@@ -161,37 +168,45 @@ poll) — the skip reasons `baseline`, `node_inhibition`, `mass_failure`,
 
 ---
 
-## 10. `internal/alert/` — Alert Manager
+## 10. `internal/delivery/` — Delivery Manager
 
-**Path:** `internal/alert/`
+**Domain path:** `internal/delivery/`
+
+The delivery manager and shared transport live in this package. Provider
+adapters remain in one subpackage each under `internal/alert/` because their
+provider paths are part of the existing configuration and contributor
+surface. New composition code depends on `internal/delivery`.
 
 ### Role
 
-Dispatches incidents to configured providers. One `AlertManager`
+Dispatches incidents to configured providers. One `Manager`
 (`manager.go`) owns per-provider entries — each with its own routes, retry
 config, fallback, templates, byte limit, and buffered channel — plus the
 silence index and the dead-letter queue. Delivery plumbing lives in
 `delivery.go` (`deliverOne`, `fanOut`, `sendWithRetry`), routing in
 `routing.go`, and the reject-classification that every HTTP provider shares
-in `alert/util`.
+in `delivery/transport`.
 
 ```go
-type AlertManager struct {
-    entries     []providerEntry // one per configured provider
-    silences    []silenceMatcher
-    templates   map[string]*template.Template
-    maxLogLines int
-    clusterName string
-    dlqRing     [100]DeadLetterEntry // ring buffer
+type Manager struct {
+    generation  *providerGeneration // immutable active generation
+    dlqRing     [100]DeadLetterEntry // bounded dead letters
     ...
 }
 
 type Provider interface {
     Name() string
-    SendEvent(*event.Event) error
-    SendMessage(string) error
+    SendEvent(context.Context, *event.Event) error
+    SendMessage(context.Context, string) error
 }
 ```
+
+Provider generations own stable name lookup, deterministic order, fallback
+names, routes, retry settings, compiled templates, worker channels, and
+completion state. A queued job retains the generation that accepted it, so a
+reconfiguration cannot silently change its fallback route. New generations
+are published atomically and old generations drain or cancel before their
+channels are reclaimed.
 
 ### Delivery architecture
 
@@ -199,7 +214,7 @@ type Provider interface {
 LifecycleHook fires (incident + action)
         │
         ▼
-AlertManager.NotifyIncident(inc, action, insight)
+Manager.NotifyIncident(inc, action, insight)
         │
         ▼
 Silence check ──── match? → DROP (not even logged as a delivery)
@@ -229,7 +244,7 @@ Provider worker: deliverOne
 
 | Interface | Description |
 |-----------|-------------|
-| `Provider` | Base interface (Name, SendEvent, SendMessage) |
+| `Provider` | Context-aware base interface (Name, SendEvent, SendMessage) |
 | `ThreadProvider` | Sends a full `*model.Incident` + action (threaded conversations) |
 | `InsightThreadProvider` | Like `ThreadProvider` but also receives the `*insight.Insight` diagnosis |
 | `EventDeliveryProvider` | Marker for providers that use `SendEvent` |
@@ -238,7 +253,7 @@ Provider worker: deliverOne
 ### All 56 providers
 
 Each lives in its own subpackage under `internal/alert/` and sends through the
-shared `alert/util.Send` helper — the linter forbids raw `net/http` in
+shared `delivery/transport` helper. The linter forbids raw `net/http` in
 providers, so status handling stays uniform.
 
 `slack`, `discord`, `teams`, `telegram`, `email`, `pagerduty`, `opsgenie`,
@@ -260,8 +275,7 @@ never pay for rendering.
 
 ### Retry classification
 
-The single shared classification (in `alert/util/http.go` and
-`internal/event`):
+The single shared classification (in `delivery/transport` and `internal/event`):
 
 - **2xx** → success.
 - **429** → a `ratelimit.Error`; the retry loop honours `Retry-After` from the

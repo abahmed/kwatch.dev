@@ -1,0 +1,60 @@
+name: Check website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: website-check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build and verify documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out website
+        uses: actions/checkout@v4
+
+      - name: Check out Kwatch source
+        uses: actions/checkout@v4
+        with:
+          repository: abahmed/kwatch
+          path: kwatch
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Verify generated reference
+        run: yarn docs:verify
+
+      - name: Verify generated files are committed
+        run: git diff --exit-code -- docs/reference/generated
+
+      - name: Check shell syntax
+        run: bash -n static/kwatch.sh tests/*.sh
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Run installer tests
+        run: yarn test:manager
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Build website
+        run: yarn build

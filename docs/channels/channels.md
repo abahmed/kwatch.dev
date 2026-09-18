@@ -115,7 +115,8 @@ rejected at startup. Read the
 
 1. Run `kwatch lint` to validate the configuration.
 2. Run `kwatch lint --check` to test credentials for providers that support checks.
-3. Enable `healthCheck.diagnostics` and call `/test-alert` if you need a real
-   test message.
+3. Enable `healthCheck.diagnostics`, configure its diagnostics token, and call
+   `/test-alert` with that token if you need a real test message. Diagnostic
+   endpoints are protected when enabled; do not put the token in a URL or log.
 
 For installation help, start with [Getting Started](/docs) or [Installation](/docs/installation).

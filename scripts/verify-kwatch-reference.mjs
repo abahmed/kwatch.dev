@@ -4,11 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
-const source = process.env.KWATCH_SOURCE;
-if (!source) {
-  console.error('KWATCH_SOURCE must point to the Kwatch repository');
-  process.exit(2);
-}
+const source = process.env.KWATCH_SOURCE || '../kwatch';
 
 const result = spawnSync(
   process.execPath,

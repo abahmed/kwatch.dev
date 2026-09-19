@@ -39,6 +39,8 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Verify generated reference
+        env:
+          KWATCH_SOURCE: kwatch
         run: yarn docs:verify
 
       - name: Verify generated files are committed

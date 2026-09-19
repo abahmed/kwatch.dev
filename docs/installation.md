@@ -110,7 +110,9 @@ curl http://localhost:8060/readyz
 `/healthz` should return a successful liveness response. `/readyz` returns a
 successful response only for an active leader whose required state, sources,
 and informer caches are ready; a standby or a leader still restoring state is
-expected to be not ready.
+expected to be not ready. `/availabilityz` is an internal Deployment probe: it
+allows an elected standby to remain available during a rolling update without
+claiming that it is monitoring-ready.
 
 ### Change configuration safely
 

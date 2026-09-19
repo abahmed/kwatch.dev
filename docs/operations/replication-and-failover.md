@@ -41,6 +41,12 @@ cycle, waits for required caches, and reconciles current objects. Incident
 identity, grouping, cooldown, and baseline state are restored when the persisted
 snapshot is available. Expired Kubernetes Events are not reconstructed.
 
+During a rolling update, `/availabilityz` is used by the Kubernetes Deployment
+so elected standby Pods count as replaceable and the update can progress.
+`/readyz` remains the monitoring contract: only the active leader should pass
+it. The manager waits for updated running Pods, a Lease holder, and the
+holder's availability before completing an install or upgrade.
+
 ## What to verify
 
 In CI or an operational cluster, verify replicas 1 through 5, leader deletion,

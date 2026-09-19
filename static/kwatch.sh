@@ -2059,8 +2059,7 @@ repair_scheduling() {
     -p "{\"spec\":{\"template\":{\"spec\":{\"tolerations\":[$json]}}}}" ||
     return 1
   with_loading "Waiting for corrected kwatch rollout" \
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout="$ROLLOUT_TIMEOUT" || return 1
+    wait_for_kwatch_rollout "$deployment" || return 1
   ui_success "✅ kwatch is ready. The tolerations apply only to this Pod."
   return 0
 }
@@ -2088,8 +2087,7 @@ repair_injected_hostpath() {
     return 1
   fi
   if ! with_loading "Waiting for corrected kwatch rollout" \
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout="$ROLLOUT_TIMEOUT"; then
+    wait_for_kwatch_rollout "$deployment"; then
     return 1
   fi
   if ! verify_operational_security; then
@@ -3877,6 +3875,82 @@ deployment_name_uncached() {
   fi
 }
 
+lease_name_for_deployment() {
+  local deployment="$1" lease
+  lease=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.containers[0].env[?(@.name=="KWATCH_LEADER_ELECTION_NAME")].value}' \
+    2>/dev/null || true)
+  [ -n "$lease" ] || lease="${RELEASE}-leader"
+  printf '%s' "$lease"
+}
+
+rollout_timeout_seconds() {
+  local value
+  case "$ROLLOUT_TIMEOUT" in
+    (*s)
+      value="${ROLLOUT_TIMEOUT%s}"
+      [[ "$value" =~ ^[0-9]+$ ]] || { printf '%s' 300; return; }
+      printf '%s' "$value"
+      ;;
+    (*m)
+      value="${ROLLOUT_TIMEOUT%m}"
+      [[ "$value" =~ ^[0-9]+$ ]] || { printf '%s' 300; return; }
+      printf '%s' "$((10#$value * 60))"
+      ;;
+    (*h)
+      value="${ROLLOUT_TIMEOUT%h}"
+      [[ "$value" =~ ^[0-9]+$ ]] || { printf '%s' 300; return; }
+      printf '%s' "$((10#$value * 3600))"
+      ;;
+    (*) printf '%s' 300 ;;
+  esac
+}
+
+# Deployment rollout status counts every Pod that passes the readiness probe.
+# Kwatch deliberately keeps standby Pods out of /readyz, so the installer waits
+# for the Deployment to update and for its Lease holder to be ready instead.
+wait_for_kwatch_rollout() {
+  local deployment="$1" deadline desired updated current available running
+  local lease holder holder_ready selector
+  deadline=$((SECONDS + $(rollout_timeout_seconds)))
+  selector=$(workload_selector || true)
+  [ -n "$selector" ] || selector="app.kubernetes.io/instance=$RELEASE"
+  lease=$(lease_name_for_deployment "$deployment")
+  while (( SECONDS < deadline )); do
+    desired=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
+    updated=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o jsonpath='{.status.updatedReplicas}' 2>/dev/null || true)
+    current=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o jsonpath='{.status.replicas}' 2>/dev/null || true)
+    available=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+      -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
+    running=$(kubectl -n "$NAMESPACE" get pods -l "$selector" \
+      --field-selector=status.phase=Running --no-headers 2>/dev/null |
+      wc -l | tr -d ' ')
+    holder=$(kubectl -n "$NAMESPACE" get lease "$lease" \
+      -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)
+    holder_ready=""
+    if [ -n "$holder" ]; then
+      holder_ready=$(kubectl -n "$NAMESPACE" get pod "$holder" \
+        -o 'jsonpath={range .status.conditions[?(@.type=="Ready")]}{.status}{end}' \
+        2>/dev/null || true)
+    fi
+    if [[ "$desired" =~ ^[1-9][0-9]*$ && "$updated" == "$desired" &&
+      "$current" == "$desired" && "$available" == "$desired" &&
+      "$running" == "$desired" && -n "$holder" &&
+      "$holder_ready" == True ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  ui_error "❌ Kwatch did not complete its leader-aware rollout."
+  kubectl -n "$NAMESPACE" get deployment "$deployment" -o yaml >&2 || true
+  kubectl -n "$NAMESPACE" get pods -l "$selector" -o wide >&2 || true
+  kubectl -n "$NAMESPACE" get lease "$lease" -o yaml >&2 || true
+  return 1
+}
+
 adopt_existing_config_secret() {
   local deployment secret_name
   deployment=$(deployment_name || true)
@@ -3899,8 +3973,8 @@ restart_kwatch() {
   fi
   with_loading "Restarting kwatch" kubectl -n "$NAMESPACE" \
     rollout restart "deployment/$deployment" >/dev/null || return 1
-  with_loading "Waiting for kwatch rollout" kubectl -n "$NAMESPACE" \
-    rollout status "deployment/$deployment" --timeout="$ROLLOUT_TIMEOUT" || return 1
+  with_loading "Waiting for kwatch rollout" \
+    wait_for_kwatch_rollout "$deployment" || return 1
 }
 
 installed_version() {
@@ -4348,7 +4422,7 @@ rollback_deployment() {
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   kubectl -n "$NAMESPACE" rollout undo "deployment/$deployment" >/dev/null 2>&1 || return 0
-  kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout="$ROLLOUT_TIMEOUT" >/dev/null 2>&1 || true
+  wait_for_kwatch_rollout "$deployment" >/dev/null 2>&1 || true
 }
 
 # Fifty-six providers: too many to read, and the old prompt asked for "name,
@@ -5273,8 +5347,7 @@ apply_manifests() {
     deployment_overrides_write "$deployment" "$DEPLOYMENT_OVERRIDES" >/dev/null 2>&1 || true
   fi
   if with_loading "Waiting for kwatch rollout" \
-    kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
-    --timeout="$ROLLOUT_TIMEOUT"; then
+    wait_for_kwatch_rollout "$deployment"; then
     return 0
   fi
   rollout_error="${LAST_COMMAND_ERROR:-rollout did not become ready}"
@@ -6842,8 +6915,8 @@ apply_deployment_shape() {
     ui_warn "   the next upgrade would revert them."
     return 1
   }
-  if ! with_loading "Waiting for the resized kwatch Pod" kubectl -n "$NAMESPACE" \
-    rollout status "deployment/$deployment" --timeout="$ROLLOUT_TIMEOUT"; then
+  if ! with_loading "Waiting for the resized kwatch Pod" \
+    wait_for_kwatch_rollout "$deployment"; then
     ui_error "❌ The resized Pod did not become ready." \
       "$(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
     show_unready_pods "$(workload_selector)" || true

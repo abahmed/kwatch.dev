@@ -53,6 +53,7 @@ in the same cluster size and API-server conditions as the production workload.
 | --- | --- |
 | `/healthz` | Process liveness. A leader and a standby can both be live. |
 | `/readyz` | The active leader has restored required state and synchronized required sources. |
+| `/availabilityz` | Deployment availability for a leader or standby participating in Lease election. |
 | `/health` | Safe leadership, component, watcher, source, migration, and degradation state. |
 | `/metrics` | Prometheus metrics with bounded labels. |
 

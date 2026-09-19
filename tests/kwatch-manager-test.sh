@@ -65,6 +65,27 @@ rewrite_release_lease_name "$lease_fixture"
 grep -Fxq 'value: "payments-monitor-leader"' "$lease_fixture"
 RELEASE=kwatch
 
+(
+  NAMESPACE=kwatch
+  RELEASE=payments-monitor
+  ROLLOUT_TIMEOUT=1s
+  workload_selector() { printf '%s' 'app.kubernetes.io/instance=payments-monitor'; }
+  lease_name_for_deployment() { printf '%s' payments-monitor-leader; }
+  kubectl() {
+    case "$*" in
+      *'jsonpath={.spec.replicas}'*) printf '%s' 2 ;;
+      *'jsonpath={.status.updatedReplicas}'*) printf '%s' 2 ;;
+      *'jsonpath={.status.replicas}'*) printf '%s' 2 ;;
+      *'jsonpath={.status.availableReplicas}'*) printf '%s' 2 ;;
+      *'get pods -l'*) printf '%s\n' pod-a pod-b ;;
+      *'get lease'*'holderIdentity'*) printf '%s' pod-a ;;
+      *'get pod pod-a'*'status.conditions'*) printf '%s' True ;;
+      *) return 1 ;;
+    esac
+  }
+  wait_for_kwatch_rollout payments
+)
+
 curl() {
   local output=""
   while [ "$#" -gt 0 ]; do

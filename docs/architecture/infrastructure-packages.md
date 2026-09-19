@@ -159,12 +159,15 @@ and (when enabled) diagnostic endpoints.
 | `/test-alert` | POST | Send a test notification (diagnostics only) |
 | `/deadletters` | GET | Failed-delivery ring buffer (diagnostics only) |
 
-Diagnostic endpoints require `healthCheck.diagnostics: true` and a configured
-Bearer token in production (`diagnosticsToken`, constant-time compared).
-`healthCheck.pprof` adds `/debug/pprof/*` behind the same guard. `/metrics` is
-always served. Optional API absence remains degraded but does not fail
-readiness. Health owns only the HTTP listener; application supervision owns
-serving, cancellation, and shutdown.
+Incident, test-alert, and dead-letter endpoints require
+`healthCheck.diagnostics: true`. All protected diagnostic endpoints, including
+informer, persistence, security, kubelet, and control-plane status, require a
+configured Bearer token (`diagnosticsToken`, constant-time compared); an empty
+token never permits anonymous access. `healthCheck.pprof` adds
+`/debug/pprof/*` behind the same guard. `/metrics` is always served. Optional
+API absence remains degraded but does not fail readiness. Health owns only the
+HTTP listener; application supervision owns serving, cancellation, and
+shutdown.
 
 ---
 

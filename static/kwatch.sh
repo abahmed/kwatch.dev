@@ -1705,6 +1705,14 @@ manifest_resource_default() {
   ' "$manifest"
 }
 
+rewrite_release_lease_name() {
+  local manifest="$1"
+  sed -i.bak \
+    -e "s/^\( *value: \)\"kwatch-leader\"$/\1\"${RELEASE}-leader\"/" \
+    "$manifest"
+  rm -f "$manifest.bak"
+}
+
 # Put the operator's resources and placement into the release manifest before it
 # is applied. This is what makes them survive an upgrade: the manifest is fetched
 # fresh every run, so anything not written back here is silently reverted to the
@@ -5177,6 +5185,7 @@ apply_manifests() {
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
+  rewrite_release_lease_name "$tmp" || return 1
   ensure_config_volume_readable "$tmp"
   # Carry the operator's resources and placement into the new manifest. Without
   # this the upgrade silently reverts them: the manifest is downloaded fresh

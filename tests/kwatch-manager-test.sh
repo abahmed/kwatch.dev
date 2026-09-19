@@ -57,6 +57,14 @@ load_runtime_configmap_names_from_manifest "$manifest_fixture"
 }
 RUNTIME_CONFIGMAP_NAMES=()
 INSTALL_VERSION=v9.9.9
+
+lease_fixture="$CAPTURE_DIR/lease.yaml"
+printf '%s\n' 'value: "kwatch-leader"' >"$lease_fixture"
+RELEASE=payments-monitor
+rewrite_release_lease_name "$lease_fixture"
+grep -Fxq 'value: "payments-monitor-leader"' "$lease_fixture"
+RELEASE=kwatch
+
 curl() {
   local output=""
   while [ "$#" -gt 0 ]; do

@@ -9,6 +9,10 @@ sidebar_position: 2
 Kwatch uses a Kubernetes Lease as a single-writer lock. It is not an
 active-active controller and replicas do not form an application quorum.
 
+Election timing is fixed at a 30-second Lease duration, a 20-second renew
+deadline, and a 5-second retry period. The Lease name is installation-specific
+and namespaced; separate releases in the same namespace must not share it.
+
 ## Replica behavior
 
 | Replicas | Active leaders | Standbys | Limitation |
@@ -40,6 +44,11 @@ The replacement leader restores compatible state, reports the startup migration
 cycle, waits for required caches, and reconciles current objects. Incident
 identity, grouping, cooldown, and baseline state are restored when the persisted
 snapshot is available. Expired Kubernetes Events are not reconstructed.
+
+The replacement becomes monitoring-ready only after restore, required source
+configuration, required persistence writers, the incident engine, and configured
+delivery are active for its current leadership epoch. A failed required restore
+or writer keeps the Pod live but not ready and prevents unsafe active processing.
 
 During a rolling update, `/availabilityz` is used by the Kubernetes Deployment
 so elected standby Pods count as replaceable and the update can progress.

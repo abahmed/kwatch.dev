@@ -69,6 +69,13 @@ required cache, missing a required source, or recovering required persistence.
 An unavailable optional API is degraded in `/health` but does not by itself
 make an otherwise healthy leader unready.
 
+The application evaluates readiness through one leadership-epoch coordinator.
+For an active epoch, all of these required gates must be open: leader role,
+startup restore, required controller caches, required source configuration,
+required persistence writers, the incident engine, and configured delivery.
+A callback from an older epoch cannot reopen readiness after a takeover or
+shutdown.
+
 ## Leadership loss and recovery
 
 When a leader loses its Lease or a required component fails, it:
@@ -132,6 +139,18 @@ transport, retry classification, fallbacks by stable name, and a dead-letter
 ring. A provider outage should increase retry and terminal-failure metrics and
 may populate dead letters; it should not make the process appear dead. Queue
 saturation drops the arriving job and records the bounded failure signal.
+
+During reconfiguration, a generation moves from `accepting` to `draining` and
+then to `stopped` or `failed`. The replacement is not published until the old
+generation has stopped. A successful drain is a normal reconfiguration event;
+a failed or timed-out drain makes required delivery unavailable and stops active
+processing rather than allowing two ambiguous worker generations to run.
+
+Payload limits are explicit per-provider policy. Known protocol limits use
+deterministic truncation that preserves the headline, reason, resource identity,
+and newest evidence. Providers whose final renderer owns its limit are marked
+`provider_owned` instead of receiving an arbitrary universal limit. Complete
+payloads and secrets are never written to logs or diagnostics.
 
 Inspect provider status, retry counts, queue saturation, dead letters, and
 provider-specific rate limits before changing retry settings. Do not place

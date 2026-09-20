@@ -208,6 +208,13 @@ reconfiguration cannot silently change its fallback route. New generations
 are published atomically and old generations drain or cancel before their
 channels are reclaimed.
 
+Generation state is explicit: `accepting`, `draining`, `stopped`, or `failed`.
+Reconfiguration constructs and validates the complete replacement first, then
+stops accepting jobs for the old generation and waits for its completion. A
+successful replacement is reported separately from manager shutdown. If the
+old generation cannot drain before its deadline, delivery reports a required
+failure and does not publish a replacement while old workers are still alive.
+
 ### Delivery architecture
 
 ```
@@ -272,6 +279,12 @@ Each provider can have `routes` filtering on `namespaces`, `severities`, and
 `reasons` (config `AlertRoute`). If no route matches, that provider is skipped
 for the incident — evaluated before message building so filtered incidents
 never pay for rendering.
+
+Message-size policy is explicit per provider. Protocol-bounded providers
+truncate deterministically while preserving the headline, reason, resource
+identity, and newest evidence. Providers whose renderer owns the final limit
+are marked `provider_owned`; delivery does not impose an arbitrary universal
+limit on them.
 
 ### Retry classification
 

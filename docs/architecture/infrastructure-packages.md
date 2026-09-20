@@ -153,7 +153,8 @@ and (when enabled) diagnostic endpoints.
 |------|--------|-------------|
 | `/healthz` | GET | Liveness probe (always 200) |
 | `/health` | GET | Leadership, component, and bounded degradation status |
-| `/readyz` | GET | Ready after required restore, sources, and cache sync |
+| `/readyz` | GET | Ready only for an active leader with restore, required sources/caches, persistence writers, incident processing, and configured delivery ready |
+| `/availabilityz` | GET | Deployment availability for an elected leader or standby |
 | `/metrics` | GET | Prometheus metrics (text format) |
 | `/incidents` | GET | Active incidents as JSON (diagnostics only) |
 | `/test-alert` | POST | Send a test notification (diagnostics only) |

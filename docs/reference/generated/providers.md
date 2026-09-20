@@ -151,7 +151,7 @@ generated: true
 
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
-| `url` | string | false | false | `https://goalert.example.com` | GoAlert URL (default: https://goalert.example.com) |
+| `url` | string | true | false | `` | GoAlert server URL |
 | `token` | string | true | true | `` | API token |
 | `serviceId` | string | true | false | `` | Service ID |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
@@ -393,7 +393,9 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `token` | string | true | true | `` | Application token |
 | `user` | string | true | true | `` | User or group key |
-| `priority` | integer | false | false | `` | Priority (optional) |
+| `priority` | integer | false | false | `` | Priority from -2 to 2 (optional) |
+| `retry` | integer | false | false | `` | Emergency retry interval in seconds |
+| `expire` | integer | false | false | `` | Emergency expiration in seconds |
 | `title` | string | false | false | `` | Custom title |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |

@@ -49,15 +49,19 @@ components live in `src/`.
 
 ## 🧪 Verify before opening a pull request
 
-Run the type checker and production build:
+Run the reference, type, production-build, and SEO checks:
 
 ```bash
+yarn docs:verify
 yarn typecheck
 yarn build
+yarn seo:verify
 ```
 
 The build creates static files in `build/`. Do not commit that generated
-directory.
+directory. `yarn docs:verify` reads the catalogs from a sibling checkout of
+the Kwatch code repository and refreshes generated reference pages; set
+`KWATCH_SOURCE` when that checkout is elsewhere.
 
 ## ✍️ Add a documentation page
 
@@ -66,7 +70,8 @@ directory.
 3. Start with the task the reader wants to complete.
 4. Use a copy-pasteable example and explain required values.
 5. Add the page to `sidebars.ts` when it belongs in the public navigation.
-6. Run `yarn typecheck` and `yarn build`.
+6. Run `yarn docs:verify`, `yarn typecheck`, `yarn build`, and
+   `yarn seo:verify`.
 
 Use short sections, simple English, and emojis when they clarify the topic.
 Do not put real tokens, passwords, or webhook URLs in examples.

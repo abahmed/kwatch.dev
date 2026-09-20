@@ -14,8 +14,10 @@ JSON by hand unless following an incident recovery procedure.
 
 The startup migration report covers startup metadata, schema state, baseline,
 incidents, groups, engine, provider threads, PVC state, RCA state, telemetry,
-feedback, and change history. Missing optional state may degrade; missing or
-corrupt required state prevents unsafe active startup.
+feedback, and change history. Each entry identifies an operation such as
+`restore`, `migrate`, `recover`, `write`, or `initialize`, alongside its source
+and destination format. Missing optional state may degrade; missing or corrupt
+required state prevents unsafe active startup.
 
 ## Backup before an upgrade
 
@@ -42,10 +44,11 @@ leader has been ready and delivered a controlled test notification.
 - Malformed metadata or corrupt payload: preserve the data and block unsafe
   overwrite.
 
-Each startup produces one detached report with source format, destination
-format, status, recoverability, continuation safety, and a bounded operator
-reason. Inspect protected diagnostics and structured logs; raw payloads and
-secrets are not exposed.
+Each startup produces one detached report with the store, operation, source
+format, destination format, status, recoverability, continuation safety, and a
+bounded operator reason. Statuses are `completed`, `failed`, `unsupported`, or
+`not_required`. Inspect protected diagnostics and structured logs; raw payloads
+and secrets are not exposed.
 
 ## Recovery procedure
 

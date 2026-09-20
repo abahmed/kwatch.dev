@@ -44,12 +44,18 @@ yarn docs:verify
 yarn test:manager
 yarn typecheck
 yarn build
+yarn seo:verify
 bash -n static/kwatch.sh tests/*.sh
 ```
 
 `yarn docs:verify` reads the catalogs from a checkout of the Kwatch repository
 and refreshes the generated configuration, provider, and feature references.
 Do not commit the generated `build/` directory.
+
+`yarn seo:verify` checks the production build for non-empty page titles and
+descriptions, canonical URLs, sitemap coverage, and the production robots
+directive. It intentionally excludes 404 pages and thin blog taxonomy pages
+from indexing.
 
 ## 📦 Release updates
 

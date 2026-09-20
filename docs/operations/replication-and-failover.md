@@ -22,7 +22,9 @@ and namespaced; separate releases in the same namespace must not share it.
 
 The leader owns informer watches and queues, monitor workers, incident
 processing, provider delivery, and mutable persistence. A standby runs health
-serving and Lease election only. Scale-up does not interrupt the leader.
+serving and Lease election only: it does not restore mutable monitoring state,
+start informers, send notifications, or write persistence before acquiring the
+Lease. Scale-up does not interrupt the leader.
 Scale-down is safe when a standby is removed; removing the leader causes a
 remaining standby to acquire the Lease after the normal election delay.
 

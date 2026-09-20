@@ -39,9 +39,14 @@ Edit the docs or site, then run:
 ```bash
 yarn typecheck
 yarn build
+yarn docs:verify
+yarn seo:verify
 ```
 
-Read the page once as a new user. Check that commands are complete, examples use fake credentials, and links work.
+Read the page once as a new user. Check that commands are complete, examples
+use fake credentials, and links work. If the change affects generated
+configuration, providers, or feature references, confirm that `yarn docs:verify`
+was run against the matching Kwatch checkout.
 
 ## 4. 📤 Push and open a pull request
 

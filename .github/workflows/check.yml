@@ -60,3 +60,6 @@ jobs:
 
       - name: Build website
         run: yarn build
+
+      - name: Verify SEO metadata and sitemap coverage
+        run: yarn seo:verify

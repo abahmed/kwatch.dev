@@ -9,6 +9,7 @@
     "test:manager": "bash tests/kwatch-kubectl-wrapper-test.sh && bash tests/kwatch-manager-test.sh && bash tests/kwatch-provider-flow-test.sh",
     "docs:generate": "node scripts/generate-kwatch-reference.mjs --source ../kwatch/deploy",
     "docs:verify": "node scripts/verify-kwatch-reference.mjs",
+    "seo:verify": "node scripts/verify-seo.mjs",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",

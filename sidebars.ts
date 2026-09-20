@@ -112,6 +112,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'release/documentation-versioning',
         'release-integrity',
+        'vulnerability-exceptions',
         'licensing',
         'third-party-notices',
         'trademarks',

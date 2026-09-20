@@ -57,15 +57,29 @@ export default function Root({children}: {children: ReactNode}) {
   const isThinBlogRoute =
     pathname === '/blog/archive' ||
     pathname === '/blog/authors' ||
+    pathname === '/blog/tags' ||
     pathname.startsWith('/blog/tags/');
-  const isNoIndexRoute = isThinBlogRoute || pathname === '/404.html';
+  const isNoIndexRoute =
+    isThinBlogRoute || pathname === '/404' || pathname === '/404.html';
+  const canonicalPath =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname || '/';
+  const canonicalURL = `https://kwatch.dev${canonicalPath}`;
 
   return (
     <>
       <Head>
-        {isNoIndexRoute && (
-          <meta name="robots" content="noindex, follow" />
-        )}
+        <link rel="canonical" href={canonicalURL} />
+        <meta property="og:url" content={canonicalURL} />
+        <meta
+          name="robots"
+          content={
+            isNoIndexRoute
+              ? 'noindex, follow'
+              : 'index, follow, max-image-preview:large'
+          }
+        />
         {pathname === '/' && (
           <script type="application/ld+json">
             {JSON.stringify(structuredData)}

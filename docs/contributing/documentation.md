@@ -48,3 +48,16 @@ Generated pages must identify their source and must not be edited manually.
 - Are links valid?
 - Does the page belong in the correct documentation category?
 - Is an existing page duplicated instead of linked?
+
+## Search indexing
+
+Every substantive public page should have a useful `title` and `description`
+in its front matter. Docusaurus generates the sitemap from those routes, while
+the shared theme adds a canonical URL and Open Graph URL. Do not add `noindex`
+to documentation or provider pages. The only intentional exclusions are the
+404 page and thin blog archive, author, tag, and chart-index pages.
+
+Run `yarn build && yarn seo:verify` before opening a documentation pull request.
+The sitemap makes pages discoverable, but Google controls crawling and indexing;
+maintainers must submit `https://kwatch.dev/sitemap.xml` in Google Search
+Console and investigate crawl or canonical errors there.

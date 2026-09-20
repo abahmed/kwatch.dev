@@ -227,6 +227,13 @@ site, pushes the metadata commit, and sends one Render deploy hook. RC releases 
 Helm chart job but still update the preview version on the site. Docusaurus serves the
 generated files under `static/charts` at `https://kwatch.dev/charts`.
 
+The release evidence job also creates CycloneDX SBOMs for the source tree and
+published image digest, creates a signed checksum manifest with Cosign, and
+publishes a release manifest linking the tag, source commit, image digest,
+checksums, SBOMs, and (for stable releases) Helm artifact. The final verification
+job checks image provenance, the signed checksum manifest, SBOM format, image
+vulnerability results, source mapping, and public chart availability.
+
 Two repository secrets are required in `abahmed/kwatch`:
 
 - `RELEASE_TOKEN`: a token with permission to push the protected `main` branch, create

@@ -93,7 +93,8 @@ When a leader loses its Lease or a required component fails, it:
 The new leader loads the latest compatible state, produces one startup migration
 report, restores incidents, groups, baseline, engine, threads, PVC, and other
 supported state, then waits for required cache synchronization before active
-processing. It reconciles current objects and reports the monitoring gap from
+processing. Standbys do not perform this restore or reconciliation work. It
+reconciles current objects and reports the monitoring gap from
 the last persisted liveness stamp. Kubernetes Events that expired during the
 gap cannot be reconstructed and are reported as unknown history rather than
 invented evidence.

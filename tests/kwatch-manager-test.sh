@@ -73,11 +73,7 @@ RELEASE=kwatch
   lease_name_for_deployment() { printf '%s' payments-monitor-leader; }
   kubectl() {
     case "$*" in
-      *'jsonpath={.spec.replicas}'*) printf '%s' 2 ;;
-      *'jsonpath={.status.updatedReplicas}'*) printf '%s' 2 ;;
-      *'jsonpath={.status.replicas}'*) printf '%s' 2 ;;
-      *'jsonpath={.status.availableReplicas}'*) printf '%s' 2 ;;
-      *'get pods -l'*) printf '%s\n' pod-a pod-b ;;
+      *'rollout status'*) return 0 ;;
       *'get lease'*'holderIdentity'*) printf '%s' pod-a ;;
       *'get pod pod-a'*'status.conditions'*) printf '%s' True ;;
       *) return 1 ;;

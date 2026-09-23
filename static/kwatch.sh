@@ -3906,13 +3906,13 @@ rollout_timeout_seconds() {
   esac
 }
 
-# Kwatch deliberately keeps standby Pods out of /readyz, so the installer waits
-# for the Deployment rollout and for its Lease holder to be ready instead.
+# A Pod being Running and 1/1 only describes that Pod. Wait for Kubernetes to
+# finish the current Deployment revision, then separately confirm that Kwatch
+# has elected a ready leader.
 wait_for_kwatch_rollout() {
   local deployment="$1" deadline timeout_seconds
   local lease holder holder_ready
   timeout_seconds=$(rollout_timeout_seconds)
-  deadline=$((SECONDS + timeout_seconds))
   lease=$(lease_name_for_deployment "$deployment")
 
   if ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
@@ -3925,6 +3925,9 @@ wait_for_kwatch_rollout() {
     return 1
   fi
 
+  # Leader election starts after the new Pods are available. Give it a fresh,
+  # bounded window instead of reusing time consumed by the Deployment rollout.
+  deadline=$((SECONDS + timeout_seconds))
   while (( SECONDS < deadline )); do
     holder=$(kubectl -n "$NAMESPACE" get lease "$lease" \
       -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)

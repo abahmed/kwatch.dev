@@ -3906,28 +3906,29 @@ rollout_timeout_seconds() {
   esac
 }
 
-# Deployment rollout status counts every Pod that passes the readiness probe.
-# Kwatch deliberately keeps standby Pods out of /readyz, so the installer waits
-# for the Deployment to update and for its Lease holder to be ready instead.
+# A Pod being Running and 1/1 only describes that Pod. Wait for Kubernetes to
+# finish the current Deployment revision, then separately confirm that Kwatch
+# has elected a ready leader.
 wait_for_kwatch_rollout() {
-  local deployment="$1" deadline desired updated current available running
-  local lease holder holder_ready selector
-  deadline=$((SECONDS + $(rollout_timeout_seconds)))
-  selector=$(workload_selector || true)
-  [ -n "$selector" ] || selector="app.kubernetes.io/instance=$RELEASE"
+  local deployment="$1" deadline timeout_seconds
+  local lease holder holder_ready
+  timeout_seconds=$(rollout_timeout_seconds)
   lease=$(lease_name_for_deployment "$deployment")
+
+  if ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout="${timeout_seconds}s" >/dev/null; then
+    LAST_COMMAND_ERROR="Deployment rollout did not complete within ${timeout_seconds}s."
+    ui_error "❌ Kwatch Deployment rollout did not complete."
+    kubectl -n "$NAMESPACE" get deployment "$deployment" -o yaml >&2 || true
+    kubectl -n "$NAMESPACE" get pods -l "$(workload_selector)" -o wide >&2 || true
+    kubectl -n "$NAMESPACE" get lease "$lease" -o yaml >&2 || true
+    return 1
+  fi
+
+  # Leader election starts after the new Pods are available. Give it a fresh,
+  # bounded window instead of reusing time consumed by the Deployment rollout.
+  deadline=$((SECONDS + timeout_seconds))
   while (( SECONDS < deadline )); do
-    desired=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-      -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
-    updated=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-      -o jsonpath='{.status.updatedReplicas}' 2>/dev/null || true)
-    current=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-      -o jsonpath='{.status.replicas}' 2>/dev/null || true)
-    available=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-      -o jsonpath='{.status.availableReplicas}' 2>/dev/null || true)
-    running=$(kubectl -n "$NAMESPACE" get pods -l "$selector" \
-      --field-selector=status.phase=Running --no-headers 2>/dev/null |
-      wc -l | tr -d ' ')
     holder=$(kubectl -n "$NAMESPACE" get lease "$lease" \
       -o jsonpath='{.spec.holderIdentity}' 2>/dev/null || true)
     holder_ready=""
@@ -3936,17 +3937,15 @@ wait_for_kwatch_rollout() {
         -o 'jsonpath={range .status.conditions[?(@.type=="Ready")]}{.status}{end}' \
         2>/dev/null || true)
     fi
-    if [[ "$desired" =~ ^[1-9][0-9]*$ && "$updated" == "$desired" &&
-      "$current" == "$desired" && "$available" == "$desired" &&
-      "$running" == "$desired" && -n "$holder" &&
-      "$holder_ready" == True ]]; then
+    if [ -n "$holder" ] && [ "$holder_ready" = True ]; then
       return 0
     fi
     sleep 2
   done
+  LAST_COMMAND_ERROR="Deployment rolled out, but its Lease holder is not ready."
   ui_error "❌ Kwatch did not complete its leader-aware rollout."
   kubectl -n "$NAMESPACE" get deployment "$deployment" -o yaml >&2 || true
-  kubectl -n "$NAMESPACE" get pods -l "$selector" -o wide >&2 || true
+  kubectl -n "$NAMESPACE" get pods -l "$(workload_selector)" -o wide >&2 || true
   kubectl -n "$NAMESPACE" get lease "$lease" -o yaml >&2 || true
   return 1
 }

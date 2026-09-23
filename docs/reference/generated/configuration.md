@@ -25,6 +25,7 @@ generated: true
 | `containerRestartThreshold` | integer | `0` | active | Alert when a container reaches this cumulative restart count; zero disables it. |
 | `includeEvents` | boolean | `true` | active | Include recent Kubernetes events in incident messages. |
 | `includeLogs` | boolean | `true` | active | Include recent container logs in incident messages. |
+| `message.includePrivateLogAddresses` | boolean | `false` | active | Keep private application addresses visible in evidence; credentials remain redacted. |
 | `severityByOwnerKind` | json | `{}` | active | JSON map overriding severity by workload owner kind. |
 | `severityByReason` | json | `{}` | active | JSON map overriding severity by detected reason. |
 

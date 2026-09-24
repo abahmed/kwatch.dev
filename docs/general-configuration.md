@@ -32,8 +32,8 @@ alert channel; the defaults already cover the common Kubernetes failures.
 4. Use `kwatch lint --check` or `/test-alert` after changing a provider.
 
 Every default below is the value used by the binary unless the installation
-method says otherwise. TLS, heartbeat, Metrics Server, and active probes are
-opt-in.
+method says otherwise. TLS, heartbeat, and active probes are opt-in. Metrics
+API evidence is inspected automatically when the optional API is present.
 
 The base config is read from `CONFIG_FILE` (default `/config/config.yaml`).
 The interactive manager mounts it from a Kubernetes Secret and can also enable
@@ -70,7 +70,7 @@ Decide **what** to watch and **how often**.
 | `namespaces` | `[]string` | all | Watch only these namespaces — or use `!kube-system` to watch *everything except* it. |
 | `namespaceSelector` | `string` | `""` | Kubernetes label selector to discover namespaces. Use *instead of* `namespaces`, not with it. |
 | `reasons` | `[]string` | all | Alert on these event reasons only — or exclude with `!` (e.g. `reasons: ["!Started"]`). |
-| `includeEvents` | `bool` | `true` | Include Kubernetes events in alert messages (at most the 40 most recent). |
+| `includeEvents` | `bool` | empty | Deprecated compatibility field; Kwatch analyzes Kubernetes events internally. |
 | `includeLogs` | `bool` | `true` | Include container logs in alert messages. |
 | `runbooks` | `map[string]string` | `{}` | Add a link to your runbook for each error reason, so every alert comes with help attached. |
 
@@ -215,8 +215,9 @@ silences:
 ```
 
 `eventMessages` uses a case-sensitive substring match against Events attached
-to the affected Pod. It suppresses the whole incident; `includeEvents` only
-controls whether those Events are shown in the notification.
+to the affected Pod. It suppresses the whole incident. Kwatch analyzes Events
+internally; notification content is controlled by the provider template and
+the other rendering options.
 
 > **Deprecated top-level fields** (`ignoreContainerNames`, `ignorePodNames`,
 > `ignoreLogPatterns`, `ignoreContainerMessages`, `ignoreNodeReasons`,
@@ -528,22 +529,17 @@ stops, the external monitor stops getting pings and pages you.
 | `nodeResourceMonitor.inodeWarningPercent` | `float` | `90` | Node inode usage warning threshold. `0` disables it. |
 | `nodeResourceMonitor.inodeCriticalPercent` | `float` | `95` | Node inode usage critical threshold. `0` disables it. |
 
-### 📊 Optional Metrics Server monitor
+### 📈 Metrics API evidence
 
-`runtimeMetricsMonitor` reads the optional `metrics.k8s.io` API. It is disabled
-by default and is not required for kwatch's built-in kubelet telemetry.
+Kwatch automatically checks the optional Kubernetes Metrics API when diagnosing
+HPA and metrics-related failures. It inspects the
+`v1beta1.metrics.k8s.io` APIService and its backing Service EndpointSlices to
+distinguish an unregistered API, an unavailable service, and an API that is
+currently healthy.
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `runtimeMetricsMonitor.enabled` | `bool` | `false` | Use Metrics Server data for workload usage diagnostics. |
-| `runtimeMetricsMonitor.intervalSeconds` | `int` | `60` | Seconds between checks. |
-| `runtimeMetricsMonitor.memoryWarningPercent` | `int` | `90` | Memory usage warning percentage. |
-| `runtimeMetricsMonitor.memoryCriticalPercent` | `int` | `100` | Memory usage critical percentage. |
-| `runtimeMetricsMonitor.cpuWarningPercent` | `int` | `90` | CPU usage warning percentage. |
-| `runtimeMetricsMonitor.cpuCriticalPercent` | `int` | `100` | CPU usage critical percentage. |
-
-The shipped RBAC does not grant the extra `metrics.k8s.io` permission by
-default. Add it only when this monitor is enabled.
+There is no `runtimeMetricsMonitor` configuration. If the Metrics API is
+missing or unavailable, Kwatch records that as bounded diagnostic evidence; it
+does not create a synthetic incident.
 
 ### 🏛️ Cluster resource monitor
 

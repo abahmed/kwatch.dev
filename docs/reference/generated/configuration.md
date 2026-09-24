@@ -23,11 +23,11 @@ generated: true
 | --- | --- | --- | --- | --- |
 | `maxRecentLogLines` | integer | `50` | active | Maximum recent log lines attached to an incident. |
 | `containerRestartThreshold` | integer | `0` | active | Alert when a container reaches this cumulative restart count; zero disables it. |
+| `includeEvents` | boolean | `true` | active | Include recent Kubernetes events in incident messages. |
 | `includeLogs` | boolean | `true` | active | Include recent container logs in incident messages. |
 | `message.includePrivateLogAddresses` | boolean | `false` | active | Keep private application addresses visible in evidence; credentials remain redacted. |
 | `severityByOwnerKind` | json | `{}` | active | JSON map overriding severity by workload owner kind. |
 | `severityByReason` | json | `{}` | active | JSON map overriding severity by detected reason. |
-| `includeEvents` | boolean | `empty` | deprecated | Deprecated compatibility field; Kwatch analyzes events internally. |
 
 ## Scope
 
@@ -113,6 +113,12 @@ generated: true
 | `nodeResourceMonitor.filesystemCriticalPercent` | float | `95` | active | Node filesystem usage critical threshold. |
 | `nodeResourceMonitor.inodeWarningPercent` | float | `90` | active | Node inode usage warning threshold. |
 | `nodeResourceMonitor.inodeCriticalPercent` | float | `95` | active | Node inode usage critical threshold. |
+| `runtimeMetricsMonitor.enabled` | boolean | `false` | active | Use metrics.k8s.io when available for workload usage diagnostics. |
+| `runtimeMetricsMonitor.intervalSeconds` | integer | `60` | active | Seconds between runtime metrics checks. |
+| `runtimeMetricsMonitor.memoryWarningPercent` | integer | `90` | active | Memory usage warning percentage when metrics.k8s.io is available. |
+| `runtimeMetricsMonitor.memoryCriticalPercent` | integer | `95` | active | Memory usage critical percentage when metrics.k8s.io is available. |
+| `runtimeMetricsMonitor.cpuWarningPercent` | integer | `90` | active | CPU usage warning percentage when metrics.k8s.io is available. |
+| `runtimeMetricsMonitor.cpuCriticalPercent` | integer | `100` | active | CPU usage critical percentage when metrics.k8s.io is available. |
 | `clusterAutoscalerMonitor.enabled` | boolean | `true` | active | Watch built-in cluster-autoscaler evidence from Kubernetes resources and events. |
 | `tlsMonitor.threshold` | integer | `30` | active | Days before certificate expiry to warn. |
 | `tlsMonitor.criticalThreshold` | integer | `3` | active | Days before certificate expiry for a high-severity alert. |

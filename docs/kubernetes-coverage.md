@@ -132,6 +132,11 @@ kept as external network targets. Generic CRD references can be configured as
 `crd.graphReferences` paths such as `spec.backendRefs.name=service`; arrays are
 traversed automatically.
 
+Service alerts distinguish a complete outage from reduced capacity. The
+Service monitor counts selected Pods and ready EndpointSlice backends. When
+unready backends share a Node that Kubernetes reports as not ready, the
+notification names it as a likely cause and includes the observed counts.
+
 ## Noise and recovery controls
 
 The detection path supports startup baselines, persisted incidents, stable

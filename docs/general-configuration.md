@@ -476,7 +476,7 @@ stops, the external monitor stops getting pings and pages you.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `serviceMonitor.enabled` | `bool` | `true` | Detect Services with zero ready endpoints (60s debounce). |
+| `serviceMonitor.enabled` | `bool` | `true` | Detect Services with zero ready endpoints after 60s, or sustained partial backend loss after 5 minutes. |
 
 ### 🧩 Admission Webhook Monitor
 

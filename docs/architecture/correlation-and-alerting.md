@@ -303,10 +303,11 @@ The single shared classification (in `delivery/transport` and `internal/event`):
 
 `dlqRing` is a ring buffer of the last 100 failed deliveries, readable over
 the health endpoint `/deadletters` (requires `healthCheck.diagnostics: true`).
-When a provider's channel is saturated during a storm, kwatch drops the
-*arriving* job — keeping the earlier, root-cause notifications that are
-already queued — and records it as a dead-letter with
-`notifications_dropped`.
+When a provider's channel is saturated, kwatch replaces queued updates for
+the same incident with the latest state. Create and recovery notifications
+can replace an unrelated queued update. If no update can be replaced, the
+arriving job is recorded as a dead letter with `notifications_dropped`, and
+the provider receives an overflow digest. Route filters run before queueing.
 
 ---
 

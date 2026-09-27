@@ -1,14 +1,23 @@
 ---
 title: iLert alerts
-description: Configure iLert alerts with kwatch using the current provider catalog.
+description: Configure iLert Kubernetes alerts with kwatch. Required settings include Integration key; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, iLert, notification channel]
 ---
 
 # iLert alerts
 
-Use **iLert** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **iLert**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `integrationKey` — Integration key.
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

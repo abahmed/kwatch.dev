@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: General Configuration
-description: configure kwatch Kubernetes monitoring, alert routing, silences, correlation, monitors, CRD overlays, and Secret-backed credentials
+description: Configure kwatch monitors, alert routing, silences, grouping, and Secret-backed credentials for Kubernetes incident response.
 keywords: [kwatch configuration, Kubernetes monitoring configuration, Kubernetes alerts, silences, alert routing, CRD, monitors, secrets]
 pagination_next: null
 pagination_prev: null
@@ -35,20 +35,18 @@ Every default below is the value used by the binary unless the installation
 method says otherwise. TLS, heartbeat, Metrics Server, and active probes are
 opt-in.
 
-The base config is read from `CONFIG_FILE` (default `/config/config.yaml`).
-The interactive manager mounts it from a Kubernetes Secret and can also enable
-a `KwatchConfig` resource as a versioned configuration overlay. If you maintain
-a custom deployment, preserve the same file and Secret contract. Every field
+The interactive manager stores configuration and credentials in Kubernetes
+Secrets and applies changes to the managed workload. It can also enable a
+`KwatchConfig` resource as a versioned configuration overlay. Every field
 below maps directly to the Go struct at
 [`internal/config/config.go`](https://github.com/abahmed/kwatch/blob/main/internal/config/config.go).
 Sensitive strings must use an exact `${file:/absolute/path}` reference to read
 a file mounted from a Kubernetes Secret at startup.
 
 > **The good news: you probably don't need this page.** Every option below has a safe
-> default and works out of the box. Use this reference when you want to *change* something —
-> fewer alerts, a different channel, a custom message — or when a term in an alert confuses
-> you. After editing your `config.yaml`, run `kwatch lint` (add `--check` to also verify
-> credentials for providers that support checks).
+> default and works out of the box. Use this reference when you want to
+> change something: fewer alerts, a different channel, or a custom message.
+> Apply changes through the manager and run `kwatch lint` before updating.
 
 ---
 
@@ -84,8 +82,8 @@ namespaces:
 
 # Or exclude some (can't mix both)
 namespaces:
-  - !kube-system
-  - !monitoring
+  - "!kube-system"
+  - "!monitoring"
 
 # Filter by event reason
 reasons:
@@ -94,8 +92,8 @@ reasons:
 
 # Or exclude reasons
 reasons:
-  - !Started
-  - !Killing
+  - "!Started"
+  - "!Killing"
 ```
 
 ---
@@ -145,7 +143,7 @@ app:
 ```yaml
 healthCheck:
   port: 8060
-  diagnostics: true
+  diagnostics: false
 ```
 
 ---
@@ -627,8 +625,9 @@ activeProbeMonitor:
 ## 🔐 Secret-backed credentials are required
 
 Provider credentials, diagnostic tokens, and heartbeat URLs must be files
-mounted from a Kubernetes Secret. Plain values and `${ENV_VAR}` substitutions
-are rejected for sensitive fields:
+mounted from a Kubernetes Secret. The interactive manager creates and
+mounts those files. Plain values and `${ENV_VAR}` substitutions are
+rejected for sensitive fields:
 
 ```yaml
 # config.yaml
@@ -637,14 +636,9 @@ alert:
     webhook: "${file:/config/slack-webhook}"
 ```
 
-```bash
-kubectl -n kwatch create secret generic kwatch-config \
-  --from-file=config.yaml \
-  --from-file=slack-webhook
-```
-
-Mount `kwatch-config` at `/config`, or set the Helm `configSecretName` value to
-`kwatch-config`. `${VAR}` remains available for non-sensitive strings only.
+This is a configuration reference, not a manual Secret creation step. Run
+[the manager](/docs/installation) to add or change a provider.
+`${VAR}` remains available for non-sensitive strings only.
 
 The shipped workloads use a non-root user, read-only root filesystem, dropped
 Linux capabilities, disabled privilege escalation, and the `RuntimeDefault`
@@ -721,53 +715,22 @@ cannot hold up other alerts.
 
 ---
 
-## 📋 Example — full config
+## 📋 Example — configuration fragment
 
 ```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  slack-webhook: "replace-me"
-  pagerduty-integration-key: "replace-me"
-  config.yaml: |
-    maxRecentLogLines: 50
-    ignoreFailedGracefulShutdown: true
-    workers: 2
+app:
+  clusterName: prod-us-east
 
-    app:
-      clusterName: prod-us-east
+silences:
+  - namespaces: ["kube-system"]
 
-    correlation:
-      window: 10
-      resolveHoldDown: 300
-      escalation:
-        enabled: true
-        tiers: [3, 10]
+pendingPodMonitor:
+  enabled: true
+  threshold: 300
 
-    smartGrouping:
-      windowSeconds: 60
-      namespaceFanOutThreshold: 3
-
-    silences:
-      - namespaces: ["kube-system"]
-
-    nodeMonitor:
-      enabled: true
-
-    pendingPodMonitor:
-      enabled: true
-      threshold: 300
-
-    healthCheck:
-      enabled: true
-      port: 8060
-
-    alert:
-      slack:
-        webhook: "${file:/config/slack-webhook}"
-      pagerduty:
-        integrationKey: "${file:/config/pagerduty-integration-key}"
+alert:
+  slack:
+    webhook: "${file:/config/slack-webhook}"
 ```
+
+Use the manager to enter the Slack credential and apply these settings.

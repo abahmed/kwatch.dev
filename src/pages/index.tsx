@@ -1,125 +1,101 @@
-import type { ReactElement } from 'react';
+import type {ReactElement} from 'react';
+import Link from '@docusaurus/Link';
 import Layout from '@theme/Layout';
-import Header from "@site/src/theme/Header";
-import Installation from "@site/src/theme/Installation";
-import Features from "@site/src/theme/Features";
+import Header from '@site/src/theme/Header';
+import Installation from '@site/src/theme/Installation';
+import Features from '@site/src/theme/Features';
 
 import styles from './index.module.css';
-import ChannelIcon from '@site/src/theme/ChannelIcon';
+
+const paths = [
+  {
+    label: '01 / Start here',
+    title: 'Understand kwatch',
+    description: 'A quick tour of incidents and monitoring coverage.',
+    href: '/docs',
+  },
+  {
+    label: '02 / Set up',
+    title: 'Install kwatch',
+    description: 'One guided command, followed by a verified deployment.',
+    href: '/docs/installation',
+  },
+  {
+    label: '03 / Connect',
+    title: 'Choose a channel',
+    description: 'Send incidents to chat, on-call, email, or a webhook.',
+    href: '/docs/channels',
+  },
+  {
+    label: '04 / Operate',
+    title: 'Troubleshoot alerts',
+    description: 'Trace a missing alert from detection to delivery.',
+    href: '/docs/operations/troubleshooting',
+  },
+];
+
+const channels = [
+  {name: 'Slack', href: '/docs/channels/slack'},
+  {name: 'Discord', href: '/docs/channels/discord'},
+  {name: 'Microsoft Teams', href: '/docs/channels/ms-teams'},
+  {name: 'PagerDuty', href: '/docs/channels/pagerduty'},
+  {name: 'Email', href: '/docs/channels/email'},
+  {name: 'Webhook', href: '/docs/channels/webhook'},
+];
 
 export default function Home(): ReactElement {
   return (
     <Layout
-      title="Kubernetes incident monitoring and alerting"
-      description="See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.">
-      <Header />
-      <main className={styles.main}>
-        <Installation />
-        <section className={styles.signalStrip} aria-label="kwatch at a glance">
+      title="Kubernetes incidents, explained"
+      description="See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting."
+    >
+      <main>
+        <Header />
+        <nav className={styles.pathSection} aria-label="Explore kwatch">
           <div className="container">
-            <div className={styles.signalGrid}>
-              <div className={styles.signalItem}>
-                <span className={styles.signalValue}>🏠</span>
-                <span>
-                  <strong>Runs in your cluster</strong>
-                  <small>No hosted backend or metrics database</small>
-                </span>
-              </div>
-              <div className={styles.signalItem}>
-                <span className={styles.signalValue}>⚡</span>
-                <span>
-                  <strong>One guided command</strong>
-                  <small>Install, configure, upgrade, and recover</small>
-                </span>
-              </div>
-              <div className={styles.signalItem}>
-                <span className={styles.signalValue}>📣</span>
-                <span>
-                  <strong>56 notification providers</strong>
-                  <small>Send one clear incident to every team</small>
-                </span>
-              </div>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>Explore kwatch</p>
+              <h2>Pick up where you are.</h2>
+              <p>From first look to production response, find the right guide.</p>
+            </div>
+            <div className={styles.pathGrid}>
+              {paths.map((path) => (
+                <Link className={styles.pathCard} key={path.title} to={path.href}>
+                  <span className={styles.pathLabel}>{path.label}</span>
+                  <strong>{path.title} <span aria-hidden="true">→</span></strong>
+                  <span className={styles.pathDescription}>
+                    {path.description}
+                  </span>
+                </Link>
+              ))}
             </div>
           </div>
-        </section>
+        </nav>
+
         <Features />
-        <section className={styles.notPlatform}>
+
+        <Installation />
+
+        <section className={styles.channelsSection}>
           <div className="container">
-            <div className="row">
-              <div className="col col--8 col--offset-2">
-                <h2 className={styles.notPlatformTitle}>🧭 An alert, not a dashboard</h2>
+            <div className={styles.channelLayout}>
+              <div className={styles.sectionHeading}>
+                <p className={styles.eyebrow}>Notifications</p>
+                <h2>Send alerts where your team works.</h2>
                 <p>
-                  kwatch does one job really well: it tells you when something
-                  breaks and explains what to do next. It does not collect
-                  metrics, store logs, or build dashboards.
+                  Connect a familiar destination first. Choose from 56
+                  integrations when your team needs more routes.
                 </p>
-                <p>
-                  Already use Prometheus, Grafana, or Loki? Keep them. kwatch
-                  works alongside them as the <strong>alarm</strong> that tells
-                  you something needs attention <strong>right now</strong>. ⏰
-                </p>
+                <Link className={styles.allChannels} to="/docs/channels">
+                  See all channels <span aria-hidden="true">→</span>
+                </Link>
               </div>
-            </div>
-          </div>
-        </section>
-        <section className={styles.channels}>
-          <div className="container">
-            <div className="row">
-              <div className="col col--10 col--offset-1">
-                <h2 className={styles.channelsTitle}>
-                  <span className={styles.channelsEmoji}>📨</span> Get alerts where you already work
-                </h2>
-                <p className={styles.channelsSubtitle}>
-                  kwatch delivers clear incident alerts to your team's
-                  messaging platform — no extra tools needed
-                </p>
-                <div className={styles.channelsGrid} aria-label="Supported notification channels">
-                  {[
-                    'Slack', 'Discord', 'Microsoft Teams', 'Telegram',
-                    'PagerDuty', 'OpsGenie', 'Mattermost', 'RocketChat',
-                    'Matrix', 'Google Chat', 'Feishu', 'Zenduty',
-                    'Email', 'DingTalk', 'Webhook',
-                  ].map((name) => (
-                    <div key={name} className={styles.channelCard}>
-                      <ChannelIcon name={name} />
-                      <span className={styles.channelName}>{name}</span>
-                    </div>
-                  ))}
-                </div>
-                <p className={styles.channelsNote}>
-                  … and <strong>41 more</strong> — GitLab, Gitea, Splunk,
-                  SendGrid, AWS SNS/SES, Twilio &amp; Jira. <strong>56 providers</strong>
-                  supported in total.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section className={styles.users}>
-          <div className="container">
-            <div className="row">
-              <div className="col col--10 col--offset-1">
-                <h3 className={styles.usersTitle}>🚀 Who uses kwatch?</h3>
-                <p className={styles.usersSubtitle}>
-                  Trusted by engineering teams around the world
-                </p>
-                <div className={styles.userLogos}>
-                  <a href="https://www.trella.app" target="_blank" rel="noopener noreferrer" className={styles.userLogoLink}>
-                    <img src="https://raw.githubusercontent.com/abahmed/kwatch/main/assets/users/trella.png" alt="Trella" className={styles.userLogo} loading="lazy" decoding="async" />
-                    <span className={styles.userLogoName}>Trella</span>
-                  </a>
-                  <a href="https://ibecsystems.com/en#/" target="_blank" rel="noopener noreferrer" className={styles.userLogoLink}>
-                    <img src="https://raw.githubusercontent.com/abahmed/kwatch/main/assets/users/ibec-systems.svg" alt="IBEC Systems" className={styles.userLogo} loading="lazy" decoding="async" />
-                    <span className={styles.userLogoName}>IBEC Systems</span>
-                  </a>
-                  <a href="https://www.justwatch.com/us/talent" target="_blank" rel="noopener noreferrer" className={styles.userLogoLink}>
-                    <img src="https://raw.githubusercontent.com/abahmed/kwatch/main/assets/users/justwatch.png" alt="JustWatch" className={styles.userLogo} loading="lazy" decoding="async" />
-                    <span className={styles.userLogoName}>JustWatch</span>
-                  </a>
-                </div>
-                <p className={styles.usersNote}>
-                  🏢 Want to add your company? <a href="https://github.com/abahmed/kwatch/issues">Open an issue!</a>
-                </p>
+              <div className={styles.channelGrid}>
+                {channels.map((channel) => (
+                  <Link key={channel.name} to={channel.href}>
+                    {channel.name} <span aria-hidden="true">↗</span>
+                  </Link>
+                ))}
               </div>
             </div>
           </div>

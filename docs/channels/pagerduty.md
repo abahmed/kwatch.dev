@@ -9,32 +9,24 @@ pagination_prev: null
 
 # 🚨 PagerDuty
 
+Use the [interactive kwatch manager](/docs/installation) to configure
+PagerDuty alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.pagerduty.integrationKey` | 🔑 PagerDuty integration key | Yes |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  pagerduty-integration-key: "replace-me"
-  config.yaml: |
-    alert:
-      pagerduty:
-        integrationKey: "${file:/config/pagerduty-integration-key}"
+alert:
+  pagerduty:
+    integrationKey: "${file:/config/pagerduty-integration-key}"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -46,7 +38,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -57,7 +49,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -66,7 +58,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -75,7 +67,7 @@ alert:
     compact: true
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/pagerduty.png" max-height="700px" alt="PagerDuty notification screenshot" />

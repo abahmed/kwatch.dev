@@ -1,29 +1,46 @@
 ---
 sidebar_position: 12
-title: Job Monitor
-description: configure kwatch to detect failed, suspended, or overdue Kubernetes Jobs
-keywords: [kwatch, kubernetes, configuration, monitor, job]
-pagination_next: null
-pagination_prev: null
+title: Failed Kubernetes Job alerts
+description: Detect failed or suspended Kubernetes Jobs with kwatch and follow a short triage path through Job conditions, Pods, Events, and logs.
+keywords: [kwatch, Kubernetes Job monitoring, failed Job alerts, suspended Job]
 ---
 
-# 🧑‍💼 Job monitor
+# Failed Kubernetes Job alerts
 
-A **Job** runs work until it succeeds. This monitor alerts when a Job fails or
-becomes suspended instead of completing normally.
+A Job runs work until it succeeds or reaches its failure condition. kwatch
+watches Jobs that fail or become suspended, helping the team distinguish a
+workload error from an intentional pause.
 
-Watches for Jobs that fail or become suspended.
+## What kwatch detects
 
-| Parameter | What it does |
-|:---|---|
-| `jobMonitor.enabled` | ✅ Watch for failed/suspended Jobs (default: true) |
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `jobMonitor.enabled` | `true` | Watch failed or suspended Jobs. |
 
-### Configuration fragment
+An intentional suspension may not require action. Check who changed the Job
+and whether the pause is part of a planned operation before responding.
 
-Add this fragment through `kwatch.sh`'s **Configure settings** flow, or merge it
-into the configuration file used by your existing supported installation:
+## Investigate a failed Job
+
+```bash
+kubectl describe job <name> -n <namespace>
+kubectl get pods -n <namespace>
+```
+
+Look at Job conditions and the Pods it created. Inspect the failing Pod's
+Events and logs to understand whether the problem is in the task, its image,
+configuration, or a cluster dependency. If the Job is suspended, confirm the
+expected schedule and owner.
+
+## Configure the monitor
+
+Use the [interactive manager](/docs/installation) to change settings. The
+equivalent configuration fragment is:
 
 ```yaml
 jobMonitor:
   enabled: true
 ```
+
+Run `kwatch lint` after a change. For recurring work, see the
+[CronJob monitor](/docs/cronjob-monitor-configuration).

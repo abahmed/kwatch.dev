@@ -53,13 +53,13 @@ const config: Config = {
         blog: {
           showReadingTime: true,
           blogSidebarCount: 0,
-          blogTitle: 'Kubernetes monitoring and incident response blog',
+          blogTitle: 'Kubernetes incident response guides',
           blogDescription:
-            'Practical Kubernetes monitoring, incident diagnosis, and alerting guides from the kwatch team.',
+            'Practical guides for troubleshooting Kubernetes failures, reducing alert noise, and routing incidents with kwatch.',
           feedOptions: {
             type: 'all',
             title: 'kwatch Blog',
-            description: 'Latest news and updates about kwatch — Kubernetes incident monitoring',
+            description: 'Kubernetes incident response guides and kwatch project history',
             copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
           },
         },
@@ -71,6 +71,7 @@ const config: Config = {
             '/blog/archive',
             '/blog/authors',
             '/blog/tags/**',
+            '/search',
           ],
           lastmod: 'date',
           filename: 'sitemap.xml',
@@ -104,22 +105,23 @@ const config: Config = {
       },
     ],
     colorMode: {
-      defaultMode: 'dark',
-      disableSwitch: true,
+      defaultMode: 'light',
+      disableSwitch: false,
       respectPrefersColorScheme: false,
     },
     navbar: {
       title: 'kwatch',
       logo: logo,
       items: [
-        {to: '/docs', label: 'Docs', position: 'left'},
+        {to: '/docs', label: 'Start here', position: 'left'},
         {
           to: '/docs/installation',
-          label: 'Install',
+          label: 'Install kwatch',
           position: 'left',
           className: 'navbar-install-link',
         },
         {to: '/docs/channels', label: 'Channels', position: 'left'},
+        {to: '/search', label: 'Search', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
         {to: '/community', label: 'Community', position: 'right'},
         {

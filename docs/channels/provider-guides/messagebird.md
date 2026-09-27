@@ -1,14 +1,25 @@
 ---
 title: MessageBird alerts
-description: Configure MessageBird alerts with kwatch using the current provider catalog.
+description: Configure MessageBird Kubernetes alerts with kwatch. Required settings include Access key and Sender number; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, MessageBird, notification channel]
 ---
 
 # MessageBird alerts
 
-Use **MessageBird** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **MessageBird**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `accessKey` — Access key.
+- `from` — Sender number.
+- `to` — Recipient phone number.
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 
@@ -28,6 +39,8 @@ Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Ku
 alert:
   messagebird:
     accessKey: "${file:/config/messagebird-accessKey}"
+    from: <from>
+    to: <to>
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.

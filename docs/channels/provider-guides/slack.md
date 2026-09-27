@@ -1,14 +1,23 @@
 ---
 title: Slack alerts
-description: Configure Slack alerts with kwatch using the current provider catalog.
+description: Configure Slack Kubernetes alerts with kwatch. Choose a webhook or bot token, then review Secret handling, routing, and retries.
 keywords: [kwatch, Kubernetes alerts, Slack, notification channel]
 ---
 
 # Slack alerts
 
-Use **Slack** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **Slack**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start:** choose a webhook URL, or a bot token and channel.
+
+For a guided setup, use the [Slack channel guide](/docs/channels/slack).
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

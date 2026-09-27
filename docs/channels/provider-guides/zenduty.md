@@ -1,14 +1,25 @@
 ---
 title: Zenduty alerts
-description: Configure Zenduty alerts with kwatch using the current provider catalog.
+description: Configure Zenduty Kubernetes alerts with kwatch. Required settings include Integration Key; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Zenduty, notification channel]
 ---
 
 # Zenduty alerts
 
-Use **Zenduty** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **Zenduty**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `integrationKey` — Integration Key.
+
+For a guided setup, use the [Zenduty channel guide](/docs/channels/zenduty).
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

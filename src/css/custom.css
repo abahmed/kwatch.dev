@@ -1,13 +1,13 @@
 :root {
   --ifm-background-color: #ffffff;
-  --ifm-background-surface-color: #f8fafc;
-  --ifm-color-primary: #0ea5e9;
-  --ifm-color-primary-dark: #0c94d1;
-  --ifm-color-primary-darker: #0b8bc5;
-  --ifm-color-primary-darkest: #0972a2;
-  --ifm-color-primary-light: #10b0f8;
-  --ifm-color-primary-lighter: #1cb5f9;
-  --ifm-color-primary-lightest: #3ec1fa;
+  --ifm-background-surface-color: #f4f8fc;
+  --ifm-color-primary: #0369a1;
+  --ifm-color-primary-dark: #035f91;
+  --ifm-color-primary-darker: #025988;
+  --ifm-color-primary-darkest: #024970;
+  --ifm-color-primary-light: #0373b1;
+  --ifm-color-primary-lighter: #0479ba;
+  --ifm-color-primary-lightest: #058fdc;
   --ifm-card-background-color: var(--ifm-background-color);
   --ifm-footer-background-color: #1e293b;
   --ifm-navbar-background-color: rgba(255, 255, 255, 0.9);
@@ -185,13 +185,15 @@ html[data-theme="dark"] .navbar__link--active {
 }
 
 .navbar-install-link {
+  margin-left: 0.35rem;
+  border: 1px solid rgb(3 105 161 / 0.2);
+  background: rgb(3 105 161 / 0.07);
   color: var(--ifm-color-primary) !important;
   font-weight: 700;
 }
 
-.navbar-install-link::before {
-  content: '🚀';
-  margin-right: 0.3rem;
+.navbar-install-link:hover {
+  background: rgb(3 105 161 / 0.13);
 }
 
 /* Navbar dropdown */
@@ -243,6 +245,7 @@ html[data-theme="dark"] .dropdown__link:hover {
   }
 
   .navbar-sidebar {
+    background-color: var(--ifm-background-color);
     bottom: 0;
     display: block;
     left: 0;
@@ -324,10 +327,6 @@ footer {
   color: var(--ifm-footer-link-hover-color);
 }
 
-.pagination-nav {
-  display: none;
-}
-
 /* ─── Cards ─── */
 
 .card {
@@ -367,6 +366,22 @@ footer {
 
 .table-wrapper th {
   background-color: var(--ifm-background-surface-color);
+}
+
+.theme-doc-markdown > p,
+.theme-doc-markdown > ul,
+.theme-doc-markdown > ol {
+  max-width: 76ch;
+  line-height: 1.75;
+}
+
+.theme-doc-markdown h2 {
+  margin-top: 2.5rem;
+}
+
+:where(a, button):focus-visible {
+  outline: 3px solid var(--ifm-color-primary);
+  outline-offset: 3px;
 }
 
 /* ─── Hero area ─── */

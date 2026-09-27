@@ -9,37 +9,28 @@ pagination_prev: null
 
 # 🔔 DingTalk
 
+Use the [interactive kwatch manager](/docs/installation) to configure DingTalk
+alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.dingtalk.accessToken` | 🔑 Access token | Yes |
 | `alert.dingtalk.secret` | 🔐 Signing secret | No |
 | `alert.dingtalk.title` | ✏️ Custom title | No |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  dingtalk-access-token: "replace-me"
-  dingtalk-secret: "replace-me"
-  config.yaml: |
-    alert:
-      dingtalk:
-        accessToken: "${file:/config/dingtalk-access-token}"
-        secret: "${file:/config/dingtalk-secret}"
-        title: "optional customized title"
+alert:
+  dingtalk:
+    accessToken: "${file:/config/dingtalk-access-token}"
+    secret: "${file:/config/dingtalk-secret}"
+    title: "optional customized title"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -52,7 +43,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -64,7 +55,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -74,7 +65,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:

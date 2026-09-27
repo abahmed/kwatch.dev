@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { useColorMode } from "@docusaurus/theme-common";
+import React, { useState, useCallback } from "react";
 import { Highlight, themes as prismThemes } from "prism-react-renderer";
 import type { Language } from "prism-react-renderer";
 
@@ -11,13 +10,7 @@ interface CodeSnippetProps {
 }
 
 function CodeSnippet({ code, language = "bash" }: CodeSnippetProps) {
-  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { colorMode } = useColorMode();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -36,13 +29,12 @@ function CodeSnippet({ code, language = "bash" }: CodeSnippetProps) {
         onClick={handleCopy}
         aria-label={copied ? 'Copied!' : 'Copy code'}
       >
-        {copied ? '✅ Copied!' : '📋 Copy'}
+        {copied ? 'Copied' : 'Copy'}
       </button>
       <Highlight
-        key={mounted ? "mounted" : "server"}
         code={code}
         language={language}
-        theme={colorMode === "dark" ? prismThemes.dracula : prismThemes.github}
+        theme={prismThemes.dracula}
       >
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre className={`${className} ${styles.code}`} style={style}>

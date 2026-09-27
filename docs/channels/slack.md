@@ -9,6 +9,11 @@ pagination_prev: null
 
 # 💬 Slack
 
+Use the [interactive kwatch manager](/docs/installation) to configure Slack
+alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 If you want to enable Slack, provide either a webhook URL or a bot token with channel.
 
 **Webhook mode:**
@@ -33,7 +38,7 @@ If you want to enable Slack, provide either a webhook URL or a bot token with ch
 
 > 💡 **Pro tip:** When using bot token mode, alerts become threaded conversations — root message on first alert, updates as replies. Clean and organized! 🧹
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -42,7 +47,7 @@ alert:
     compact: true
 ```
 
-### Routing & Retry
+## Routing & Retry
 
 ```yaml
 alert:
@@ -56,7 +61,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback provider
+## Fallback provider
 
 ```yaml
 alert:
@@ -67,54 +72,28 @@ alert:
       maxAttempts: 3
 ```
 
-### Example (Webhook)
+## Configuration example (Webhook)
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  slack-webhook: "replace-me"
-  config.yaml: |
-    alert:
-      slack:
-        webhook: "${file:/config/slack-webhook}"
-        title: "optional customized title"
-        text: "optional customized text"
+alert:
+  slack:
+    webhook: "${file:/config/slack-webhook}"
+    title: "optional customized title"
+    text: "optional customized text"
 ```
 
-### Example (Bot Token)
+## Configuration example (Bot Token)
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  slack-token: "replace-me"
-  config.yaml: |
-    alert:
-      slack:
-        token: "${file:/config/slack-token}"
-        channel: "#alerts"
-        title: "optional customized title"
-        text: "optional customized text"
+alert:
+  slack:
+    token: "${file:/config/slack-token}"
+    channel: "#alerts"
+    title: "optional customized title"
+    text: "optional customized text"
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/slack.png" max-height="700px" alt="Slack notification screenshot" />

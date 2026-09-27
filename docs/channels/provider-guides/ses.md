@@ -1,14 +1,26 @@
 ---
 title: SES alerts
-description: Configure SES alerts with kwatch using the current provider catalog.
+description: Configure SES Kubernetes alerts with kwatch. Required settings include AWS access key ID and AWS secret access key; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, SES, notification channel]
 ---
 
 # SES alerts
 
-Use **SES** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **SES**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `accessKeyId` — AWS access key ID.
+- `secretAccessKey` — AWS secret access key.
+- `from` — Verified sender address.
+- `to` — Recipients (comma-separated).
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 
@@ -31,6 +43,9 @@ Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Ku
 alert:
   ses:
     accessKeyId: "${file:/config/ses-accessKeyId}"
+    secretAccessKey: "${file:/config/ses-secretAccessKey}"
+    from: <from>
+    to: <to>
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.

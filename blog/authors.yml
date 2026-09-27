@@ -13,3 +13,8 @@ amgadramses:
   title: Maintainer of kwatch
   url: https://github.com/amgadramses
   image_url: https://github.com/amgadramses.png
+kwatch_team:
+  name: kwatch contributors
+  title: Project documentation
+  url: https://github.com/abahmed/kwatch
+  image_url: https://kwatch.dev/img/kwatch-logo.svg

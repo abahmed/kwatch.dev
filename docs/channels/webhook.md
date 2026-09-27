@@ -9,42 +9,32 @@ pagination_prev: null
 
 # 🔗 Custom Webhook
 
+Use the [interactive kwatch manager](/docs/installation) to configure Custom
+Webhook alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.webhook.url` | 🔗 Webhook URL | Yes |
 | `alert.webhook.headers` | 📋 Custom headers | No |
 | `alert.webhook.basicAuth` | 🔐 Username + password | No |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  webhook-url: "replace-me"
-  webhook-header: "replace-me"
-  webhook-password: "replace-me"
-  config.yaml: |
-    alert:
-      webhook:
-        url: "${file:/config/webhook-url}"
-        headers:
-          - name: X-Custom
-            value: "${file:/config/webhook-header}"
-        basicAuth:
-          username: "user"
-          password: "${file:/config/webhook-password}"
+alert:
+  webhook:
+    url: "${file:/config/webhook-url}"
+    headers:
+      - name: X-Custom
+        value: "${file:/config/webhook-header}"
+    basicAuth:
+      username: "user"
+      password: "${file:/config/webhook-password}"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -62,7 +52,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -79,7 +69,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:

@@ -1,14 +1,23 @@
 ---
 title: Incident.io alerts
-description: Configure Incident.io alerts with kwatch using the current provider catalog.
+description: Configure Incident.io Kubernetes alerts with kwatch. Required settings include Incident.io URL; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Incident.io, notification channel]
 ---
 
 # Incident.io alerts
 
-Use **Incident.io** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **Incident.io**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `url` — Incident.io URL.
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

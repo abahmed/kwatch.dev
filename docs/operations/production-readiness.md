@@ -175,8 +175,8 @@ For production installations, review:
 
 Use the feature-permission matrix before disabling or enabling monitors. Verify
 the service account with `kubectl auth can-i` in the target namespace and
-cluster. Helm and raw manifests should expose equivalent election, security,
-probe, persistence, and shutdown settings.
+cluster. The manager applies release resources with the documented election,
+security, probe, persistence, and shutdown settings.
 
 ## Release and validation checklist
 

@@ -9,6 +9,11 @@ pagination_prev: null
 
 # 📧 Email
 
+Use the [interactive kwatch manager](/docs/installation) to configure Email
+alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 Sends alerts via SMTP. Uses HTML formatting for rich email content.
 
 | Parameter | Description | Required |
@@ -19,32 +24,19 @@ Sends alerts via SMTP. Uses HTML formatting for rich email content.
 | `alert.email.host` | 🖥️ SMTP server hostname | Yes |
 | `alert.email.port` | 🔌 SMTP server port (e.g. 587) | Yes |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  email-password: "replace-me"
-  config.yaml: |
-    alert:
-      email:
-        from: "kwatch@example.com"
-        to: "team@example.com"
-        password: "${file:/config/email-password}"
-        host: "smtp.gmail.com"
-        port: "587"
+alert:
+  email:
+    from: "kwatch@example.com"
+    to: "team@example.com"
+    password: "${file:/config/email-password}"
+    host: "smtp.gmail.com"
+    port: "587"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -60,7 +52,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -75,7 +67,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:

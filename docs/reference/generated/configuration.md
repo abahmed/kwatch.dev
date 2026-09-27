@@ -84,7 +84,7 @@ generated: true
 | `cronJobMonitor.sustainedMinutes` | integer | `5` | active | Minutes a CronJob condition must persist before alerting. |
 | `hpaMonitor.enabled` | boolean | `true` | active | Watch HPAs that remain constrained or maxed out. |
 | `hpaMonitor.sustainedMinutes` | integer | `20` | active | Minutes an HPA must remain constrained before alerting. |
-| `serviceMonitor.enabled` | boolean | `true` | active | Watch Services with no ready backends. |
+| `serviceMonitor.enabled` | boolean | `true` | active | Watch Services with missing or degraded ready backends. |
 | `ingressMonitor.enabled` | boolean | `true` | active | Watch Ingress backend availability. |
 | `networkPolicyMonitor.enabled` | boolean | `true` | active | Detect evidence of restrictive NetworkPolicies. |
 | `admissionWebhookMonitor.enabled` | boolean | `true` | active | Watch admission webhook availability and failures. |

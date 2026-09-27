@@ -1,30 +1,46 @@
 ---
 sidebar_position: 13
-title: CronJob Monitor
-description: configure kwatch to detect suspended CronJobs, missed schedules, and delayed Kubernetes batch work
-keywords: [kwatch, kubernetes, configuration, monitor, cronjob]
-pagination_next: null
-pagination_prev: null
+title: Missed CronJob schedule alerts
+description: Detect suspended Kubernetes CronJobs and CronJobs without a scheduled run in 24 hours, then inspect schedule and Job history with kwatch.
+keywords: [kwatch, Kubernetes CronJob monitoring, missed schedule, suspended CronJob]
 ---
 
-# ⏰ CronJob monitor
+# Missed CronJob schedule alerts
 
-Use this monitor when scheduled work must run on time. A **CronJob** creates
-Jobs on a schedule; kwatch alerts when it is suspended or has not scheduled a
-run for 24 hours.
+A CronJob creates Jobs on a schedule. kwatch watches for suspended CronJobs
+and CronJobs that have not scheduled a run in 24 hours. This helps teams find
+paused or missed recurring work.
 
-Watches for suspended CronJobs or CronJobs that haven't been scheduled in 24 hours.
+## What kwatch detects
 
-| Parameter | What it does |
-|:---|---|
-| `cronJobMonitor.enabled` | ✅ Watch for suspended CronJobs or missed schedules (default: true) |
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `cronJobMonitor.enabled` | `true` | Watch suspension and missed schedules. |
 
-### Configuration fragment
+A CronJob that intentionally runs less often than daily may need a different
+operational check. Review its schedule before treating a 24-hour gap as a
+failure.
 
-Add this fragment through `kwatch.sh`'s **Configure settings** flow, or merge it
-into the configuration file used by your existing supported installation:
+## Investigate a missed run
+
+```bash
+kubectl get cronjob <name> -n <namespace>
+kubectl describe cronjob <name> -n <namespace>
+kubectl get jobs -n <namespace>
+```
+
+Check the schedule, suspension flag, last scheduled time, and recent Jobs.
+If a Job was created but failed, follow the [Job monitor guide](/docs/job-monitor-configuration)
+and inspect the Job's Pods.
+
+## Configure the monitor
+
+Use the [interactive manager](/docs/installation) to change settings. The
+equivalent configuration fragment is:
 
 ```yaml
 cronJobMonitor:
   enabled: true
 ```
+
+Run `kwatch lint` after a change.

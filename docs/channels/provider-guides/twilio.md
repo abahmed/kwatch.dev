@@ -1,14 +1,26 @@
 ---
 title: Twilio alerts
-description: Configure Twilio alerts with kwatch using the current provider catalog.
+description: Configure Twilio Kubernetes alerts with kwatch. Required settings include Account SID and Auth token; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Twilio, notification channel]
 ---
 
 # Twilio alerts
 
-Use **Twilio** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **Twilio**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `accountSid` — Account SID.
+- `authToken` — Auth token.
+- `from` — Sender phone number.
+- `to` — Recipient phone number.
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 
@@ -29,6 +41,9 @@ Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Ku
 alert:
   twilio:
     accountSid: "${file:/config/twilio-accountSid}"
+    authToken: "${file:/config/twilio-authToken}"
+    from: <from>
+    to: <to>
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.

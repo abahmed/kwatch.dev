@@ -1,0 +1,88 @@
+---
+slug: troubleshoot-kubernetes-crashloopbackoff
+title: Troubleshoot Kubernetes CrashLoopBackOff with incident context
+authors: [kwatch_team]
+tags: [kwatch, kubernetes, monitoring, troubleshooting]
+description: "A practical CrashLoopBackOff triage path: inspect the previous container state, logs, events, and workload changes, then use kwatch to send the context in one alert."
+image: /img/kwatch-logo-full.png
+---
+
+A Pod in `CrashLoopBackOff` is restarting after a container exits repeatedly.
+The status tells you *that* a restart loop exists, but it does not identify one
+universal cause. Memory limits, application errors, missing configuration, and
+failed dependencies need different fixes.
+
+This guide gives an operator a short path from symptom to evidence. kwatch can
+collect much of that context in an incident alert, but you should still verify
+the proposed cause against the workload.
+
+<!--truncate-->
+
+## 1. Identify the failing container
+
+Start with the Pod name and namespace from the alert or workload status:
+
+```bash
+kubectl get pod -n production orders-api-7ffc9d4f9-x9p4t
+kubectl describe pod -n production orders-api-7ffc9d4f9-x9p4t
+```
+
+In the description, look at the container's current and previous state, restart
+count, image, resource limits, probes, and recent Events. These details help
+separate an application exit from a failed health check or an image problem.
+
+## 2. Read the previous container's logs
+
+A container in a restart loop may have already exited by the time you inspect
+it. Ask Kubernetes for the previous instance's logs:
+
+```bash
+kubectl logs -n production orders-api-7ffc9d4f9-x9p4t \
+  --previous --container orders-api
+```
+
+Use the actual container name from `kubectl describe pod`. Logs can explain an
+application error or a missing environment variable, but they may be empty
+after a sudden termination. Kubernetes Events and the previous container state
+still matter.
+
+## 3. Match the evidence to an action
+
+For example, an `OOMKilled` previous state means Kubernetes observed an
+out-of-memory termination. Compare the workload's memory limit with its usage
+and recent changes before raising the limit. Exit code 137 alone is not proof
+of an OOM kill: another `SIGKILL` can also produce 137.
+
+A kwatch alert can bring the signal, affected workload, likely cause, recent
+logs, and Events together:
+
+```text
+🚨 OOMKilled — production / orders-api
+   Pod: orders-api-7ffc9d4f9-x9p4t
+   Node: worker-3 · severity: high
+
+💡 Cause: the container exceeded its 512Mi memory limit.
+➡️ Next step: increase limits.memory or reduce memory usage.
+```
+
+This is an illustrative incident. Available evidence and wording depend on the
+failure and your configuration. Treat the next step as a starting point for
+investigation, not an automatic change to the workload.
+
+## 4. Check scope and delivery if no alert arrived
+
+If kwatch did not notify you, confirm the active leader is ready, then check
+whether namespace filters, silence rules, startup baseline, cooldown, or
+grouping affected the incident. If an incident was created but delivery failed,
+check the provider configuration and delivery diagnostics. The
+[missing-alert troubleshooting guide](/docs/operations/troubleshooting) walks
+through this order.
+
+## Put the context where responders work
+
+The recommended installation path is the interactive
+[kwatch manager](/docs/installation). It selects a cluster, configures an alert
+destination, stores credentials in a Kubernetes Secret, and verifies the
+installation. The [channel guides](/docs/channels) cover Slack, PagerDuty, and
+other destinations. For the full list of monitored Kubernetes signals, use the
+[coverage guide](/docs/kubernetes-coverage).

@@ -1,0 +1,176 @@
+.page {
+  min-height: 70vh;
+  padding: clamp(3rem, 6vw, 5rem) 0;
+  background: var(--ifm-background-color);
+}
+
+.page > div {
+  max-width: 920px;
+}
+
+.heading {
+  margin-bottom: 2rem;
+}
+
+.eyebrow {
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.heading h1 {
+  margin-bottom: 0.7rem;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  letter-spacing: -0.05em;
+}
+
+.heading > p:last-child {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 1.05rem;
+}
+
+.searchLabel {
+  display: block;
+  margin-bottom: 0.55rem;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0 1rem;
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 13px;
+  background: var(--ifm-card-background-color);
+}
+
+.searchBox:focus-within {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 0 0 4px rgb(14 165 233 / 0.13);
+}
+
+.searchBox > span {
+  color: var(--ifm-color-primary);
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.searchBox input {
+  width: 100%;
+  min-height: 3.7rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ifm-font-color-base);
+  font: inherit;
+  font-size: 1.05rem;
+}
+
+.searchBox input::placeholder {
+  color: var(--ifm-color-emphasis-600);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 2rem;
+}
+
+.filters button,
+.suggestions button {
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 999px;
+  background: var(--ifm-card-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.filters button:hover,
+.suggestions button:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+.filters .activeFilter {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary);
+  color: #fff;
+}
+
+.filters .activeFilter:hover {
+  color: #fff;
+}
+
+.count {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+}
+
+.suggestions p {
+  margin-bottom: 0.8rem;
+  color: var(--ifm-color-emphasis-700);
+  font-weight: 700;
+}
+
+.suggestions button {
+  margin: 0 0.5rem 0.5rem 0;
+}
+
+.resultList {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.result {
+  display: block;
+  padding: 1.2rem 1.35rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 13px;
+  background: var(--ifm-card-background-color);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+.result:hover,
+.result:focus-visible {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+.result > span {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.result strong {
+  display: block;
+  color: var(--ifm-heading-color);
+  font-size: 1.17rem;
+}
+
+.result p {
+  display: -webkit-box;
+  margin: 0.4rem 0 0;
+  overflow: hidden;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

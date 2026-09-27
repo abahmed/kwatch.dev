@@ -1,0 +1,76 @@
+---
+slug: reduce-kubernetes-alert-noise
+title: Reduce Kubernetes alert noise without hiding incidents
+authors: [kwatch_team]
+tags: [kwatch, kubernetes, alerting, incident-response]
+description: Use kwatch grouping, cooldown, silences, namespace scope, and alert routes deliberately so responders see the incidents that need action.
+image: /img/kwatch-logo-full.png
+---
+
+An alert is useful when it changes what the on-call person does. Repeated
+notifications for one failure, or dozens of symptoms from one shared problem,
+make that decision harder. Muting everything is risky too: a real incident can
+disappear with the noise.
+
+kwatch has several controls for different kinds of noise. Choose the one that
+matches the problem you are trying to solve.
+
+<!--truncate-->
+
+## Group symptoms from one problem
+
+If many Pods fail because a node or shared dependency is unhealthy, investigate
+the common cause before creating separate response work for each Pod. kwatch
+correlates related observations into incidents and can group failures. The
+[correlation settings](/docs/general-configuration#-correlation--incident-lifecycle)
+explain cooldown and grouping windows.
+
+Start with the defaults. Change a grouping threshold only after reviewing
+actual incidents: broad grouping can hide the distinction between independent
+failures.
+
+## Set a clear scope
+
+Namespace filters control what kwatch watches. If a cluster contains
+namespaces that your team does not own, configure scope before adding
+suppression rules. The [general configuration guide](/docs/general-configuration#-general)
+explains allow and exclude lists, plus namespace label selection.
+
+A scoped monitor still needs a route to the right team. Provider routes can
+filter by namespace, severity, or reason. For example, a production route can
+send urgent incidents to an on-call destination while another channel receives
+less urgent alerts. The [channels guide](/docs/channels) shows how routing works.
+
+## Silence known, intentional failures
+
+Use a silence when a specific incident is expected and nobody should act on
+it, such as a planned maintenance state. Match narrowly by namespace, reason,
+or workload so the rule does not suppress unrelated incidents. A silence
+removes a matching finding from incident processing; it is stronger than
+sending an incident to a quieter channel.
+
+Review each silence after maintenance ends. The
+[silence reference](/docs/general-configuration#-silences--advanced-suppression)
+lists the supported match fields.
+
+## Investigate missing alerts in order
+
+When you expected a message, do not immediately remove every noise control.
+Check the path in order:
+
+1. Was kwatch's active leader ready and able to read the source?
+2. Did the monitor detect the condition?
+3. Did scope, baseline, a silence, cooldown, or grouping affect the decision?
+4. Was an incident created but delivery failed?
+
+This order separates a detection problem from an intentional suppression or a
+provider error. Use the [missing-alert guide](/docs/operations/troubleshooting)
+for the detailed checks.
+
+## Keep a response path
+
+The best noise rule leaves the next responder with enough context to act.
+Include a cluster name, route the incident to an owned channel, and attach a
+runbook where a known reason has a repeatable response. Test a provider change
+with `kwatch lint --check` when the provider supports a credential check, then
+verify a real notification through the supported diagnostic path.

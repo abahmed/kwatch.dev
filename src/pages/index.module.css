@@ -1,284 +1,201 @@
-.heroBanner {
-  padding: 4rem 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+.pathSection,
+.channelsSection {
+  padding: clamp(3.5rem, 6vw, 6rem) 0;
 }
 
-@media screen and (max-width: 996px) {
-  .heroBanner {
-    padding: 2rem;
-  }
+.pathSection {
+  background: var(--ifm-background-color);
 }
 
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.sectionHeading {
+  max-width: 660px;
+  margin-bottom: 2rem;
 }
 
-.main {
-  section {
-    padding: 4rem 0;
-
-    @media screen and (max-width: 996px) {
-      padding: 2.5rem 0;
-    }
-  }
+.eyebrow {
+  margin-bottom: 0.7rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-/* ─── At-a-glance proof strip ─── */
-
-.signalStrip {
-  padding: 1.25rem 0 !important;
-  background: var(--ifm-background-surface-color);
-  border-top: 1px solid var(--ifm-color-emphasis-200);
-  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+.sectionHeading h2 {
+  margin-bottom: 0.8rem;
+  font-size: clamp(2rem, 3.3vw, 3.2rem);
+  line-height: 1.12;
+  letter-spacing: -0.045em;
 }
 
-.signalGrid {
+.sectionHeading > p:last-of-type {
+  max-width: 56ch;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.pathGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.signalItem {
+.pathCard {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  min-width: 0;
-  padding: 0.75rem 1rem;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 178px;
+  padding: 1.5rem;
+  overflow: hidden;
   border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--ifm-card-background-color);
+  box-shadow: 0 16px 40px rgb(15 23 42 / 0.045);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+  transition: transform 0.2s ease, border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.signalValue {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  flex: 0 0 auto;
-  border-radius: 10px;
-  background: var(--kwatch-gradient-light);
-  font-size: 1.1rem;
+.pathCard::after {
+  position: absolute;
+  right: -2rem;
+  bottom: -5rem;
+  width: 9rem;
+  height: 9rem;
+  border: 1px solid rgb(14 165 233 / 0.13);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5rem rgb(14 165 233 / 0.04);
+  content: '';
+  pointer-events: none;
 }
 
-.signalItem strong,
-.signalItem small {
-  display: block;
+.pathCard:hover,
+.pathCard:focus-visible {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 22px 44px rgb(15 23 42 / 0.1);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+  transform: translateY(-4px);
 }
 
-.signalItem strong {
+.pathLabel {
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-primary);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pathCard strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
   color: var(--ifm-heading-color);
-  font-size: 0.88rem;
+  font-size: 1.13rem;
+  line-height: 1.3;
 }
 
-.signalItem small {
-  margin-top: 0.15rem;
-  color: var(--ifm-color-emphasis-600);
-  font-size: 0.75rem;
-  line-height: 1.35;
+.pathCard strong span {
+  color: var(--ifm-color-primary);
+}
+
+.pathDescription {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.channelsSection {
+  background:
+    radial-gradient(circle at 100% 100%, rgb(14 165 233 / 0.08), transparent 35%),
+    var(--ifm-background-surface-color);
+}
+
+.channelLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+}
+
+.channelLayout .sectionHeading {
+  margin-bottom: 0;
+}
+
+.channelGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.channelGrid a {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 12px;
+  background: var(--ifm-card-background-color);
+  color: var(--ifm-heading-color);
+  font-weight: 750;
+  text-decoration: none;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.channelGrid a span {
+  color: var(--ifm-color-primary);
+}
+
+.channelGrid a:hover,
+.channelGrid a:focus-visible {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+}
+
+.allChannels {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  font-weight: 750;
+  text-underline-offset: 0.25em;
 }
 
 @media screen and (max-width: 996px) {
-  .signalGrid {
+  .pathGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .channelLayout {
     grid-template-columns: 1fr;
   }
 }
 
-/* ─── Not a platform ─── */
+@media screen and (max-width: 600px) {
+  .pathGrid,
+  .channelGrid {
+    grid-template-columns: 1fr;
+  }
 
-.notPlatform {
-  text-align: center;
-  background-color: var(--ifm-background-surface-color);
-}
-
-.notPlatformTitle {
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
-  animation: fadeUp 0.6s ease;
-}
-
-.notPlatform p {
-  max-width: 600px;
-  margin: 0 auto 1rem;
-  font-size: 1.05rem;
-  line-height: 1.7;
-  color: var(--ifm-color-emphasis-700);
-  animation: fadeUp 0.6s ease 0.15s both;
-}
-
-/* ─── Channels ─── */
-
-.channels {
-  padding: 3rem 0;
-  text-align: center;
-  background: var(--ifm-background-surface-color);
-}
-
-.channelsTitle {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  animation: fadeUp 0.6s ease;
-}
-
-.channelsEmoji {
-  display: inline-block;
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.channelsSubtitle {
-  font-size: 0.95rem;
-  color: var(--ifm-color-emphasis-500);
-  margin-bottom: 2.5rem;
-  animation: fadeUp 0.6s ease 0.1s both;
-}
-
-.channelsGrid {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  animation: fadeUp 0.6s ease 0.2s both;
-}
-
-.channelsNote {
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: var(--ifm-color-emphasis-500);
-  text-align: center;
-}
-
-.channelCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 1rem 1.2rem;
-  background: var(--ifm-card-background-color);
-  border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  min-width: 90px;
-  animation: fadeUp 0.6s ease both;
-  cursor: default;
-
-  &:nth-child(1) { animation-delay: 0.02s; }
-  &:nth-child(2) { animation-delay: 0.04s; }
-  &:nth-child(3) { animation-delay: 0.06s; }
-  &:nth-child(4) { animation-delay: 0.08s; }
-  &:nth-child(5) { animation-delay: 0.1s; }
-  &:nth-child(6) { animation-delay: 0.12s; }
-  &:nth-child(7) { animation-delay: 0.14s; }
-  &:nth-child(8) { animation-delay: 0.16s; }
-  &:nth-child(9) { animation-delay: 0.18s; }
-  &:nth-child(10) { animation-delay: 0.2s; }
-  &:nth-child(11) { animation-delay: 0.22s; }
-  &:nth-child(12) { animation-delay: 0.24s; }
-
-  &:hover {
-    border-color: var(--ifm-color-primary);
-    transform: translateY(-3px);
-    box-shadow: 0 8px 20px rgba(14, 165, 233, 0.1);
+  .pathCard {
+    min-height: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .notPlatformTitle,
-  .notPlatform p,
-  .channelsTitle,
-  .channelsSubtitle,
-  .channelsGrid,
-  .usersTitle,
-  .usersSubtitle,
-  .userLogos,
-  .usersNote,
-  .channelCard {
-    animation: none;
+  .pathCard,
+  .channelGrid a {
+    transition: none;
   }
-}
 
-.channelName {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ifm-color-emphasis-600);
-  white-space: nowrap;
-}
-
-/* ─── Users ─── */
-
-.users {
-  text-align: center;
-}
-
-.usersTitle {
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-  animation: fadeUp 0.6s ease;
-}
-
-.usersSubtitle {
-  font-size: 0.95rem;
-  color: var(--ifm-color-emphasis-500);
-  margin-bottom: 2.5rem;
-  animation: fadeUp 0.6s ease 0.1s both;
-}
-
-.userLogos {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-  animation: fadeUp 0.6s ease 0.2s both;
-}
-
-.userLogoLink {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  text-decoration: none !important;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: translateY(-4px);
+  .pathCard:hover,
+  .pathCard:focus-visible,
+  .channelGrid a:hover,
+  .channelGrid a:focus-visible {
+    transform: none;
   }
-}
-
-.userLogo {
-  max-height: 40px;
-  opacity: 0.6;
-  transition: all 0.3s ease;
-  filter: grayscale(30%);
-
-  .userLogoLink:hover & {
-    opacity: 1;
-    filter: grayscale(0%);
-    transform: scale(1.05);
-  }
-}
-
-.userLogoName {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ifm-color-emphasis-500);
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: all 0.3s ease;
-
-  .userLogoLink:hover & {
-    opacity: 1;
-    transform: translateY(0);
-    color: var(--ifm-color-primary);
-  }
-}
-
-.usersNote {
-  font-size: 0.9rem;
-  color: var(--ifm-color-emphasis-500);
-  animation: fadeUp 0.6s ease 0.3s both;
 }

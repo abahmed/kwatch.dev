@@ -9,34 +9,26 @@ pagination_prev: null
 
 # 🚀 Rocket.Chat
 
+Use the [interactive kwatch manager](/docs/installation) to configure
+Rocket.Chat alerts. It stores credentials in Kubernetes Secrets and verifies
+the installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.rocketchat.webhook` | 🔗 Webhook URL | Yes |
 | `alert.rocketchat.text` | ✏️ Custom text | No |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  rocketchat-webhook: "replace-me"
-  config.yaml: |
-    alert:
-      rocketchat:
-        webhook: "${file:/config/rocketchat-webhook}"
-        text: "optional customized text"
+alert:
+  rocketchat:
+    webhook: "${file:/config/rocketchat-webhook}"
+    text: "optional customized text"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -48,7 +40,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -59,7 +51,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -68,7 +60,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -77,7 +69,7 @@ alert:
     compact: true
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/rocketchat.png" max-height="700px" alt="Rocket.Chat notification screenshot" />

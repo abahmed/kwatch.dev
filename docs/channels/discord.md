@@ -9,36 +9,28 @@ pagination_prev: null
 
 # 💬 Discord
 
+Use the [interactive kwatch manager](/docs/installation) to configure Discord
+alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.discord.webhook` | 🔗 Discord webhook URL | Yes |
 | `alert.discord.title` | ✏️ Custom title | No |
 | `alert.discord.text` | ✏️ Custom text | No |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  discord-webhook: "replace-me"
-  config.yaml: |
-    alert:
-      discord:
-        webhook: "${file:/config/discord-webhook}"
-        title: "optional customized title"
-        text: "optional customized text"
+alert:
+  discord:
+    webhook: "${file:/config/discord-webhook}"
+    title: "optional customized title"
+    text: "optional customized text"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -50,7 +42,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -61,7 +53,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -70,7 +62,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -79,7 +71,7 @@ alert:
     compact: true
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/discord.png" max-height="700px" alt="Discord notification screenshot" />

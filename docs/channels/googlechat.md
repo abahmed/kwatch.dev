@@ -9,34 +9,26 @@ pagination_prev: null
 
 # 💬 Google Chat
 
+Use the [interactive kwatch manager](/docs/installation) to configure Google
+Chat alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.googlechat.webhook` | 🔗 Webhook URL | Yes |
 | `alert.googlechat.text` | ✏️ Custom text | No |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  googlechat-webhook: "replace-me"
-  config.yaml: |
-    alert:
-      googlechat:
-        webhook: "${file:/config/googlechat-webhook}"
-        text: "optional customized text"
+alert:
+  googlechat:
+    webhook: "${file:/config/googlechat-webhook}"
+    text: "optional customized text"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -48,7 +40,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -59,7 +51,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -68,7 +60,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -77,7 +69,7 @@ alert:
     compact: true
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/googlechat.png" max-height="700px" alt="Google Chat notification screenshot" />

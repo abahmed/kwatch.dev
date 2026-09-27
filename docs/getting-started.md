@@ -21,16 +21,15 @@ a deployment can get stuck, or a service can lose its healthy backends.
 
 ## What is kwatch?
 
-kwatch is the **alarm for your Kubernetes cluster**. It watches your workloads
-and sends a clear message when something needs attention:
+kwatch is an open-source Kubernetes incident monitor. It turns failures into
+clear alerts that explain what broke, why it happened, and what to do next:
 
 1. 👀 **Watch** — kwatch reads Kubernetes status, events, and recent logs.
 2. 🧠 **Explain** — it connects the clues and finds the likely cause.
 3. 📣 **Alert** — it sends the reason, impact, and next step to your team.
 
-You do not need Prometheus, Grafana, or a new dashboard to get started. kwatch
-is small, runs in your cluster, and keeps restart-safe incident state in
-Kubernetes ConfigMaps; it does not store a separate logs or metrics database.
+kwatch runs in your own cluster, with no hosted account required. Pair it with
+Prometheus, Grafana, or Loki for long-term metrics and logs.
 
 ## 🚨 What an alert looks like
 
@@ -38,9 +37,13 @@ Instead of only seeing `CrashLoopBackOff`, you get a message like:
 
 ```text
 🚨 OOMKilled — production / orders-api
-   Cause: the container used more than its 512Mi memory limit.
-   Next step: increase limits.memory or reduce memory usage.
-   Evidence: recent logs and Kubernetes events
+   Pod: orders-api-7ffc9d4f9-x9p4t
+   Node: worker-3 · severity: high
+
+💡 Cause: the container exceeded its 512Mi memory limit.
+➡️ Next step: increase limits.memory or reduce memory usage.
+
+📄 Recent logs and Kubernetes events are included.
 ```
 
 ## 🎯 What does kwatch watch?
@@ -69,8 +72,8 @@ reference](/docs/configuration-reference) for every available key.
 
 ### 1. Check your tools
 
-You need `kubectl`, `curl`, and access to a Kubernetes cluster. Confirm that
-`kubectl` can reach it:
+You need Bash, `kubectl`, `curl`, and cluster install permissions. Confirm
+that `kubectl` can reach your cluster:
 
 ```bash
 kubectl cluster-info
@@ -83,7 +86,7 @@ kubectl cluster-info
 ```
 
 The manager asks where alerts should go, stores credentials safely in a Secret,
-installs kwatch, and waits until it is ready. No Helm is required.
+installs kwatch, and verifies the installation.
 
 ### 3. Check the result
 

@@ -9,34 +9,26 @@ pagination_prev: null
 
 # ✈️ Telegram
 
+Use the [interactive kwatch manager](/docs/installation) to configure Telegram
+alerts. It stores credentials in Kubernetes Secrets and verifies the
+installation. The configuration fragments below explain provider settings;
+they are not separate installation steps.
+
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.telegram.token` | 🔑 Bot token | Yes |
 | `alert.telegram.chatId` | 💬 Chat ID | Yes |
 
-### Example
+## Configuration example
 
 ```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kwatch
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: kwatch
-  namespace: kwatch
-stringData:
-  telegram-token: "replace-me"
-  config.yaml: |
-    alert:
-      telegram:
-        token: "${file:/config/telegram-token}"
-        chatId: "YOUR_CHAT_ID"
+alert:
+  telegram:
+    token: "${file:/config/telegram-token}"
+    chatId: "YOUR_CHAT_ID"
 ```
 
-### Routing
+## Routing
 
 ```yaml
 alert:
@@ -49,7 +41,7 @@ alert:
       - reasons: ["OOMKilled"]
 ```
 
-### Retry
+## Retry
 
 ```yaml
 alert:
@@ -61,7 +53,7 @@ alert:
       delay: 5s
 ```
 
-### Fallback
+## Fallback
 
 ```yaml
 alert:
@@ -71,7 +63,7 @@ alert:
     fallback: <another_provider>
 ```
 
-### Compact mode
+## Compact mode
 
 ```yaml
 alert:
@@ -81,7 +73,7 @@ alert:
     compact: true
 ```
 
-### Screenshot
+## Screenshot
 
 <p align="center">
     <img src="./../../img/telegram.png" max-height="700px" alt="Telegram notification screenshot" />

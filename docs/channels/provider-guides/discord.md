@@ -1,14 +1,25 @@
 ---
 title: Discord alerts
-description: Configure Discord alerts with kwatch using the current provider catalog.
+description: Configure Discord Kubernetes alerts with kwatch. Required settings include Discord webhook URL; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Discord, notification channel]
 ---
 
 # Discord alerts
 
-Use **Discord** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **Discord**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `webhook` — Discord webhook URL.
+
+For a guided setup, use the [Discord channel guide](/docs/channels/discord).
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

@@ -1,14 +1,23 @@
 ---
 title: IFTTT alerts
-description: Configure IFTTT alerts with kwatch using the current provider catalog.
+description: Configure IFTTT Kubernetes alerts with kwatch. Required settings include Webhooks key; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, IFTTT, notification channel]
 ---
 
 # IFTTT alerts
 
-Use **IFTTT** when you want kwatch incidents delivered to this channel. This page is generated from the current provider catalog and lists every field accepted by the installed release.
+Send kwatch incident alerts to **IFTTT**. Use the
+[interactive manager](/docs/installation) for installation and
+credential setup. This page explains the provider fields and shows
+a minimal configuration fragment.
 
-Credentials, tokens, keys, passwords, and webhook URLs must be mounted from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference for every field marked **Secret**.
+**Before you start, have these values ready:**
+
+- `key` — Webhooks key.
+
+Credentials, tokens, keys, passwords, and webhook URLs must be mounted
+from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
+for every field marked **Secret**.
 
 ## Configuration
 

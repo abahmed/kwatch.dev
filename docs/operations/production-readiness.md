@@ -139,7 +139,8 @@ Delivery uses immutable provider generations, bounded queues, shared context-awa
 transport, retry classification, fallbacks by stable name, and a dead-letter
 ring. A provider outage should increase retry and terminal-failure metrics and
 may populate dead letters; it should not make the process appear dead. Queue
-saturation drops the arriving job and records the bounded failure signal.
+saturation coalesces queued updates and prioritizes create and recovery
+messages. Remaining overflow is recorded as a bounded failure signal.
 
 During reconfiguration, a generation moves from `accepting` to `draining` and
 then to `stopped` or `failed`. The replacement is not published until the old

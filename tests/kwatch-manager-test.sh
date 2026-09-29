@@ -25,39 +25,6 @@ kubectl() {
 }
 check_access get pods namespace
 
-manifest_fixture="$CAPTURE_DIR/deploy.yaml"
-printf '%s\n' \
-  'kind: ClusterRole' \
-  'rules:' \
-  '- apiGroups: [""]' \
-  '  resources: ["configmaps"]' \
-  '  resourceNames: ["ignore-this-cluster-role-name"]' \
-  '---' \
-  'kind: Role' \
-  'rules:' \
-  '- apiGroups: [""]' \
-  '  resources: ["configmaps"]' \
-  '  resourceNames:' \
-  '  - "custom-state"' \
-  '  - "custom-telemetry"' \
-  '  verbs: ["get", "update", "patch"]' \
-  >"$manifest_fixture"
-load_runtime_configmap_names_from_manifest "$manifest_fixture"
-[ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -eq 2 ] || {
-  echo "manifest parser returned the wrong number of ConfigMaps" >&2
-  exit 1
-}
-[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
-  echo "manifest parser returned the wrong first ConfigMap" >&2
-  exit 1
-}
-[ "${RUNTIME_CONFIGMAP_NAMES[1]}" = custom-telemetry ] || {
-  echo "manifest parser returned the wrong second ConfigMap" >&2
-  exit 1
-}
-RUNTIME_CONFIGMAP_NAMES=()
-INSTALL_VERSION=v9.9.9
-
 lease_fixture="$CAPTURE_DIR/lease.yaml"
 printf '%s\n' 'value: "kwatch-leader"' >"$lease_fixture"
 RELEASE=payments-monitor
@@ -82,60 +49,63 @@ RELEASE=kwatch
   wait_for_kwatch_rollout payments
 )
 
-curl() {
-  local output=""
-  while [ "$#" -gt 0 ]; do
-    if [ "$1" = -o ]; then
-      output="$2"
-      shift 2
-    else
-      shift
-    fi
-  done
-  cp "$manifest_fixture" "$output"
-}
-ensure_runtime_configmap_names
-[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
-  echo "lazy manifest loading did not populate ConfigMaps" >&2
-  exit 1
-}
-
-rbac_check_log="$CAPTURE_DIR/rbac-check.log"
-kubectl() {
-  printf '%s\n' "$*" >>"$rbac_check_log"
-  printf '%s\n' yes
-}
-if self_check_rbac_missing; then
-  echo "named RBAC check reported a granted Role as missing" >&2
-  exit 1
-fi
-[ "$(wc -l <"$rbac_check_log" | tr -d ' ')" -eq 4 ] || {
-  echo "named RBAC check did not inspect every verb and ConfigMap" >&2
-  exit 1
-}
-grep -Fq -- '--resource-name=custom-telemetry' "$rbac_check_log"
-if grep -Fq 'auth can-i update configmaps -n' "$rbac_check_log" ||
-  grep -Fq 'auth can-i patch configmaps -n' "$rbac_check_log"; then
-  echo "RBAC check used an unnamed ConfigMap permission" >&2
+removal_log="$CAPTURE_DIR/removal.log"
+(
+  NAMESPACE=apps
+  RELEASE=payments-monitor
+  invalidate_deployment_name() { :; }
+  check_access() { :; }
+  kubectl() {
+    case "$*" in
+      *"jsonpath={.metadata.labels.app\\.kubernetes\\.io/managed-by}"*)
+        printf '%s' kwatch.sh
+        ;;
+      *"auth can-i"*) printf '%s\n' yes ;;
+      *"delete "*) printf '%s\n' "$*" >>"$removal_log" ;;
+      *) return 0 ;;
+    esac
+  }
+  remove_namespaced_workload
+) >/dev/null 2>&1
+grep -Fq -- '-n kube-system delete role payments-monitor-control-plane-leases' \
+  "$removal_log"
+grep -Fq -- '-n kube-system delete rolebinding payments-monitor-control-plane-leases' \
+  "$removal_log"
+grep -Fq -- '-n apps delete role payments-monitor-leader-election' \
+  "$removal_log"
+if grep -Fq 'configmap-manager' "$removal_log" ||
+  grep -Fq 'persistentvolumeclaim' "$removal_log"; then
+  echo "workload removal touched state that must be kept by default" >&2
   exit 1
 fi
 
-rbac_repair_log="$CAPTURE_DIR/rbac-repair.log"
-kubectl() {
-  printf '%s\n' "$*" >>"$rbac_repair_log"
-  return 0
-}
-check_access() { :; }
-confirm_repair() { return 0; }
-restart_kwatch() { :; }
-repair_self_check_rbac >/dev/null
-grep -Fq '"resourceNames":["custom-state"' "$rbac_repair_log"
-grep -Fq 'custom-telemetry' "$rbac_repair_log"
-if grep -Fq '"resources":["configmaps"],"verbs"' \
-  "$rbac_repair_log"; then
-  echo "RBAC repair generated a broad ConfigMap rule" >&2
-  exit 1
-fi
+pvc_log="$CAPTURE_DIR/pvc.log"
+for reply in false true; do
+  : >"$pvc_log"
+  (
+    NAMESPACE=apps
+    RELEASE=payments-monitor
+    ask_yes_no() { printf '%s' "$reply"; }
+    check_access() { :; }
+    kubectl() {
+      case "$*" in
+        *"get pvc payments-monitor-data"*) return 0 ;;
+        *"jsonpath={.metadata.labels.app\\.kubernetes\\.io/managed-by}"*)
+          printf '%s' kwatch.sh
+          ;;
+        *"delete persistentvolumeclaim"*) printf '%s\n' "$*" >>"$pvc_log" ;;
+        *) return 0 ;;
+      esac
+    }
+    remove_data_volume_if_confirmed
+  ) >"$CAPTURE_DIR/pvc.out" 2>&1 || cat "$CAPTURE_DIR/pvc.out" >&2
+  if [ "$reply" = true ]; then
+    grep -Fq 'delete persistentvolumeclaim payments-monitor-data' "$pvc_log"
+  elif [ -s "$pvc_log" ]; then
+    echo "the data volume was deleted without confirmation" >&2
+    exit 1
+  fi
+done
 
 ask() { printf '%s' y; }
 

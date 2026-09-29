@@ -43,8 +43,6 @@ CATALOG_SOURCE="unavailable"
 CATALOG=()
 PROVIDER_CATALOG=()
 CONFIG_MOUNT_PATH="/config"
-# Filled from the release deployment manifest before named RBAC checks.
-RUNTIME_CONFIGMAP_NAMES=()
 # Deployment resources and placement are the operator's, not the release's: the
 # manifest is re-downloaded on every run, so a hand-edited Deployment would be
 # reverted by the next upgrade. Recording the choices on the workload itself --
@@ -1007,110 +1005,7 @@ confirm_repair() {
 }
 valid_name() { [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; }
 valid_kubernetes_name() { [ "${#1}" -le 40 ] && valid_name "$1"; }
-valid_configmap_name() {
-  [ "${#1}" -le 253 ] &&
-    [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$ ]]
-}
 valid_release_version() { [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; }
-
-# Read persistence ConfigMap names from the namespaced Role in a release
-# manifest. ClusterRole rules are intentionally ignored: they describe the
-# workload's read access, not the ConfigMaps it persists.
-load_runtime_configmap_names_from_manifest() {
-  local manifest="$1" name
-  RUNTIME_CONFIGMAP_NAMES=()
-  [ -r "$manifest" ] || return 1
-  while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    valid_configmap_name "$name" || {
-      RUNTIME_CONFIGMAP_NAMES=()
-      return 1
-    }
-    RUNTIME_CONFIGMAP_NAMES+=("$name")
-  done < <(
-    awk '
-      function emit_inline(line, parts, count, i, item) {
-        sub(/.*\[/, "", line)
-        sub(/\].*/, "", line)
-        count = split(line, parts, ",")
-        for (i = 1; i <= count; i++) {
-          item = parts[i]
-          gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
-          gsub(/"/, "", item)
-          gsub(/\047/, "", item)
-          if (item != "" && !seen[item]++) print item
-        }
-      }
-      /^kind:[[:space:]]*Role[[:space:]]*$/ {
-        in_role = 1
-        in_rule = 0
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      /^---[[:space:]]*$/ {
-        in_role = 0
-        in_rule = 0
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      !in_role { next }
-      /^[[:space:]]*-[[:space:]]*apiGroups:/ {
-        in_rule = 1
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      in_rule && /resources:[[:space:]]*\[/ && /configmaps/ {
-        in_configmaps = 1
-        next
-      }
-      in_rule && in_configmaps &&
-        /^[[:space:]]*resourceNames:[[:space:]]*\[/ {
-        emit_inline($0)
-        in_names = 0
-        next
-      }
-      in_rule && in_configmaps &&
-        /^[[:space:]]*resourceNames:[[:space:]]*$/ {
-        in_names = 1
-        next
-      }
-      in_rule && in_names && /^[[:space:]]*-[[:space:]]*/ {
-        item = $0
-        sub(/^[[:space:]]*-[[:space:]]*/, "", item)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
-        gsub(/"/, "", item)
-        gsub(/\047/, "", item)
-        if (item != "" && !seen[item]++) print item
-        next
-      }
-      in_names { in_names = 0 }
-    ' "$manifest"
-  )
-  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ]
-}
-
-ensure_runtime_configmap_names() {
-  local manifest rc version="${INSTALL_VERSION:-}"
-  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ] && return 0
-  [ -n "$version" ] || return 1
-  manifest=$(mktemp) || return 1
-  if ! curl -fsSL --location --retry 2 --retry-delay 1 \
-    --connect-timeout 8 "$BASE_URL/$version/deploy/deploy.yaml" \
-    -o "$manifest"; then
-    rm -f "$manifest"
-    return 1
-  fi
-  if load_runtime_configmap_names_from_manifest "$manifest"; then
-    rc=0
-  else
-    rc=$?
-  fi
-  rm -f "$manifest"
-  return "$rc"
-}
 
 is_transient_kubectl_error() {
   case "$1" in
@@ -3165,47 +3060,6 @@ patch_config_value() {
   fi
 }
 
-verify_runtime_tls_access() {
-  local deployment service_account subject result verb
-  deployment=$(deployment_name)
-  if [ -z "$deployment" ]; then
-    ui_error "❌ Cannot verify TLS access: kwatch deployment was not found."
-    return 1
-  fi
-  service_account=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-    -o 'jsonpath={.spec.template.spec.serviceAccountName}' 2>/dev/null || true)
-  [ -n "$service_account" ] || service_account=default
-  subject="system:serviceaccount:$NAMESPACE:$service_account"
-  for verb in get list watch; do
-    result=$(kubectl auth can-i "$verb" secrets --all-namespaces --as="$subject" 2>/dev/null || true)
-    result=$(printf '%s\n' "$result" | awk '
-      { line=tolower($0); gsub(/^[[:space:]]+|[[:space:]]+$/, "", line) }
-      line == "yes" { answer="yes" }
-      line == "no" { answer="no" }
-      END { print answer }
-    ')
-    case "$result" in
-      yes) ;;
-      no)
-        ui_error \
-          "❌ TLS monitoring needs the kwatch ServiceAccount to $verb Secrets; RBAC is missing."
-        return 1
-        ;;
-      *)
-        ui_info "ℹ️ Could not preflight TLS RBAC for $verb; the runtime check remains authoritative."
-        ;;
-    esac
-  done
-}
-
-enable_initial_tls_monitor() {
-  [ "${TLS_MONITOR_ENABLED:-false}" = true ] || return 0
-  kubectl -n "$NAMESPACE" patch kwatchconfig "$RELEASE" --type merge \
-    -p '{"spec":{"tlsMonitor":{"enabled":true}}}' >/dev/null || \
-    { ui_error "❌ Could not enable TLS monitoring in KwatchConfig."; return 1; }
-  verify_runtime_tls_access
-}
-
 show_catalog_entry() {
   local entry="$1" path type default category description status replacement current
   IFS='|' read -r path type default category description status replacement <<<"$entry"
@@ -3325,9 +3179,9 @@ configure_flow() {
     die "configuration migration failed"
   fi
   ui_busy_done
-  categories=("Alerts" "Scope" "Performance" "Incident memory" "Noise reduction"
+  categories=("Alerts" "Scope" "Performance" "Noise reduction"
     "Monitors" "Operations" "Compatibility" "Product control" "Security")
-  category_labels=("🚨 Alerts" "🎯 Scope" "⚡ Performance" "🧠 Incident memory"
+  category_labels=("🚨 Alerts" "🎯 Scope" "⚡ Performance"
     "🔇 Noise reduction" "🔍 Monitors" "🛠️  Operations" "🔄 Compatibility"
     "🎛️  Product control" "🔒 Security" "↩️  Back")
   while true; do
@@ -3451,14 +3305,6 @@ configure_flow() {
       restore_backup_after_failure \
         "The attempted value was rejected by Kubernetes." || true
       continue
-    fi
-    if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
-      if ! verify_runtime_tls_access; then
-        ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
-        restore_backup_after_failure \
-          "TLS monitoring requires Secret access that is not available." || true
-        die "TLS RBAC validation failed"
-      fi
     fi
     kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
       "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
@@ -4334,7 +4180,11 @@ provider_available() {
 # and leaked into the global scope anyway.
 delete_owned() {
     local scope="$1" kind="$2" name="$3" owner app service_account
-    if [ "$scope" = namespace ]; then
+    if [ "$scope" = kube-system ]; then
+      owner=$(kubectl -n kube-system get "$kind" "$name" \
+        -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
+        2>/dev/null || true)
+    elif [ "$scope" = namespace ]; then
       owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
         -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
         2>/dev/null || true)
@@ -4362,7 +4212,14 @@ delete_owned() {
       fi
     fi
     [ "$owner" = kwatch.sh ] || return 0
-    if [ "$scope" = namespace ]; then
+    if [ "$scope" = kube-system ]; then
+      if [ "$(kubectl auth can-i delete "${kind}s" -n kube-system \
+        2>/dev/null || true)" = no ]; then
+        die "missing Kubernetes permission: delete ${kind}s in namespace kube-system"
+      fi
+      kubectl -n kube-system delete "$kind" "$name" \
+        --ignore-not-found >/dev/null
+    elif [ "$scope" = namespace ]; then
       check_access delete "$kind" namespace
       kubectl -n "$NAMESPACE" delete "$kind" "$name" \
         --ignore-not-found >/dev/null
@@ -4377,8 +4234,10 @@ remove_namespaced_workload() {
   delete_owned namespace deployment "$RELEASE"
   delete_owned namespace service "$RELEASE"
   delete_owned namespace serviceaccount "$RELEASE"
-  delete_owned namespace role "${RELEASE}-configmap-manager"
-  delete_owned namespace rolebinding "${RELEASE}-configmap-manager"
+  delete_owned namespace role "${RELEASE}-leader-election"
+  delete_owned namespace rolebinding "${RELEASE}-leader-election"
+  delete_owned kube-system role "${RELEASE}-control-plane-leases"
+  delete_owned kube-system rolebinding "${RELEASE}-control-plane-leases"
   delete_owned cluster clusterrolebinding "$RELEASE"
   delete_owned cluster clusterrole "$RELEASE"
 }
@@ -4459,11 +4318,6 @@ choose_provider() {
   [ "$choice" -lt "${#providers[@]}" ] || return 2
   PROVIDER="${providers[$choice]}"
   ui_success "✅ Provider selected: ${displays[$choice]#🔌 }"
-}
-
-choose_tls_monitor() {
-  TLS_MONITOR_ENABLED=$(ask_yes_no \
-    "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
 }
 
 provider_group_value() {
@@ -5162,57 +5016,6 @@ preview_manifest_changes() {
   ui_rule
 }
 
-# Check the named persistence permissions used by the workload. The Role is
-# intentionally scoped with resourceNames, so an unnamed authorization query
-# would report a false denial and tempt the installer to widen the Role.
-# A release that grants every named permission answers yes and nothing changes.
-self_check_rbac_missing() {
-  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" verb answer name
-  ensure_runtime_configmap_names || return 1
-  for verb in update patch; do
-    for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
-      answer=$(kubectl auth can-i "$verb" configmaps \
-        --resource-name="$name" -n "$NAMESPACE" \
-        --as="$subject" 2>/dev/null || true)
-      case "$answer" in
-        *no*) return 0 ;;
-        *yes*) ;;
-        # Impersonation is not allowed here, so the question cannot be asked.
-        *) return 1 ;;
-      esac
-    done
-  done
-  return 1
-}
-
-repair_self_check_rbac() {
-  local role="${RELEASE}-configmap-manager" details name
-  local names_json="[" separator="" patch
-  ensure_runtime_configmap_names || return 1
-  kubectl -n "$NAMESPACE" get role "$role" >/dev/null 2>&1 || return 1
-  for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
-    names_json+="${separator}\"${name}\""
-    separator=","
-  done
-  names_json+="]"
-  details="kwatch needs named update/patch access to its persistence ConfigMaps."
-  details+=" This adds the complete named rule to $role in $NAMESPACE."
-  confirm_repair "grant the named persistence permissions" "$details" ||
-    return 1
-  check_access patch roles namespace
-  patch=$(printf '%s%s%s%s' \
-    '[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],' \
-    '"resources":["configmaps"],"resourceNames":' \
-    "$names_json" \
-    ',"verbs":["get","update","patch"]}}]')
-  with_loading "Updating $role" kubectl -n "$NAMESPACE" patch role "$role" \
-    --type=json -p "$patch" \
-    >/dev/null || return 1
-  restart_kwatch || return 1
-  ui_success "✅ Named persistence permissions granted."
-  return 0
-}
-
 apply_manifests() {
   local version="$1" tmp crd_tmp deployment existing_deployment profile
   local rollout_error event_detail
@@ -5243,15 +5046,11 @@ apply_manifests() {
     LAST_COMMAND_ERROR="Downloaded deployment manifest for $version does not contain a Deployment."
     return 1
   fi
-  # Keep named RBAC checks tied to the exact release being installed. Older
-  # manifests without resourceNames remain installable, but cannot be checked
-  # or repaired by this narrow path.
-  load_runtime_configmap_names_from_manifest "$tmp" ||
-    RUNTIME_CONFIGMAP_NAMES=()
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
     -e "s/^\( *name: \)kwatch$/\1$RELEASE/g" \
-    -e "s/^\( *name: \)kwatch-configmap-manager$/\1${RELEASE}-configmap-manager/g" \
+    -e "s/^\( *name: \)kwatch-\(leader-election\|control-plane-leases\|data\)$/\1${RELEASE}-\2/g" \
+    -e "s/^\( *claimName: \)kwatch-data$/\1${RELEASE}-data/g" \
     -e "s/namespace: kwatch/namespace: $NAMESPACE/g" \
     -e "s/^\( *app.kubernetes.io\/instance: \)kwatch$/\1$RELEASE/g" \
     -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
@@ -5325,11 +5124,6 @@ apply_manifests() {
   fi
   if ! verify_runtime_dependencies; then
     return 1
-  fi
-  if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
-    enable_initial_tls_monitor
-  elif [ "$(config_value tlsMonitor.enabled)" = true ]; then
-    verify_runtime_tls_access
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
@@ -5614,7 +5408,6 @@ install_flow() {
     fi
     die "could not save the notification configuration"
   fi
-  choose_tls_monitor
   record_state apply "$version" "applying CRD and Deployment"
   if apply_manifests "$version"; then
     if ! verify_operational_security; then
@@ -5636,11 +5429,6 @@ install_flow() {
         return 0
       fi
       install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
-    elif self_check_rbac_missing && repair_self_check_rbac; then
-      record_state complete "$version" "installation repaired after granting named persistence permissions"
-      FRESH_INSTALL=false
-      configure_after_install
-      return 0
     elif [ -n "$(failed_components "$(workload_selector)")" ] &&
       repair_component_from_menu; then
       record_state complete "$version" "installation repaired after disabling a failed component"
@@ -5936,7 +5724,7 @@ workload_was_oomkilled() {
 
 show_broken_menu() {
   local choice selector oomkilled=false unschedulable=false
-  local components_failed selfcheck_missing
+  local components_failed
   local -a actions=() labels=()
   ui_screen "needs attention"
   ui_kv "📦" "Deployment" "${INSTALL_DEPLOYMENT:-unknown}"
@@ -5951,8 +5739,6 @@ show_broken_menu() {
   workload_unschedulable "$selector" && unschedulable=true
   workload_was_oomkilled "$selector" && oomkilled=true
   components_failed=$(failed_components "$selector")
-  selfcheck_missing=false
-  self_check_rbac_missing && selfcheck_missing=true
   ui_busy_done
   show_unready_pods "$selector" || true
   if [ "$unschedulable" = true ]; then
@@ -5974,10 +5760,6 @@ show_broken_menu() {
   if [ -n "$components_failed" ]; then
     actions+=(component)
     labels+=("🩺 Disable the component that will not start")
-  fi
-  if [ "$selfcheck_missing" = true ]; then
-    actions+=(selfcheck)
-    labels+=("🔑 Grant named persistence permissions")
   fi
   actions+=(status logs upgrade settings providers)
   labels+=(
@@ -6005,7 +5787,6 @@ show_broken_menu() {
   fi
   case "${actions[$choice]}" in
     component) repair_component_from_menu ;;
-    selfcheck) repair_self_check_rbac || true ;;
     upgrade)
       if confirm_repair \
         "repair kwatch by upgrading it" \
@@ -6062,9 +5843,8 @@ repair_component_from_menu() {
 # off, so the manager can offer the same repair it offers for injectors.
 component_setting() {
   case "$1" in
-    control-plane) printf '%s' "controlPlaneMonitor.enabled" ;;
-    status|network-graph|storage-graph) printf '%s' "clusterResourceMonitor.enabled" ;;
-    runtime-metrics) printf '%s' "runtimeMetricsMonitor.enabled" ;;
+    heartbeat) printf '%s' "heartbeatMonitor.enabled" ;;
+    active-probe) printf '%s' "activeProbeMonitor.enabled" ;;
     *) return 1 ;;
   esac
 }
@@ -6094,11 +5874,8 @@ failed_components_uncached() {
   local selector="$1" line
   while IFS= read -r line; do
     case "$line" in
-      *"control-plane monitor"*) printf 'control-plane\n' ;;
-      *"status monitor"*) printf 'status\n' ;;
-      *"network graph monitor"*) printf 'network-graph\n' ;;
-      *"storage graph monitor"*) printf 'storage-graph\n' ;;
-      *"runtime metrics monitor"*) printf 'runtime-metrics\n' ;;
+      *"heartbeat monitor"*) printf 'heartbeat\n' ;;
+      *"active probe"*) printf 'active-probe\n' ;;
     esac
   done < <(kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
     grep -F 'failed to' || true) | sort -u
@@ -6573,6 +6350,7 @@ preflight_uninstall_access() {
   check_access delete secrets namespace
   check_access delete clusterrolebindings
   check_access delete clusterroles
+  check_access delete persistentvolumeclaims namespace
 }
 
 # Everything the manager itself created, beyond the workload: the state marker,
@@ -6597,6 +6375,23 @@ purge_manager_data() {
     >/dev/null 2>&1 || true
 }
 
+# The data volume holds problem history, thread state and baselines. It is kept
+# unless the operator explicitly agrees to delete it; the workload is already
+# gone, so nothing is writing to it.
+remove_data_volume_if_confirmed() {
+  local pvc="${RELEASE}-data" answer
+  kubectl -n "$NAMESPACE" get pvc "$pvc" >/dev/null 2>&1 || return 0
+  answer=$(ask_yes_no \
+    "💾 Also delete the data volume '$pvc' (problem history and baselines)?" \
+    "n") || exit_expected
+  if [ "$answer" = true ]; then
+    delete_owned namespace persistentvolumeclaim "$pvc"
+    ui_info "💾 Data volume '$pvc' deleted."
+  else
+    ui_info "💾 Keeping data volume '$pvc'; a reinstall picks it up again."
+  fi
+}
+
 uninstall_flow() {
   local confirm secret_owner scope purge=false
   adopt_existing_config_secret
@@ -6613,6 +6408,7 @@ uninstall_flow() {
   if [ "$purge" = true ]; then
     ui_warn \
       "⚠️ This removes the workload, the configuration resource, every configuration backup, and the cached catalogs."
+    ui_detail "You will be asked separately before the data volume is deleted."
     ui_detail "The namespace and the CRD are preserved."
   else
     ui_warn \
@@ -6627,6 +6423,7 @@ uninstall_flow() {
   ui_info \
     "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other resources remain."
   remove_namespaced_workload
+  remove_data_volume_if_confirmed
   secret_owner=$(kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
     -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
     2>/dev/null || true)

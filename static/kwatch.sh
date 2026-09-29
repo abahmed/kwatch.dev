@@ -3677,8 +3677,7 @@ deployment_name() {
 invalidate_deployment_name() {
   [ -n "$SESSION_CACHE_DIR" ] || return 0
   rm -f "$SESSION_CACHE_DIR/deployment-name" \
-    "$SESSION_CACHE_DIR/workload-selector" \
-    "$SESSION_CACHE_DIR/failed-components" 2>/dev/null || true
+    "$SESSION_CACHE_DIR/workload-selector" 2>/dev/null || true
   return 0
 }
 
@@ -5429,12 +5428,6 @@ install_flow() {
         return 0
       fi
       install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
-    elif [ -n "$(failed_components "$(workload_selector)")" ] &&
-      repair_component_from_menu; then
-      record_state complete "$version" "installation repaired after disabling a failed component"
-      FRESH_INSTALL=false
-      configure_after_install
-      return 0
     elif is_scheduling_failure "$install_failure"; then
       if repair_scheduling; then
         record_state complete "$version" "installation repaired after adding tolerations"
@@ -5526,11 +5519,6 @@ upgrade_flow() {
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
-    if [ -n "$(failed_components "$(workload_selector)")" ] &&
-      repair_component_from_menu; then
-      record_state complete "$version" "upgrade repaired after disabling a failed component"
-      return 0
-    fi
     if is_scheduling_failure "$upgrade_failure" && repair_scheduling; then
       record_state complete "$version" "upgrade repaired after adding tolerations"
       return 0
@@ -5724,7 +5712,6 @@ workload_was_oomkilled() {
 
 show_broken_menu() {
   local choice selector oomkilled=false unschedulable=false
-  local components_failed
   local -a actions=() labels=()
   ui_screen "needs attention"
   ui_kv "📦" "Deployment" "${INSTALL_DEPLOYMENT:-unknown}"
@@ -5738,7 +5725,6 @@ show_broken_menu() {
   ui_busy "Diagnosing the installation"
   workload_unschedulable "$selector" && unschedulable=true
   workload_was_oomkilled "$selector" && oomkilled=true
-  components_failed=$(failed_components "$selector")
   ui_busy_done
   show_unready_pods "$selector" || true
   if [ "$unschedulable" = true ]; then
@@ -5754,12 +5740,6 @@ show_broken_menu() {
     ui_detail "  Raising the memory limit is the repair; the value is kept across upgrades."
     actions+=(resources)
     labels+=("🧮 Raise the memory limit (the container was OOMKilled)")
-  fi
-  # When a component is the cause, offer that repair first: upgrading to the
-  # same release cannot clear a component that fails to initialise.
-  if [ -n "$components_failed" ]; then
-    actions+=(component)
-    labels+=("🩺 Disable the component that will not start")
   fi
   actions+=(status logs upgrade settings providers)
   labels+=(
@@ -5786,7 +5766,6 @@ show_broken_menu() {
     return
   fi
   case "${actions[$choice]}" in
-    component) repair_component_from_menu ;;
     upgrade)
       if confirm_repair \
         "repair kwatch by upgrading it" \
@@ -5813,102 +5792,6 @@ show_broken_menu() {
 }
 
 # One failing component is the common case; more than one is offered as a list.
-repair_component_from_menu() {
-  local selector choice
-  local -a components=()
-  selector=$(workload_selector)
-  while IFS= read -r choice; do
-    [ -n "$choice" ] && components+=("$choice")
-  done < <(failed_components "$selector")
-  if [ "${#components[@]}" -eq 0 ]; then
-    ui_info "ℹ️ Every component started; readiness is failing for another reason."
-    return 0
-  fi
-  if [ "${#components[@]}" -eq 1 ]; then
-    repair_failed_component "${components[0]}" || true
-    return 0
-  fi
-  components+=("↩️  Back")
-  choice=$(ui_select 0 "${components[@]}") || return 0
-  [ "$choice" -lt $((${#components[@]} - 1)) ] || return 0
-  repair_failed_component "${components[$choice]}" || true
-}
-
-# kwatch gates its readiness on every component starting cleanly, so one
-# optional monitor that fails to initialise leaves the Pod Running but never
-# Ready. The component logs the failure on startup, which is the only signal
-# available from outside the cluster.
-#
-# Each entry maps the component name kwatch reports to the setting that turns it
-# off, so the manager can offer the same repair it offers for injectors.
-component_setting() {
-  case "$1" in
-    heartbeat) printf '%s' "heartbeatMonitor.enabled" ;;
-    active-probe) printf '%s' "activeProbeMonitor.enabled" ;;
-    *) return 1 ;;
-  esac
-}
-
-# Matched against the message text rather than parsed out of it: the same
-# component is reported as "create", "initialize" and "create rest config for",
-# and the component name in the message ("generic status monitor") is not the
-# name kwatch reports it under ("status").
-# Reading 400 log lines is asked for twice on the attention screen -- once to
-# decide whether to offer the repair, once to carry it out. Cache it for the
-# life of one menu render, alongside the other workload lookups.
-failed_components() {
-  local selector="$1" file="" result
-  [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/failed-components"
-  if [ -n "$file" ] && [ -f "$file" ]; then
-    cat "$file"
-    return 0
-  fi
-  result=$(failed_components_uncached "$selector")
-  cache_list "$file" "$result"
-  printf '%s' "$result"
-  [ -n "$result" ] && printf '\n'
-  return 0
-}
-
-failed_components_uncached() {
-  local selector="$1" line
-  while IFS= read -r line; do
-    case "$line" in
-      *"heartbeat monitor"*) printf 'heartbeat\n' ;;
-      *"active probe"*) printf 'active-probe\n' ;;
-    esac
-  done < <(kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
-    grep -F 'failed to' || true) | sort -u
-}
-
-component_failure_detail() {
-  local component="$1" selector="$2"
-  kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
-    grep -F "$component" | grep -F 'failed to' | tail -1 || true
-}
-
-# Offer to switch off the component that cannot start. The alternative is a Pod
-# that never becomes Ready, so the trade is stated plainly and confirmed.
-repair_failed_component() {
-  local component="$1" setting details
-  setting=$(component_setting "$component") || {
-    ui_warn "⚠️ The $component component failed to start and has no setting to disable it."
-    return 1
-  }
-  details="kwatch reports every component healthy or it never becomes Ready, so"
-  details+=" the $component failure keeps the Pod out of service. This sets"
-  details+=" $setting=false in the KwatchConfig resource and restarts kwatch."
-  details+=" Only that component stops; every other monitor keeps running."
-  confirm_repair "disable the $component component" "$details" || return 1
-  check_access patch kwatchconfigs namespace
-  if ! patch_config_value "$setting" boolean false; then
-    return 1
-  fi
-  restart_kwatch || return 1
-  ui_success "✅ $component disabled. Re-enable it with Edit settings once it is fixed upstream."
-  return 0
-}
-
 workload_selector() {
   local file="" selector
   [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/workload-selector"
@@ -5978,13 +5861,6 @@ show_unready_pods() {
     ui_warn "$(ui_dot bad) Pod $pod is not ready: ${waiting:-unknown}${terminated:+ (last exit: $terminated)}"
     [ -n "$scheduling" ] && ui_detail "   $(compact_reason "$scheduling")"
     [ -n "$probe" ] && ui_detail "   $(compact_reason "$probe")"
-    # kwatch holds readiness down until every component starts, so name the one
-    # that did not rather than leaving a healthy-looking process unexplained.
-    while IFS= read -r component; do
-      [ -n "$component" ] || continue
-      ui_detail "   ⚠️ component $component failed to start:"
-      ui_detail "      $(compact_reason "$(component_failure_detail "$component" "$selector")")"
-    done < <(failed_components "$selector")
     logs=$(kubectl -n "$NAMESPACE" logs "$pod" --tail=3 --previous 2>/dev/null ||
       kubectl -n "$NAMESPACE" logs "$pod" --tail=3 2>/dev/null || true)
     [ -n "$logs" ] || continue

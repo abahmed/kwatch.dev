@@ -1,0 +1,319 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kwatch
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+rules:
+# List and watch access to every resource so the dynamic source can
+# watch any API kind. Secret values are hashed in the informer transform and never
+# stored. Use the Helm chart with rbac.mode=least-privilege for an explicit
+# list, or with watch.secrets=false for no Secret access at all. The only
+# write is the audit's SelfSubjectAccessReview.
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["list", "watch"]
+# get only where kwatch reads a single object. Wildcard get is avoided: it
+# would also match subresources such as nodes/proxy, pods/exec and
+# pods/attach for every kind.
+- apiGroups: [""]
+  resources: ["namespaces", "nodes"]
+  verbs: ["get"]
+# Kubelet stats and metrics are read from each kubelet directly; the
+# kubelet authorizes them as get on nodes/stats and nodes/metrics.
+# nodes/proxy is not granted.
+- apiGroups: [""]
+  resources: ["nodes/stats", "nodes/metrics", "pods/log"]
+  verbs: ["get"]
+- nonResourceURLs: ["/readyz"]
+  verbs: ["get"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["selfsubjectaccessreviews"]
+  verbs: ["create"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kwatch
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kwatch
+subjects:
+  - kind: ServiceAccount
+    name: kwatch
+    namespace: kwatch
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kwatch-leader-election
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+rules:
+# Create cannot be limited by name in RBAC (the name is not known until
+# the object exists), so it is granted on leases in this namespace only.
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["create"]
+# Get and update only on kwatch's own Lease (KWATCH_LEADER_ELECTION_NAME).
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  resourceNames: ["kwatch-leader"]
+  verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kwatch-leader-election
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kwatch-leader-election
+subjects:
+- kind: ServiceAccount
+  name: kwatch
+  namespace: kwatch
+---
+# Restart evidence reads the previous kwatch Pod by name, so get on pods
+# is granted only in kwatch's own namespace.
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kwatch-restart-evidence
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kwatch-restart-evidence
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kwatch-restart-evidence
+subjects:
+- kind: ServiceAccount
+  name: kwatch
+  namespace: kwatch
+---
+# The scheduler and controller-manager leader Leases show whether those
+# control-plane components are alive.
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kwatch-control-plane-leases
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+rules:
+- apiGroups: ["coordination.k8s.io"]
+  resources: ["leases"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kwatch-control-plane-leases
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kwatch-control-plane-leases
+subjects:
+- kind: ServiceAccount
+  name: kwatch
+  namespace: kwatch
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kwatch
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+spec:
+  # One replica: the Lease is a lock that guarantees a single writer, and
+  # Recreate keeps two pods from sharing the RWO data volume.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: kwatch
+      app.kubernetes.io/instance: kwatch
+  template:
+    metadata:
+      labels:
+        app: kwatch
+        app.kubernetes.io/instance: kwatch
+    spec:
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      serviceAccountName: kwatch
+      automountServiceAccountToken: true
+      securityContext:
+        fsGroup: 1000
+      # Move off a failed node quickly; the Lease stops the old pod from
+      # writing if it is still running.
+      tolerations:
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      - key: node.kubernetes.io/unreachable
+        operator: Exists
+        effect: NoExecute
+        tolerationSeconds: 30
+      containers:
+      - name: kwatch
+        # Main pins the latest stable release (the release workflow rewrites
+        # this tag; RC tags carry the preview image). It must equal the chart
+        # appVersion (scripts/check-release-consistency.sh).
+        image: ghcr.io/abahmed/kwatch:v1.0.0-rc.11
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+        ports:
+          - name: health
+            containerPort: 8060
+        volumeMounts:
+          - name: config-volume
+            mountPath: /config
+          - name: data
+            mountPath: /var/lib/kwatch
+        env:
+          - name: CONFIG_FILE
+            value: "/config/config.yaml"
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_UID
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.uid
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: KWATCH_LEADER_ELECTION_NAME
+            value: "kwatch-leader"
+          - name: KWATCH_DATA_DIR
+            value: "/var/lib/kwatch"
+          # kwatch sets the Go soft memory limit to 90% of this container
+          # limit, unless GOMEMLIMIT is set explicitly.
+          - name: KWATCH_MEMORY_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
+                divisor: "1"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /availabilityz
+            port: health
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            memory: "512Mi"
+            cpu: "100m"
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config-volume
+        secret:
+          secretName: kwatch
+          defaultMode: 0400
+      # Default: a PVC keeps incidents across restarts. For evaluation
+      # without storage, replace this volume with
+      #   emptyDir:
+      #     sizeLimit: 2Gi
+      # and delete the PersistentVolumeClaim below. Also add this env var
+      # to the container so kwatch knows the volume cap:
+      #   - name: KWATCH_VOLUME_LIMIT
+      #     value: "2Gi"
+      # emptyDir loses state on
+      # reschedule, so incidents may be announced again after a restart.
+      - name: data
+        persistentVolumeClaim:
+          claimName: kwatch-data
+---
+# State store: incidents, change history and baselines. Uses the
+# cluster's default StorageClass.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kwatch-data
+  namespace: kwatch
+  labels:
+    app.kubernetes.io/instance: kwatch
+    app.kubernetes.io/managed-by: kwatch.sh
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi

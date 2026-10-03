@@ -1600,10 +1600,20 @@ manifest_resource_default() {
   ' "$manifest"
 }
 
-rewrite_release_lease_name() {
+# rewrite_release_names gives every object the manifest names "kwatch" the
+# name of this release, so two releases can share a namespace. The container
+# is renamed too: the manager finds the image and security settings by it. The
+# Lease Role only grants the release's own Lease, so its resourceNames and the
+# KWATCH_LEADER_ELECTION_NAME value move together. Extended regular
+# expressions keep this working with both GNU and BSD sed.
+rewrite_release_names() {
   local manifest="$1"
-  sed -i.bak \
-    -e "s/^\( *value: \)\"kwatch-leader\"$/\1\"${RELEASE}-leader\"/" \
+  sed -E -i.bak \
+    -e "s/^( *(- )?name: )kwatch(-(leader-election|control-plane-leases|restart-evidence|data))?$/\1${RELEASE}\3/" \
+    -e "s/^( *claimName: )kwatch-data$/\1${RELEASE}-data/" \
+    -e "s/^( *resourceNames: \[\")kwatch-leader(\"\])$/\1${RELEASE}-leader\2/" \
+    -e "s/^( *value: )\"kwatch-leader\"$/\1\"${RELEASE}-leader\"/" \
+    -e "s/^( *app\.kubernetes\.io\/instance: )kwatch$/\1${RELEASE}/" \
     "$manifest"
   rm -f "$manifest.bak"
 }
@@ -4235,6 +4245,8 @@ remove_namespaced_workload() {
   delete_owned namespace serviceaccount "$RELEASE"
   delete_owned namespace role "${RELEASE}-leader-election"
   delete_owned namespace rolebinding "${RELEASE}-leader-election"
+  delete_owned namespace role "${RELEASE}-restart-evidence"
+  delete_owned namespace rolebinding "${RELEASE}-restart-evidence"
   delete_owned kube-system role "${RELEASE}-control-plane-leases"
   delete_owned kube-system rolebinding "${RELEASE}-control-plane-leases"
   delete_owned cluster clusterrolebinding "$RELEASE"
@@ -5047,16 +5059,12 @@ apply_manifests() {
   fi
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
-    -e "s/^\( *name: \)kwatch$/\1$RELEASE/g" \
-    -e "s/^\( *name: \)kwatch-\(leader-election\|control-plane-leases\|data\)$/\1${RELEASE}-\2/g" \
-    -e "s/^\( *claimName: \)kwatch-data$/\1${RELEASE}-data/g" \
     -e "s/namespace: kwatch/namespace: $NAMESPACE/g" \
-    -e "s/^\( *app.kubernetes.io\/instance: \)kwatch$/\1$RELEASE/g" \
     -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
     "$tmp"
-  rewrite_release_lease_name "$tmp" || return 1
+  rewrite_release_names "$tmp" || return 1
   ensure_config_volume_readable "$tmp"
   # Carry the operator's resources and placement into the new manifest. Without
   # this the upgrade silently reverts them: the manifest is downloaded fresh
@@ -5569,6 +5577,9 @@ legacy_reinstall_flow() {
   ui_detail "The old configuration will be backed up before uninstalling."
   ui_detail "A fresh installation will configure providers again."
   ui_detail "No legacy settings migration will be attempted."
+  ui_detail "kwatch $target starts with fresh state: the old history is not carried over."
+  ui_detail "It runs as one pod and keeps incidents and baselines in a ${RELEASE}-data volume"
+  ui_detail "(2Gi, ReadWriteOnce, the default StorageClass); the cluster needs one."
   confirm_change \
     "🔁 The manager will uninstall the legacy workload and install kwatch $target." \
     "The old configuration will be backed up first; the legacy workload will then be removed." || {
@@ -5791,7 +5802,8 @@ show_broken_menu() {
   esac
 }
 
-# One failing component is the common case; more than one is offered as a list.
+# workload_selector prints the label selector of this release's pods. The
+# answer is cached for the session.
 workload_selector() {
   local file="" selector
   [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/workload-selector"
@@ -5825,7 +5837,7 @@ workload_selector_uncached() {
 # the container's own explanation instead of leaving them to run kubectl.
 show_unready_pods() {
   local selector="$1" pod ready waiting terminated scheduling logs line shown=false
-  local phase probe component
+  local phase probe
   while IFS=' ' read -r pod ready; do
     [ -n "$pod" ] || continue
     [ "$ready" = true ] && continue
@@ -6251,14 +6263,14 @@ purge_manager_data() {
     >/dev/null 2>&1 || true
 }
 
-# The data volume holds problem history, thread state and baselines. It is kept
+# The data volume holds incident history, thread state and baselines. It is kept
 # unless the operator explicitly agrees to delete it; the workload is already
 # gone, so nothing is writing to it.
 remove_data_volume_if_confirmed() {
   local pvc="${RELEASE}-data" answer
   kubectl -n "$NAMESPACE" get pvc "$pvc" >/dev/null 2>&1 || return 0
   answer=$(ask_yes_no \
-    "💾 Also delete the data volume '$pvc' (problem history and baselines)?" \
+    "💾 Also delete the data volume '$pvc' (incident history and baselines)?" \
     "n") || exit_expected
   if [ "$answer" = true ]; then
     delete_owned namespace persistentvolumeclaim "$pvc"

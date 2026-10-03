@@ -1629,15 +1629,17 @@ rewrite_release_lease_name() {
 }
 
 # Every resource the release ships is named "kwatch" or "kwatch-<role>",
-# including the container, so a release named anything else gets its own
-# set: the Roles for the Lease, the restart evidence and the control-plane
-# Leases, the data claim, and the container the manager looks up by name.
+# including the container and the Pod's serviceAccountName, so a release
+# named anything else gets its own set: the Roles for the Lease, the restart
+# evidence and the control-plane Leases, the data claim, the ServiceAccount
+# the Pod runs as, and the container the manager looks up by name.
 # The control-plane Role's "namespace: kube-system" is left alone.
 rewrite_release_names() {
   local manifest="$1" version="$2"
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
     -e "s/^\( *-\{0,1\} *name: \)kwatch$/\1$RELEASE/g" \
+    -e "s/^\( *serviceAccountName: \)kwatch$/\1$RELEASE/" \
     -e "s/^\( *name: \)kwatch-\([a-z][a-z-]*\)$/\1${RELEASE}-\2/g" \
     -e "s/^\( *claimName: \)kwatch-data$/\1${RELEASE}-data/" \
     -e "s/^\( *namespace: \)kwatch$/\1$NAMESPACE/g" \
@@ -1944,6 +1946,197 @@ component_stop_lines() {
   kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
     grep -F -e 'application component stopped' \
       -e 'optional component stopped' | tail -2 || true
+}
+
+claim_phase() {
+  kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+    -o 'jsonpath={.status.phase}' 2>/dev/null || true
+}
+
+# The claim's last warning names the real cause of a Pending claim: a
+# StorageClass with no working provisioner, or a provisioner that cannot
+# serve the node the Pod was placed on.
+claim_warning() {
+  kubectl -n "$NAMESPACE" get events \
+    --field-selector "involvedObject.kind=PersistentVolumeClaim,involvedObject.name=${RELEASE}-data,type=Warning" \
+    -o 'jsonpath={.items[-1:].message}' 2>/dev/null || true
+}
+
+is_storage_failure() {
+  local diagnostic
+  diagnostic=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$diagnostic" in
+    *"state claim"*|*provisioningfailed*|*"no topology key"*|\
+    *"unbound immediate persistentvolumeclaims"*) return 0 ;;
+  esac
+  return 1
+}
+
+# In-tree provisioner names and the CSI drivers that serve them today. A
+# CSI provisioner name is already the driver name.
+csi_driver_for_provisioner() {
+  case "$1" in
+    kubernetes.io/aws-ebs) printf 'ebs.csi.aws.com' ;;
+    kubernetes.io/gce-pd) printf 'pd.csi.storage.gke.io' ;;
+    kubernetes.io/azure-disk) printf 'disk.csi.azure.com' ;;
+    kubernetes.io/azure-file) printf 'file.csi.azure.com' ;;
+    kubernetes.io/cinder) printf 'cinder.csi.openstack.org' ;;
+    kubernetes.io/vsphere-volume) printf 'csi.vsphere.vmware.com' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# How many nodes have the driver registered, out of all nodes. A driver
+# that runs on some nodes only leaves a WaitForFirstConsumer claim stuck
+# whenever the scheduler picks one of the others.
+csi_driver_node_count() {
+  kubectl get csinodes \
+    -o "jsonpath={range .items[*]}{range .spec.drivers[?(@.name==\"$1\")]}{.name}{\"\\n\"}{end}{end}" \
+    2>/dev/null | grep -c . || true
+}
+
+node_count() {
+  kubectl get nodes -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+    2>/dev/null | grep -c . || true
+}
+
+# The driver's own topology label, which a node carries only once the driver
+# is registered on it. Keys every node has (os, arch, hostname, zone) would
+# not tell the nodes apart, so they are skipped.
+csi_driver_topology_key() {
+  local driver="$1" key
+  while IFS= read -r key; do
+    key="${key// /}"
+    [ -n "$key" ] || continue
+    case "$key" in
+      kubernetes.io/*|topology.kubernetes.io/*|node.kubernetes.io/*) continue ;;
+    esac
+    printf '%s' "$key"
+    return 0
+  done < <(kubectl get csinodes \
+    -o "jsonpath={range .items[*]}{range .spec.drivers[?(@.name==\"$driver\")]}{.topologyKeys}{\"\\n\"}{end}{end}" \
+    2>/dev/null | tr -d '[]"' | tr ',' '\n' | sort -u)
+  return 1
+}
+
+STORAGE_AFFINITY_ANNOTATION="kwatch.sh/storage-topology-key"
+
+storage_affinity_json() {
+  printf '{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"%s","operator":"Exists"}]}]}}}' "$1"
+}
+
+# A storage affinity recorded on the running Deployment is written into the
+# fresh release manifest, so an upgrade keeps kwatch on nodes the storage
+# driver serves instead of landing on one it cannot.
+inject_storage_affinity_into_manifest() {
+  local manifest="$1" deployment="$2" key
+  [ -n "$deployment" ] || return 0
+  key=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o "jsonpath={.metadata.annotations.${STORAGE_AFFINITY_ANNOTATION//./\\.}}" \
+    2>/dev/null || true)
+  [ -n "$key" ] || return 0
+  inject_affinity_key_into_manifest "$manifest" "$key"
+}
+
+inject_affinity_key_into_manifest() {
+  local manifest="$1" key="$2"
+  awk -v key="$key" '
+    { print }
+    /^      serviceAccountName: / && !done {
+      print "      affinity:"
+      print "        nodeAffinity:"
+      print "          requiredDuringSchedulingIgnoredDuringExecution:"
+      print "            nodeSelectorTerms:"
+      print "            - matchExpressions:"
+      print "              - key: " key
+      print "                operator: Exists"
+      done = 1
+    }
+  ' "$manifest" >"$manifest.tmp" && mv "$manifest.tmp" "$manifest"
+}
+
+# A rollout that failed on an unbound claim. The claim's warning says why;
+# the two generic repairs are to keep kwatch on the nodes the storage driver
+# serves, or to give up persistent state and use an emptyDir.
+repair_storage() {
+  local version="$1" class provisioner="" driver with_driver=0 total key=""
+  local deployment warning phase choice
+  local -a labels=() actions=()
+  phase=$(claim_phase)
+  if [ -z "$phase" ] || [ "$phase" = Bound ]; then
+    return 1
+  fi
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] || deployment="$RELEASE"
+  warning=$(claim_warning)
+  class=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+    -o 'jsonpath={.spec.storageClassName}' 2>/dev/null || true)
+  [ -n "$class" ] && provisioner=$(kubectl get storageclass "$class" \
+    -o 'jsonpath={.provisioner}' 2>/dev/null || true)
+  driver=$(csi_driver_for_provisioner "$provisioner")
+  ui_warn "⚠️ The state volume claim ${RELEASE}-data is $phase, so the Pod cannot start."
+  [ -n "$warning" ] && ui_detail "  $(compact_reason "$warning")"
+  total=$(node_count)
+  if [ -n "$driver" ]; then
+    with_driver=$(csi_driver_node_count "$driver")
+    key=$(csi_driver_topology_key "$driver" || true)
+  fi
+  if [ "${with_driver:-0}" -gt 0 ] && [ "$with_driver" -lt "${total:-0}" ] &&
+    [ -n "$key" ]; then
+    ui_detail "  The $driver storage driver is registered on $with_driver of $total nodes; the claim was placed on a node without it."
+    actions+=(affinity)
+    labels+=("📍 Keep kwatch on the $with_driver node(s) where the storage driver runs")
+  fi
+  actions+=(emptydir cancel)
+  labels+=(
+    "📦 Use an emptyDir instead (state is lost when the Pod moves)"
+    "↩️  Cancel"
+  )
+  choice=$(ui_select 0 "${labels[@]}") || return 1
+  case "${actions[$choice]}" in
+    affinity) repair_storage_affinity "$deployment" "$key" ;;
+    emptydir) repair_storage_emptydir "$version" ;;
+    *) return 1 ;;
+  esac
+}
+
+repair_storage_affinity() {
+  local deployment="$1" key="$2" details patch
+  details="This adds a node affinity requiring the label $key, which a node"
+  details+=" carries only once the storage driver is registered on it, and lets"
+  details+=" the scheduler place the claim again. The affinity is recorded on the"
+  details+=" Deployment and kept across upgrades."
+  confirm_repair "keep kwatch on nodes the storage driver serves" "$details" ||
+    return 1
+  check_access patch deployments namespace
+  check_access patch persistentvolumeclaims namespace
+  patch=$(printf '{"metadata":{"annotations":{"%s":"%s"}},"spec":{"template":{"spec":{"affinity":%s}}}}' \
+    "$STORAGE_AFFINITY_ANNOTATION" "$key" "$(storage_affinity_json "$key")")
+  with_loading "Pinning kwatch to nodes with the storage driver" \
+    kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=merge \
+    -p "$patch" >/dev/null || return 1
+  # The claim remembers the node it was first placed on and the provisioner
+  # keeps retrying there; forget it so the scheduler chooses again.
+  kubectl -n "$NAMESPACE" annotate pvc "${RELEASE}-data" \
+    volume.kubernetes.io/selected-node- >/dev/null 2>&1 || true
+  with_loading "Waiting for kwatch rollout" \
+    wait_for_kwatch_rollout "$deployment" || return 1
+  ui_success "✅ kwatch is ready on a node the storage driver serves."
+}
+
+repair_storage_emptydir() {
+  local version="$1" details
+  details="The unbound claim ${RELEASE}-data is deleted (it never held data) and"
+  details+=" the Deployment is re-applied with an emptyDir volume of $STORAGE_SIZE."
+  details+=" Incidents and change history are then lost whenever the Pod moves."
+  confirm_repair "run kwatch without persistent state" "$details" || return 1
+  check_access delete persistentvolumeclaims namespace
+  STORAGE_MODE=emptydir
+  kubectl -n "$NAMESPACE" delete pvc "${RELEASE}-data" --ignore-not-found \
+    --wait=false >/dev/null 2>&1 || true
+  apply_manifests "$version" || return 1
+  verify_operational_security || return 1
+  ui_success "✅ kwatch is ready without persistent state."
 }
 
 # Put the operator's resources and placement into the release manifest before it
@@ -2386,9 +2579,11 @@ show_failure_diagnostics() {
         ui_detail "Pod details are unavailable."
     done <<< "$pods"
   fi
-  pvc_phase=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
-    -o 'jsonpath={.status.phase}' 2>/dev/null || true)
-  [ -n "$pvc_phase" ] && ui_detail "💾 State claim ${RELEASE}-data: $pvc_phase"
+  pvc_phase=$(claim_phase)
+  if [ -n "$pvc_phase" ]; then
+    ui_detail "💾 State claim ${RELEASE}-data: $pvc_phase"
+    [ "$pvc_phase" = Bound ] || ui_detail "   $(compact_reason "$(claim_warning)")"
+  fi
   ui_detail "🕒 Recent namespace events:"
   events=$(namespace_warning_events | tail -8 || true)
   if [ -n "$events" ]; then
@@ -4131,13 +4326,17 @@ rollout_timeout_seconds() {
 # has elected a ready leader.
 wait_for_kwatch_rollout() {
   local deployment="$1" deadline timeout_seconds
-  local lease holder holder_ready
+  local lease holder holder_ready phase
   timeout_seconds=$(rollout_timeout_seconds)
   lease=$(lease_name_for_deployment "$deployment")
 
   if ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
     --timeout="${timeout_seconds}s" >/dev/null; then
     LAST_COMMAND_ERROR="Deployment rollout did not complete within ${timeout_seconds}s."
+    phase=$(claim_phase)
+    if [ -n "$phase" ] && [ "$phase" != Bound ]; then
+      LAST_COMMAND_ERROR="$LAST_COMMAND_ERROR State claim ${RELEASE}-data is $phase: $(claim_warning)"
+    fi
     ui_error "❌ Kwatch Deployment rollout did not complete."
     kubectl -n "$NAMESPACE" get deployment "$deployment" -o yaml >&2 || true
     kubectl -n "$NAMESPACE" get pods -l "$(workload_selector)" -o wide >&2 || true
@@ -5498,6 +5697,7 @@ apply_manifests() {
     return 1
   }
   strip_kube_system_rbac_if_denied "$tmp"
+  inject_storage_affinity_into_manifest "$tmp" "$existing_deployment"
   # Carry the operator's resources and placement into the new manifest. Without
   # this the upgrade silently reverts them: the manifest is downloaded fresh
   # every run and ships the release's own values.
@@ -5874,6 +6074,11 @@ install_flow() {
       FRESH_INSTALL=false
       configure_after_install
       return 0
+    elif is_storage_failure "$install_failure" && repair_storage "$version"; then
+      record_state complete "$version" "installation repaired after fixing the state volume"
+      FRESH_INSTALL=false
+      configure_after_install
+      return 0
     elif is_scheduling_failure "$install_failure"; then
       if repair_scheduling; then
         record_state complete "$version" "installation repaired after adding tolerations"
@@ -5968,6 +6173,10 @@ upgrade_flow() {
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
+    if is_storage_failure "$upgrade_failure" && repair_storage "$version"; then
+      record_state complete "$version" "upgrade repaired after fixing the state volume"
+      return 0
+    fi
     if is_scheduling_failure "$upgrade_failure" && repair_scheduling; then
       record_state complete "$version" "upgrade repaired after adding tolerations"
       return 0
@@ -6162,7 +6371,7 @@ workload_was_oomkilled() {
 
 show_broken_menu() {
   local choice selector oomkilled=false unschedulable=false
-  local selfcheck_missing
+  local selfcheck_missing storage_pending=false claim
   local -a actions=() labels=()
   ui_screen "needs attention"
   ui_kv "📦" "Deployment" "${INSTALL_DEPLOYMENT:-unknown}"
@@ -6178,6 +6387,8 @@ show_broken_menu() {
   workload_was_oomkilled "$selector" && oomkilled=true
   selfcheck_missing=false
   self_check_rbac_missing && selfcheck_missing=true
+  claim=$(claim_phase)
+  [ -n "$claim" ] && [ "$claim" != Bound ] && storage_pending=true
   ui_busy_done
   show_unready_pods "$selector" || true
   if [ "$unschedulable" = true ]; then
@@ -6193,6 +6404,11 @@ show_broken_menu() {
     ui_detail "  Raising the memory limit is the repair; the value is kept across upgrades."
     actions+=(resources)
     labels+=("🧮 Raise the memory limit (the container was OOMKilled)")
+  fi
+  if [ "$storage_pending" = true ]; then
+    ui_warn "⚠️ The state volume claim is $claim; the Pod cannot start without it."
+    actions+=(storage)
+    labels+=("💾 Fix the state volume (claim is $claim)")
   fi
   if [ "$selfcheck_missing" = true ]; then
     actions+=(selfcheck)
@@ -6223,6 +6439,7 @@ show_broken_menu() {
     return
   fi
   case "${actions[$choice]}" in
+    storage) repair_storage "${INSTALL_VERSION:-}" || true ;;
     selfcheck) repair_self_check_rbac || true ;;
     upgrade)
       if confirm_repair \

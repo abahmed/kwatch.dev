@@ -43,8 +43,17 @@ CATALOG_SOURCE="unavailable"
 CATALOG=()
 PROVIDER_CATALOG=()
 CONFIG_MOUNT_PATH="/config"
-# Filled from the release deployment manifest before named RBAC checks.
-RUNTIME_CONFIGMAP_NAMES=()
+# The data volume: "pvc" (the release default, a ReadWriteOnce claim on the
+# default StorageClass) or "emptydir" (no StorageClass needed; the state is
+# lost when the Pod moves). KWATCH_STORAGE picks one without a prompt,
+# KWATCH_STORAGE_CLASS names the StorageClass for the claim and
+# KWATCH_STORAGE_SIZE sizes the volume.
+STORAGE_MODE="${KWATCH_STORAGE:-}"
+STORAGE_CLASS="${KWATCH_STORAGE_CLASS:-}"
+STORAGE_SIZE="${KWATCH_STORAGE_SIZE:-2Gi}"
+# The first release that keeps its state in one file on the data volume
+# instead of in ConfigMaps. Upgrading across it rebuilds the state.
+VOLUME_STATE_VERSION="v1.0.0-rc.11"
 # Deployment resources and placement are the operator's, not the release's: the
 # manifest is re-downloaded on every run, so a hand-edited Deployment would be
 # reverted by the next upgrade. Recording the choices on the workload itself --
@@ -1007,110 +1016,7 @@ confirm_repair() {
 }
 valid_name() { [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; }
 valid_kubernetes_name() { [ "${#1}" -le 40 ] && valid_name "$1"; }
-valid_configmap_name() {
-  [ "${#1}" -le 253 ] &&
-    [[ "$1" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$ ]]
-}
 valid_release_version() { [[ "$1" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; }
-
-# Read persistence ConfigMap names from the namespaced Role in a release
-# manifest. ClusterRole rules are intentionally ignored: they describe the
-# workload's read access, not the ConfigMaps it persists.
-load_runtime_configmap_names_from_manifest() {
-  local manifest="$1" name
-  RUNTIME_CONFIGMAP_NAMES=()
-  [ -r "$manifest" ] || return 1
-  while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    valid_configmap_name "$name" || {
-      RUNTIME_CONFIGMAP_NAMES=()
-      return 1
-    }
-    RUNTIME_CONFIGMAP_NAMES+=("$name")
-  done < <(
-    awk '
-      function emit_inline(line, parts, count, i, item) {
-        sub(/.*\[/, "", line)
-        sub(/\].*/, "", line)
-        count = split(line, parts, ",")
-        for (i = 1; i <= count; i++) {
-          item = parts[i]
-          gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
-          gsub(/"/, "", item)
-          gsub(/\047/, "", item)
-          if (item != "" && !seen[item]++) print item
-        }
-      }
-      /^kind:[[:space:]]*Role[[:space:]]*$/ {
-        in_role = 1
-        in_rule = 0
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      /^---[[:space:]]*$/ {
-        in_role = 0
-        in_rule = 0
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      !in_role { next }
-      /^[[:space:]]*-[[:space:]]*apiGroups:/ {
-        in_rule = 1
-        in_configmaps = 0
-        in_names = 0
-        next
-      }
-      in_rule && /resources:[[:space:]]*\[/ && /configmaps/ {
-        in_configmaps = 1
-        next
-      }
-      in_rule && in_configmaps &&
-        /^[[:space:]]*resourceNames:[[:space:]]*\[/ {
-        emit_inline($0)
-        in_names = 0
-        next
-      }
-      in_rule && in_configmaps &&
-        /^[[:space:]]*resourceNames:[[:space:]]*$/ {
-        in_names = 1
-        next
-      }
-      in_rule && in_names && /^[[:space:]]*-[[:space:]]*/ {
-        item = $0
-        sub(/^[[:space:]]*-[[:space:]]*/, "", item)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", item)
-        gsub(/"/, "", item)
-        gsub(/\047/, "", item)
-        if (item != "" && !seen[item]++) print item
-        next
-      }
-      in_names { in_names = 0 }
-    ' "$manifest"
-  )
-  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ]
-}
-
-ensure_runtime_configmap_names() {
-  local manifest rc version="${INSTALL_VERSION:-}"
-  [ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -gt 0 ] && return 0
-  [ -n "$version" ] || return 1
-  manifest=$(mktemp) || return 1
-  if ! curl -fsSL --location --retry 2 --retry-delay 1 \
-    --connect-timeout 8 "$BASE_URL/$version/deploy/deploy.yaml" \
-    -o "$manifest"; then
-    rm -f "$manifest"
-    return 1
-  fi
-  if load_runtime_configmap_names_from_manifest "$manifest"; then
-    rc=0
-  else
-    rc=$?
-  fi
-  rm -f "$manifest"
-  return "$rc"
-}
 
 is_transient_kubectl_error() {
   case "$1" in
@@ -1137,6 +1043,8 @@ failure_hint() {
       printf '%s' "The cluster could not pull the kwatch image. Check registry access and network policy." ;;
     *timeout*|*timed\ out*|*connection\ refused*|*unavailable*)
       printf '%s' "The Kubernetes API or rollout did not respond in time. Check connectivity and nodes." ;;
+    *persistentvolumeclaim*|*unbound*|*storageclass*|*no\ persistent\ volumes*)
+      printf '%s' "The state volume claim did not bind: the cluster has no default StorageClass, or none that provisions ReadWriteOnce volumes." ;;
     *)
       printf '%s' "Review the Kubernetes details below; no safe automatic fix was identified." ;;
   esac
@@ -1160,6 +1068,8 @@ failure_fix() {
       printf '%s' "Make the kwatch image reachable from the cluster or configure the required imagePullSecret, then retry." ;;
     *timeout*|*timed\ out*|*connection\ refused*|*unavailable*|*too\ many\ requests*|*rate\ limit*)
       printf '%s' "Check API/network health; the manager can safely retry this operation after you approve it." ;;
+    *persistentvolumeclaim*|*unbound*|*storageclass*|*no\ persistent\ volumes*)
+      printf '%s' "Mark a default StorageClass, or run the manager with KWATCH_STORAGE_CLASS=<name>, or with KWATCH_STORAGE=emptydir to run without persistent state." ;;
     *)
       printf '%s' "Review the details and events, correct the named resource or permission, then run the manager again." ;;
   esac
@@ -1705,12 +1615,335 @@ manifest_resource_default() {
   ' "$manifest"
 }
 
+# The Lease name appears twice in the release manifest: the env var the
+# process reads, and the resourceNames of the Role that lets it renew that
+# one Lease. Renaming only the first leaves a release named anything but
+# "kwatch" unable to hold its Lease, so both are rewritten together.
 rewrite_release_lease_name() {
   local manifest="$1"
   sed -i.bak \
     -e "s/^\( *value: \)\"kwatch-leader\"$/\1\"${RELEASE}-leader\"/" \
+    -e "s/^\( *resourceNames: \[\)\"kwatch-leader\"\]$/\1\"${RELEASE}-leader\"]/" \
     "$manifest"
   rm -f "$manifest.bak"
+}
+
+# Every resource the release ships is named "kwatch" or "kwatch-<role>",
+# including the container, so a release named anything else gets its own
+# set: the Roles for the Lease, the restart evidence and the control-plane
+# Leases, the data claim, and the container the manager looks up by name.
+# The control-plane Role's "namespace: kube-system" is left alone.
+rewrite_release_names() {
+  local manifest="$1" version="$2"
+  sed -i.bak \
+    -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
+    -e "s/^\( *-\{0,1\} *name: \)kwatch$/\1$RELEASE/g" \
+    -e "s/^\( *name: \)kwatch-\([a-z][a-z-]*\)$/\1${RELEASE}-\2/g" \
+    -e "s/^\( *claimName: \)kwatch-data$/\1${RELEASE}-data/" \
+    -e "s/^\( *namespace: \)kwatch$/\1$NAMESPACE/g" \
+    -e "s/^\( *app.kubernetes.io\/instance: \)kwatch$/\1$RELEASE/g" \
+    -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
+    -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
+    -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
+    "$manifest"
+  rm -f "$manifest.bak"
+  rewrite_release_lease_name "$manifest"
+}
+
+# A ReadWriteOnce claim binds only through a StorageClass. The claim in the
+# release manifest names none, so it binds only when the cluster marks one
+# as default.
+default_storage_class() {
+  kubectl get storageclass \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{" "}{.metadata.annotations.storageclass\.kubernetes\.io/is-default-class}{" "}{.metadata.annotations.storageclass\.beta\.kubernetes\.io/is-default-class}{"\n"}{end}' \
+    2>/dev/null | awk '$2 == "true" || $3 == "true" { print $1; exit }' || true
+}
+
+storage_class_exists() {
+  kubectl get storageclass "$1" >/dev/null 2>&1
+}
+
+# The data volume the running Deployment uses, so an upgrade keeps it: a
+# claim is never swapped for an emptyDir, or the other way round, unless the
+# operator asks for it.
+live_storage_mode() {
+  local deployment="$1" volume
+  volume=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.volumes[?(@.name=="data")].emptyDir}' \
+    2>/dev/null || true)
+  if [ -n "$volume" ]; then
+    printf 'emptydir'
+  else
+    printf 'pvc'
+  fi
+}
+
+# Decide where the state lives before the manifest is applied. The release
+# default is a claim; without a default StorageClass that claim stays Pending
+# and the Pod with it, so the choice is made here, where the cluster can be
+# asked, instead of being discovered from a rollout that never completes.
+choose_storage_mode() {
+  local existing_deployment="$1" default_class choice
+  case "$STORAGE_MODE" in
+    pvc|emptydir|"") ;;
+    *) die "KWATCH_STORAGE must be pvc or emptydir, not '$STORAGE_MODE'" ;;
+  esac
+  valid_memory_quantity "$STORAGE_SIZE" ||
+    die "KWATCH_STORAGE_SIZE must be a memory quantity such as 2Gi, not '$STORAGE_SIZE'"
+  if [ -n "$STORAGE_CLASS" ] && ! storage_class_exists "$STORAGE_CLASS"; then
+    die "StorageClass '$STORAGE_CLASS' (KWATCH_STORAGE_CLASS) does not exist"
+  fi
+  if [ -n "$existing_deployment" ]; then
+    [ -n "$STORAGE_MODE" ] ||
+      STORAGE_MODE=$(live_storage_mode "$existing_deployment")
+    return 0
+  fi
+  [ -z "$STORAGE_MODE" ] || return 0
+  if [ -n "$STORAGE_CLASS" ]; then
+    STORAGE_MODE=pvc
+    return 0
+  fi
+  if [ "$(resolve_access list storageclasses)" = denied ]; then
+    ui_info "ℹ️ Cannot list StorageClasses; assuming the cluster has a default one."
+    STORAGE_MODE=pvc
+    return 0
+  fi
+  default_class=$(default_storage_class)
+  if [ -n "$default_class" ]; then
+    STORAGE_MODE=pvc
+    ui_detail "💾 State volume: a $STORAGE_SIZE claim on the default StorageClass '$default_class'."
+    return 0
+  fi
+  ui_warn "⚠️ The cluster has no default StorageClass, so the release's state volume claim cannot bind."
+  ui_detail "  kwatch keeps incidents and change history on that volume across restarts."
+  choice=$(ui_select 0 \
+    "📦 Use an emptyDir (no StorageClass needed; state is lost when the Pod moves)" \
+    "💾 Name a StorageClass for the claim" \
+    "↩️  Cancel") || return 1
+  case "$choice" in
+    0) STORAGE_MODE=emptydir ;;
+    1)
+      STORAGE_CLASS=$(ask "StorageClass name" "") || exit_expected
+      storage_class_exists "$STORAGE_CLASS" ||
+        die "StorageClass '$STORAGE_CLASS' does not exist"
+      STORAGE_MODE=pvc
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+# Remove one whole document (kind and metadata.name) from a multi-document
+# manifest, leaving no empty document behind.
+remove_manifest_document() {
+  local manifest="$1" kind="$2" name="$3"
+  awk -v want_kind="$kind" -v want_name="$name" '
+    function flush() {
+      if (doc != "" && !(doc_kind == want_kind && doc_name == want_name)) {
+        if (printed_any) print "---"
+        printf "%s", doc
+        printed_any = 1
+      }
+      doc = ""; doc_kind = ""; doc_name = ""; in_meta = 0
+    }
+    /^---[[:space:]]*$/ { flush(); next }
+    {
+      doc = doc $0 "\n"
+      if ($1 == "kind:") doc_kind = $2
+      if ($0 ~ /^metadata:/) in_meta = 1
+      else if ($0 ~ /^[^ #]/) in_meta = 0
+      if (in_meta && $0 ~ /^  name:/ && doc_name == "") doc_name = $2
+    }
+    END { flush() }
+  ' "$manifest" >"$manifest.tmp" && mv "$manifest.tmp" "$manifest"
+}
+
+manifest_has_document() {
+  local manifest="$1" kind="$2" name="$3"
+  awk -v want_kind="$kind" -v want_name="$name" '
+    BEGIN { missing = 1 }
+    /^---/ { doc_kind = ""; doc_name = ""; in_meta = 0; next }
+    $1 == "kind:" { doc_kind = tolower($2) }
+    /^metadata:/ { in_meta = 1; next }
+    /^[^ #]/ { in_meta = 0 }
+    in_meta && /^  name:/ && doc_name == "" {
+      doc_name = $2
+      if (doc_kind == want_kind && doc_name == want_name) missing = 0
+    }
+    END { exit missing }
+  ' "$manifest"
+}
+
+# The release ships a claim. In emptyDir mode the Deployment gets an emptyDir
+# of the same size, the claim document is dropped, and the container learns
+# the cap through KWATCH_VOLUME_LIMIT so the store's rewrite can check the
+# real limit. In pvc mode a StorageClass named by the operator is written
+# into the claim, and a claim that already exists is left out of the apply:
+# its spec is immutable, and the existing claim is the state being kept.
+apply_storage_mode_to_manifest() {
+  local manifest="$1" claim="${RELEASE}-data"
+  case "$STORAGE_MODE" in
+    emptydir)
+      awk -v size="$STORAGE_SIZE" '
+        /^        persistentVolumeClaim:$/ {
+          print "        emptyDir:"
+          print "          sizeLimit: " size
+          skip_claim = 1
+          next
+        }
+        skip_claim && /^          claimName:/ { skip_claim = 0; next }
+        /^          - name: KWATCH_DATA_DIR$/ {
+          print "          - name: KWATCH_VOLUME_LIMIT"
+          print "            value: \"" size "\""
+        }
+        { print }
+      ' "$manifest" >"$manifest.tmp" && mv "$manifest.tmp" "$manifest" ||
+        return 1
+      remove_manifest_document "$manifest" PersistentVolumeClaim "$claim"
+      ;;
+    *)
+      if kubectl -n "$NAMESPACE" get pvc "$claim" >/dev/null 2>&1; then
+        remove_manifest_document "$manifest" PersistentVolumeClaim "$claim"
+        return 0
+      fi
+      if [ -n "$STORAGE_CLASS" ]; then
+        awk -v class="$STORAGE_CLASS" '
+          { print }
+          in_claim && /^  accessModes:/ { print "  storageClassName: " class }
+          /^kind: PersistentVolumeClaim$/ { in_claim = 1 }
+          /^---/ { in_claim = 0 }
+        ' "$manifest" >"$manifest.tmp" && mv "$manifest.tmp" "$manifest" ||
+          return 1
+      fi
+      if [ "$STORAGE_SIZE" != 2Gi ]; then
+        sed -i.bak \
+          "/^kind: PersistentVolumeClaim$/,\$ s/^\( *storage: \)2Gi$/\1$STORAGE_SIZE/" \
+          "$manifest"
+        rm -f "$manifest.bak"
+      fi
+      ;;
+  esac
+}
+
+# The control-plane Lease Role lives in kube-system, where an operator's own
+# access is often narrower than in the kwatch namespace. When it is denied,
+# the two kube-system documents are left out rather than failing the whole
+# apply: kwatch then reports the scheduler and controller-manager checks as
+# unavailable in /health, and everything else runs.
+strip_kube_system_rbac_if_denied() {
+  local manifest="$1"
+  grep -q '^  namespace: kube-system$' "$manifest" || return 0
+  if [ "$(resolve_access create roles ns:kube-system)" != denied ] &&
+    [ "$(resolve_access create rolebindings ns:kube-system)" != denied ]; then
+    return 0
+  fi
+  ui_warn "⚠️ No permission to create a Role in kube-system; the control-plane Lease checks are skipped."
+  ui_detail "  kwatch reports scheduler and controller-manager health as unavailable until an"
+  ui_detail "  administrator grants ${RELEASE}-control-plane-leases in kube-system."
+  remove_manifest_document "$manifest" Role "${RELEASE}-control-plane-leases"
+  remove_manifest_document "$manifest" RoleBinding "${RELEASE}-control-plane-leases"
+}
+
+# Documents the installed release carried that the new one does not ship:
+# the PodDisruptionBudget and the persistence Role of releases before the
+# data volume, for example. Only manager-owned objects of this release go.
+prune_superseded_resources() {
+  local manifest="$1" kind name
+  for kind in poddisruptionbudget role rolebinding; do
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      manifest_has_document "$manifest" "$kind" "$name" && continue
+      ui_detail "🧹 Removing $kind $name: this release no longer ships it."
+      delete_owned namespace "$kind" "$name"
+    done < <(kubectl -n "$NAMESPACE" get "$kind" \
+      -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/managed-by=kwatch.sh" \
+      -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+      2>/dev/null || true)
+  done
+}
+
+# Crossing into the data-volume releases rebuilds the state: incidents open
+# in the old version are forgotten, and paging alerts it opened keep their
+# old keys, so the new version does not resolve them.
+state_reset_notice() {
+  local previous="$1" target="$2"
+  [ -n "$previous" ] || return 0
+  [ "$(compare_release_versions "$previous" "$VOLUME_STATE_VERSION")" = -1 ] ||
+    return 0
+  [ "$(compare_release_versions "$target" "$VOLUME_STATE_VERSION")" != -1 ] ||
+    return 0
+  ui_warn "⚠️ $target keeps its state in a file on a new $STORAGE_SIZE volume; nothing is migrated from $previous."
+  ui_detail "  Open incidents are rediscovered and announced again. Alerts the old version"
+  ui_detail "  opened in paging tools keep their old keys and must be resolved there by hand."
+}
+
+# A release before the data volume kept its state in ConfigMaps. After the
+# upgrade they hold nothing kwatch reads, so offer to remove them. Only
+# ConfigMaps named after this release are listed, and the manager's own are
+# left alone.
+cleanup_legacy_state_configmaps() {
+  local previous="$1" name
+  local -a leftovers=()
+  [ -n "$previous" ] || return 0
+  [ "$(compare_release_versions "$previous" "$VOLUME_STATE_VERSION")" = -1 ] ||
+    return 0
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    case "$name" in
+      "$STATE_CONFIGMAP_NAME"|"$CATALOG_CACHE_NAME"|\
+      "$FEATURE_CATALOG_CACHE_NAME"|"$PROVIDER_CATALOG_CACHE_NAME"|\
+      "$DEPLOYMENT_OVERRIDES_CONFIGMAP_NAME"|"$LEGACY_OVERRIDES_CONFIGMAP_NAME")
+        continue ;;
+      "$RELEASE"-*) leftovers+=("$name") ;;
+    esac
+  done < <(kubectl -n "$NAMESPACE" get configmaps \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' \
+    2>/dev/null || true)
+  [ "${#leftovers[@]}" -gt 0 ] || return 0
+  ui_info "🗄️ kwatch $previous kept its state in ConfigMaps; since $VOLUME_STATE_VERSION it lives on the data volume."
+  ui_detail "  ConfigMaps in $NAMESPACE that nothing reads any more:"
+  for name in "${leftovers[@]}"; do
+    ui_detail "    $name"
+  done
+  confirm_action "Remove these ${#leftovers[@]} ConfigMaps" "y" || return 0
+  check_access delete configmaps namespace
+  for name in "${leftovers[@]}"; do
+    kubectl -n "$NAMESPACE" delete configmap "$name" --ignore-not-found \
+      >/dev/null 2>&1 || true
+  done
+  ui_success "✅ Removed the previous release's state ConfigMaps."
+}
+
+# Secrets are watched by default so a rotated pull Secret or an expiring
+# TLS certificate can be named as a cause. Only a hash of each value is kept.
+secrets_watch_notice() {
+  ui_detail "🔐 Secrets are watched (values are hashed, never stored). Turn this off with"
+  ui_detail "   watch.secrets in Edit settings; the Helm chart can also drop the RBAC for it."
+}
+
+# Where the state lives, and whether the claim is bound: a Pending claim is
+# the one reason a fresh install sits in Pending with nothing else wrong.
+show_storage_status() {
+  local deployment="$1" mode phase class
+  mode=$(live_storage_mode "$deployment")
+  if [ "$mode" = emptydir ]; then
+    ui_kv "💾" "State" "emptyDir (lost when the Pod moves)"
+    return 0
+  fi
+  phase=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+    -o 'jsonpath={.status.phase}' 2>/dev/null || true)
+  class=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+    -o 'jsonpath={.spec.storageClassName}' 2>/dev/null || true)
+  ui_kv "💾" "State" "claim ${RELEASE}-data ${phase:-missing}${class:+ on $class}"
+}
+
+# A component that stops is logged by the supervisor under a fixed phrase.
+# Optional components retry on their own; a required one ends the process,
+# so the last such lines are the best explanation of a Pod that is not ready.
+component_stop_lines() {
+  local selector="$1"
+  kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
+    grep -F -e 'application component stopped' \
+      -e 'optional component stopped' | tail -2 || true
 }
 
 # Put the operator's resources and placement into the release manifest before it
@@ -1742,8 +1975,9 @@ apply_deployment_overrides_to_manifest() {
     done
   done
   # A resources block with a hole in it is worse than no override at all:
-  # GOMEMLIMIT is derived from limits.memory, so an incomplete set means the
-  # block is left exactly as the release shipped it.
+  # the Go memory limit is derived from limits.memory (KWATCH_MEMORY_LIMIT),
+  # so an incomplete set means the block is left exactly as the release
+  # shipped it.
   if [ -z "$limits_memory" ] || [ -z "$limits_cpu" ] ||
     [ -z "$requests_memory" ] || [ -z "$requests_cpu" ]; then
     can_write_resources=false
@@ -2027,7 +2261,7 @@ tolerations_json() {
 }
 
 repair_scheduling() {
-  local deployment details json taint
+  local deployment details json taint existing
   local -a taints=()
   while IFS= read -r taint; do
     [ -n "$taint" ] || continue
@@ -2053,6 +2287,14 @@ repair_scheduling() {
     return 1
   json=$(printf '%s\n' "${taints[@]}" | tolerations_json)
   [ -n "$json" ] || return 1
+  # The release ships tolerations of its own (a not-ready or unreachable node,
+  # so the Pod moves quickly); a merge patch replaces the list, so keep them.
+  existing=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.tolerations}' 2>/dev/null || true)
+  if [[ "$existing" == \[*\] ]] && [ "$existing" != "[]" ]; then
+    existing="${existing#\[}"
+    json="${existing%\]},$json"
+  fi
   check_access patch deployments namespace
   with_loading "Adding node tolerations" \
     kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=merge \
@@ -2107,6 +2349,7 @@ compact_reason() {
 
 show_failure_diagnostics() {
   local operation="$1" reason="$2" safe_reason deployment pod pods summary events
+  local pvc_phase
   safe_reason=$(compact_reason "$reason")
   ui_heading "🔎 $operation diagnostics"
   ui_error "❌ Kubernetes reported: $safe_reason"
@@ -2143,6 +2386,9 @@ show_failure_diagnostics() {
         ui_detail "Pod details are unavailable."
     done <<< "$pods"
   fi
+  pvc_phase=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+    -o 'jsonpath={.status.phase}' 2>/dev/null || true)
+  [ -n "$pvc_phase" ] && ui_detail "💾 State claim ${RELEASE}-data: $pvc_phase"
   ui_detail "🕒 Recent namespace events:"
   events=$(namespace_warning_events | tail -8 || true)
   if [ -n "$events" ]; then
@@ -3165,47 +3411,6 @@ patch_config_value() {
   fi
 }
 
-verify_runtime_tls_access() {
-  local deployment service_account subject result verb
-  deployment=$(deployment_name)
-  if [ -z "$deployment" ]; then
-    ui_error "❌ Cannot verify TLS access: kwatch deployment was not found."
-    return 1
-  fi
-  service_account=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
-    -o 'jsonpath={.spec.template.spec.serviceAccountName}' 2>/dev/null || true)
-  [ -n "$service_account" ] || service_account=default
-  subject="system:serviceaccount:$NAMESPACE:$service_account"
-  for verb in get list watch; do
-    result=$(kubectl auth can-i "$verb" secrets --all-namespaces --as="$subject" 2>/dev/null || true)
-    result=$(printf '%s\n' "$result" | awk '
-      { line=tolower($0); gsub(/^[[:space:]]+|[[:space:]]+$/, "", line) }
-      line == "yes" { answer="yes" }
-      line == "no" { answer="no" }
-      END { print answer }
-    ')
-    case "$result" in
-      yes) ;;
-      no)
-        ui_error \
-          "❌ TLS monitoring needs the kwatch ServiceAccount to $verb Secrets; RBAC is missing."
-        return 1
-        ;;
-      *)
-        ui_info "ℹ️ Could not preflight TLS RBAC for $verb; the runtime check remains authoritative."
-        ;;
-    esac
-  done
-}
-
-enable_initial_tls_monitor() {
-  [ "${TLS_MONITOR_ENABLED:-false}" = true ] || return 0
-  kubectl -n "$NAMESPACE" patch kwatchconfig "$RELEASE" --type merge \
-    -p '{"spec":{"tlsMonitor":{"enabled":true}}}' >/dev/null || \
-    { ui_error "❌ Could not enable TLS monitoring in KwatchConfig."; return 1; }
-  verify_runtime_tls_access
-}
-
 show_catalog_entry() {
   local entry="$1" path type default category description status replacement current
   IFS='|' read -r path type default category description status replacement <<<"$entry"
@@ -3452,14 +3657,6 @@ configure_flow() {
         "The attempted value was rejected by Kubernetes." || true
       continue
     fi
-    if [ "$path" = tlsMonitor.enabled ] && [ "$value" = true ]; then
-      if ! verify_runtime_tls_access; then
-        ui_error "❌ TLS monitoring was not enabled because the deployed ServiceAccount lacks Secret access."
-        restore_backup_after_failure \
-          "TLS monitoring requires Secret access that is not available." || true
-        die "TLS RBAC validation failed"
-      fi
-    fi
     kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
       "kwatch.dev/config-schema=$CATALOG_VERSION" --overwrite >/dev/null
     deployment=$(deployment_name || true)
@@ -3639,8 +3836,12 @@ resolve_access() {
       return 0
     fi
   fi
+  # A scope of "namespace" means the managed namespace; "ns:<name>" asks
+  # about another one, such as kube-system.
+  local target_namespace="$NAMESPACE"
+  case "$scope" in ns:*) target_namespace="${scope#ns:}" ;; esac
   if [ -n "$scope" ]; then
-    result=$(kubectl auth can-i "$verb" "$resource" --namespace "$NAMESPACE" 2>/dev/null || true)
+    result=$(kubectl auth can-i "$verb" "$resource" --namespace "$target_namespace" 2>/dev/null || true)
   else
     result=$(kubectl auth can-i "$verb" "$resource" 2>/dev/null || true)
   fi
@@ -3675,9 +3876,14 @@ resolve_access() {
 }
 
 check_access() {
-  local verb="$1" resource="$2" scope="${3:-}"
+  local verb="$1" resource="$2" scope="${3:-}" where=""
+  case "$scope" in
+    "") ;;
+    ns:*) where=" in namespace ${scope#ns:}" ;;
+    *) where=" in namespace $NAMESPACE" ;;
+  esac
   if [ "$(resolve_access "$verb" "$resource" "$scope")" = denied ]; then
-    die "missing Kubernetes permission: $verb $resource${scope:+ in namespace $NAMESPACE}"
+    die "missing Kubernetes permission: $verb $resource$where"
   fi
   return 0
 }
@@ -3693,10 +3899,12 @@ preflight_access() {
   check_access get configmaps namespace
   check_access get customresourcedefinitions
   check_access patch namespaces
+  check_access get persistentvolumeclaims namespace
   if [ "$mode" = install ]; then
     check_access create namespaces
     check_access create deployments namespace
     check_access patch deployments namespace
+    check_access create persistentvolumeclaims namespace
     check_access create secrets namespace
     check_access patch secrets namespace
     check_access create roles namespace
@@ -3719,6 +3927,7 @@ preflight_access() {
     check_access patch customresourcedefinitions
     if [ "$mode" = upgrade ]; then
       check_access create deployments namespace
+      check_access create persistentvolumeclaims namespace
       check_access create secrets namespace
       check_access create configmaps namespace
       check_access create roles namespace
@@ -3783,6 +3992,18 @@ select_release_version() {
   local stable preview choice
   stable=$(latest_version) || return 1
   preview=$(latest_release_candidate || true)
+  # Until the first stable 1.x, "latest" on GitHub is a 0.x release this
+  # manager cannot run. Recommending it would only lead to a refusal.
+  if version_is_legacy "$stable"; then
+    if [ -z "$preview" ]; then
+      ui_warn "⚠️ The latest stable release ($stable) predates v1.0.0 and cannot be managed by this manager."
+      return 1
+    fi
+    ui_info "ℹ️ The latest stable release ($stable) predates v1.0.0; the current release candidate is $preview."
+    confirm_action "Use release candidate $preview" "y" || return 1
+    printf '%s' "$preview"
+    return 0
+  fi
   if [ -z "$preview" ]; then
     printf '%s' "$stable"
     return 0
@@ -3831,8 +4052,7 @@ deployment_name() {
 invalidate_deployment_name() {
   [ -n "$SESSION_CACHE_DIR" ] || return 0
   rm -f "$SESSION_CACHE_DIR/deployment-name" \
-    "$SESSION_CACHE_DIR/workload-selector" \
-    "$SESSION_CACHE_DIR/failed-components" 2>/dev/null || true
+    "$SESSION_CACHE_DIR/workload-selector" 2>/dev/null || true
   return 0
 }
 
@@ -3998,6 +4218,16 @@ installed_version() {
         2>/dev/null || true)
     fi
   fi
+  if [ -z "$image" ]; then
+    # Installs made before the container followed the release name still
+    # call it "kwatch"; the Deployment has one container either way.
+    deployment=$(deployment_name || true)
+    if [ -n "$deployment" ]; then
+      image=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+        -o 'jsonpath={.spec.template.spec.containers[0].image}' \
+        2>/dev/null || true)
+    fi
+  fi
   image="${image%%@*}"
   tag="${image##*:}"
   valid_release_version "$tag" && printf '%s' "$tag"
@@ -4053,6 +4283,10 @@ stale_resources_present() {
   kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
     >/dev/null 2>&1 && return 0
   kubectl -n "$NAMESPACE" get secret "$CONFIG_SECRET_NAME" \
+    >/dev/null 2>&1 && return 0
+  # A state claim left by an uninstall is reused by the next install, so the
+  # incident history survives; worth saying before that install starts.
+  kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
     >/dev/null 2>&1 && return 0
   kubectl -n "$NAMESPACE" get configmap "$RELEASE" \
     >/dev/null 2>&1
@@ -4332,10 +4566,16 @@ provider_available() {
 
 # Defined at top level: nesting it meant the helper was redefined on every call
 # and leaked into the global scope anyway.
+# Scope is "namespace" (the managed one), "ns:<name>" (another namespace,
+# such as kube-system for the control-plane Lease Role) or "cluster".
 delete_owned() {
     local scope="$1" kind="$2" name="$3" owner app service_account
+    local ns="$NAMESPACE"
+    case "$scope" in
+      ns:*) ns="${scope#ns:}"; scope=namespace ;;
+    esac
     if [ "$scope" = namespace ]; then
-      owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
+      owner=$(kubectl -n "$ns" get "$kind" "$name" \
         -o 'jsonpath={.metadata.labels.app\.kubernetes\.io/managed-by}' \
         2>/dev/null || true)
     else
@@ -4363,8 +4603,8 @@ delete_owned() {
     fi
     [ "$owner" = kwatch.sh ] || return 0
     if [ "$scope" = namespace ]; then
-      check_access delete "$kind" namespace
-      kubectl -n "$NAMESPACE" delete "$kind" "$name" \
+      check_access delete "$kind" "ns:$ns"
+      kubectl -n "$ns" delete "$kind" "$name" \
         --ignore-not-found >/dev/null
     else
       check_access delete "$kind"
@@ -4377,6 +4617,15 @@ remove_namespaced_workload() {
   delete_owned namespace deployment "$RELEASE"
   delete_owned namespace service "$RELEASE"
   delete_owned namespace serviceaccount "$RELEASE"
+  delete_owned namespace role "${RELEASE}-leader-election"
+  delete_owned namespace rolebinding "${RELEASE}-leader-election"
+  delete_owned namespace role "${RELEASE}-restart-evidence"
+  delete_owned namespace rolebinding "${RELEASE}-restart-evidence"
+  delete_owned ns:kube-system role "${RELEASE}-control-plane-leases"
+  delete_owned ns:kube-system rolebinding "${RELEASE}-control-plane-leases"
+  # Releases before the data volume shipped these.
+  delete_owned namespace poddisruptionbudget "$RELEASE"
+  delete_owned namespace rolebinding "$RELEASE"
   delete_owned namespace role "${RELEASE}-configmap-manager"
   delete_owned namespace rolebinding "${RELEASE}-configmap-manager"
   delete_owned cluster clusterrolebinding "$RELEASE"
@@ -4459,11 +4708,6 @@ choose_provider() {
   [ "$choice" -lt "${#providers[@]}" ] || return 2
   PROVIDER="${providers[$choice]}"
   ui_success "✅ Provider selected: ${displays[$choice]#🔌 }"
-}
-
-choose_tls_monitor() {
-  TLS_MONITOR_ENABLED=$(ask_yes_no \
-    "🔒 Enable TLS certificate monitoring? It reads TLS Secrets" "n")
 }
 
 provider_group_value() {
@@ -5032,10 +5276,10 @@ write_config_secret() {
     printf 'crd:\n  enabled: true\nalert: {}\n' >"$config_tmp"
     ;;
   esac
-  # These are Secret-backed extras unrelated to providers -- a heartbeat URL and
-  # a diagnostics token. Asking for each one on every provider edit was two
-  # prompts that are almost always answered with Enter, so ask once whether they
-  # are wanted at all; declining keeps whatever is already stored.
+  # These are Secret-backed extras unrelated to providers, such as the
+  # heartbeat URL. Asking for each one on every provider edit was a prompt that
+  # is almost always answered with Enter, so ask once whether they are wanted
+  # at all; declining keeps whatever is already stored.
   secret_paths=()
   for entry in ${CATALOG[@]+"${CATALOG[@]}"}; do
     IFS='|' read -r path type default category description status replacement <<<"$entry"
@@ -5162,54 +5406,54 @@ preview_manifest_changes() {
   ui_rule
 }
 
-# Check the named persistence permissions used by the workload. The Role is
-# intentionally scoped with resourceNames, so an unnamed authorization query
-# would report a false denial and tempt the installer to widen the Role.
-# A release that grants every named permission answers yes and nothing changes.
+# kwatch holds its Lease through a Role scoped with resourceNames, so an
+# unnamed authorization query would report a false denial. Ask about the
+# exact Lease, and about creating it, as the workload's ServiceAccount.
+# A release whose RBAC is intact answers yes to all and nothing changes.
 self_check_rbac_missing() {
-  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" verb answer name
-  ensure_runtime_configmap_names || return 1
-  for verb in update patch; do
-    for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
-      answer=$(kubectl auth can-i "$verb" configmaps \
-        --resource-name="$name" -n "$NAMESPACE" \
-        --as="$subject" 2>/dev/null || true)
-      case "$answer" in
-        *no*) return 0 ;;
-        *yes*) ;;
-        # Impersonation is not allowed here, so the question cannot be asked.
-        *) return 1 ;;
-      esac
-    done
+  local subject="system:serviceaccount:$NAMESPACE:$RELEASE" lease answer verb
+  local deployment
+  deployment=$(deployment_name || true)
+  lease=$(lease_name_for_deployment "${deployment:-$RELEASE}")
+  for verb in get update; do
+    answer=$(kubectl auth can-i "$verb" leases.coordination.k8s.io \
+      --resource-name="$lease" -n "$NAMESPACE" --as="$subject" \
+      2>/dev/null || true)
+    case "$answer" in
+      *no*) return 0 ;;
+      *yes*) ;;
+      # Impersonation is not allowed here, so the question cannot be asked.
+      *) return 1 ;;
+    esac
   done
+  answer=$(kubectl auth can-i create leases.coordination.k8s.io \
+    -n "$NAMESPACE" --as="$subject" 2>/dev/null || true)
+  case "$answer" in
+    *no*) return 0 ;;
+  esac
   return 1
 }
 
 repair_self_check_rbac() {
-  local role="${RELEASE}-configmap-manager" details name
-  local names_json="[" separator="" patch
-  ensure_runtime_configmap_names || return 1
+  local role="${RELEASE}-leader-election" lease details patch deployment
+  deployment=$(deployment_name || true)
+  lease=$(lease_name_for_deployment "${deployment:-$RELEASE}")
   kubectl -n "$NAMESPACE" get role "$role" >/dev/null 2>&1 || return 1
-  for name in "${RUNTIME_CONFIGMAP_NAMES[@]}"; do
-    names_json+="${separator}\"${name}\""
-    separator=","
-  done
-  names_json+="]"
-  details="kwatch needs named update/patch access to its persistence ConfigMaps."
-  details+=" This adds the complete named rule to $role in $NAMESPACE."
-  confirm_repair "grant the named persistence permissions" "$details" ||
-    return 1
+  details="kwatch cannot hold its Lease '$lease', so it never starts monitoring."
+  details+=" This adds the create rule and the named get/update rule for that"
+  details+=" Lease to $role in $NAMESPACE."
+  confirm_repair "grant the Lease permissions" "$details" || return 1
   check_access patch roles namespace
   patch=$(printf '%s%s%s%s' \
-    '[{"op":"add","path":"/rules/-","value":{"apiGroups":[""],' \
-    '"resources":["configmaps"],"resourceNames":' \
-    "$names_json" \
-    ',"verbs":["get","update","patch"]}}]')
+    '[{"op":"add","path":"/rules/-","value":{"apiGroups":["coordination.k8s.io"],' \
+    '"resources":["leases"],"verbs":["create"]}},' \
+    '{"op":"add","path":"/rules/-","value":{"apiGroups":["coordination.k8s.io"],' \
+    "\"resources\":[\"leases\"],\"resourceNames\":[\"$lease\"],\"verbs\":[\"get\",\"update\"]}}]")
   with_loading "Updating $role" kubectl -n "$NAMESPACE" patch role "$role" \
     --type=json -p "$patch" \
     >/dev/null || return 1
   restart_kwatch || return 1
-  ui_success "✅ Named persistence permissions granted."
+  ui_success "✅ Lease permissions granted."
   return 0
 }
 
@@ -5222,6 +5466,10 @@ apply_manifests() {
   if [ -n "$existing_deployment" ]; then
     adopt_existing_config_secret
   fi
+  choose_storage_mode "$existing_deployment" || {
+    LAST_COMMAND_ERROR="no state volume was chosen"
+    return 1
+  }
   tmp=$(mktemp)
   crd_tmp=$(mktemp)
   trap 'rm -f "${tmp:-}" "${tmp:-}.bak" "${crd_tmp:-}" \
@@ -5243,23 +5491,13 @@ apply_manifests() {
     LAST_COMMAND_ERROR="Downloaded deployment manifest for $version does not contain a Deployment."
     return 1
   fi
-  # Keep named RBAC checks tied to the exact release being installed. Older
-  # manifests without resourceNames remain installable, but cannot be checked
-  # or repaired by this narrow path.
-  load_runtime_configmap_names_from_manifest "$tmp" ||
-    RUNTIME_CONFIGMAP_NAMES=()
-  sed -i.bak \
-    -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
-    -e "s/^\( *name: \)kwatch$/\1$RELEASE/g" \
-    -e "s/^\( *name: \)kwatch-configmap-manager$/\1${RELEASE}-configmap-manager/g" \
-    -e "s/namespace: kwatch/namespace: $NAMESPACE/g" \
-    -e "s/^\( *app.kubernetes.io\/instance: \)kwatch$/\1$RELEASE/g" \
-    -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
-    -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
-    -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
-    "$tmp"
-  rewrite_release_lease_name "$tmp" || return 1
+  rewrite_release_names "$tmp" "$version"
   ensure_config_volume_readable "$tmp"
+  apply_storage_mode_to_manifest "$tmp" || {
+    LAST_COMMAND_ERROR="the state volume could not be written into the manifest"
+    return 1
+  }
+  strip_kube_system_rbac_if_denied "$tmp"
   # Carry the operator's resources and placement into the new manifest. Without
   # this the upgrade silently reverts them: the manifest is downloaded fresh
   # every run and ships the release's own values.
@@ -5326,11 +5564,6 @@ apply_manifests() {
   if ! verify_runtime_dependencies; then
     return 1
   fi
-  if [ "${TLS_MONITOR_ENABLED:-false}" = true ]; then
-    enable_initial_tls_monitor
-  elif [ "$(config_value tlsMonitor.enabled)" = true ]; then
-    verify_runtime_tls_access
-  fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
   if [ "$INJECTOR_OPT_OUT_PATCH_AFTER" = true ]; then
@@ -5347,6 +5580,7 @@ apply_manifests() {
   fi
   if with_loading "Waiting for kwatch rollout" \
     wait_for_kwatch_rollout "$deployment"; then
+    prune_superseded_resources "$tmp"
     return 0
   fi
   rollout_error="${LAST_COMMAND_ERROR:-rollout did not become ready}"
@@ -5614,7 +5848,6 @@ install_flow() {
     fi
     die "could not save the notification configuration"
   fi
-  choose_tls_monitor
   record_state apply "$version" "applying CRD and Deployment"
   if apply_manifests "$version"; then
     if ! verify_operational_security; then
@@ -5637,13 +5870,7 @@ install_flow() {
       fi
       install_failure="${LAST_COMMAND_ERROR:-$install_failure}"
     elif self_check_rbac_missing && repair_self_check_rbac; then
-      record_state complete "$version" "installation repaired after granting named persistence permissions"
-      FRESH_INSTALL=false
-      configure_after_install
-      return 0
-    elif [ -n "$(failed_components "$(workload_selector)")" ] &&
-      repair_component_from_menu; then
-      record_state complete "$version" "installation repaired after disabling a failed component"
+      record_state complete "$version" "installation repaired after granting the Lease permissions"
       FRESH_INSTALL=false
       configure_after_install
       return 0
@@ -5674,11 +5901,13 @@ install_flow() {
   record_state complete "$version" "installation verified"
   FRESH_INSTALL=false
   ui_success "✅ kwatch is ready."
+  secrets_watch_notice
   configure_after_install
 }
 
 upgrade_flow() {
   local version upgrade_failure="" change_confirmed="${1:-false}" allow_same=false
+  local previous="$INSTALL_VERSION"
   confirm_resume
   # Repairing an unhealthy installation may mean re-applying the release it is
   # already on, which is often the newest one available.
@@ -5697,6 +5926,7 @@ upgrade_flow() {
   fi
   maybe_load_catalog "$version" ||
     die "release catalogs are unavailable; upgrade cannot continue"
+  state_reset_notice "$previous" "$version"
   if [ "$change_confirmed" != true ]; then
     confirm_change \
       "⬆️ The manager will upgrade kwatch to $version on '$(context_label "$SELECTED_CONTEXT")'." \
@@ -5738,11 +5968,6 @@ upgrade_flow() {
     ui_error "❌ Upgrade failed; the previous configuration can be restored."
     ui_error "Reason: $(compact_reason "$upgrade_failure")"
     show_failure_diagnostics "Upgrade" "$upgrade_failure"
-    if [ -n "$(failed_components "$(workload_selector)")" ] &&
-      repair_component_from_menu; then
-      record_state complete "$version" "upgrade repaired after disabling a failed component"
-      return 0
-    fi
     if is_scheduling_failure "$upgrade_failure" && repair_scheduling; then
       record_state complete "$version" "upgrade repaired after adding tolerations"
       return 0
@@ -5774,6 +5999,7 @@ upgrade_flow() {
   fi
   record_state complete "$version" "upgrade verified"
   ui_success "✅ kwatch upgraded successfully."
+  cleanup_legacy_state_configmaps "$previous"
 }
 
 legacy_reinstall_flow() {
@@ -5936,7 +6162,7 @@ workload_was_oomkilled() {
 
 show_broken_menu() {
   local choice selector oomkilled=false unschedulable=false
-  local components_failed selfcheck_missing
+  local selfcheck_missing
   local -a actions=() labels=()
   ui_screen "needs attention"
   ui_kv "📦" "Deployment" "${INSTALL_DEPLOYMENT:-unknown}"
@@ -5950,7 +6176,6 @@ show_broken_menu() {
   ui_busy "Diagnosing the installation"
   workload_unschedulable "$selector" && unschedulable=true
   workload_was_oomkilled "$selector" && oomkilled=true
-  components_failed=$(failed_components "$selector")
   selfcheck_missing=false
   self_check_rbac_missing && selfcheck_missing=true
   ui_busy_done
@@ -5969,15 +6194,9 @@ show_broken_menu() {
     actions+=(resources)
     labels+=("🧮 Raise the memory limit (the container was OOMKilled)")
   fi
-  # When a component is the cause, offer that repair first: upgrading to the
-  # same release cannot clear a component that fails to initialise.
-  if [ -n "$components_failed" ]; then
-    actions+=(component)
-    labels+=("🩺 Disable the component that will not start")
-  fi
   if [ "$selfcheck_missing" = true ]; then
     actions+=(selfcheck)
-    labels+=("🔑 Grant named persistence permissions")
+    labels+=("🔑 Grant the Lease permissions")
   fi
   actions+=(status logs upgrade settings providers)
   labels+=(
@@ -6004,7 +6223,6 @@ show_broken_menu() {
     return
   fi
   case "${actions[$choice]}" in
-    component) repair_component_from_menu ;;
     selfcheck) repair_self_check_rbac || true ;;
     upgrade)
       if confirm_repair \
@@ -6029,107 +6247,6 @@ show_broken_menu() {
     uninstall) uninstall_flow ;;
     *) MENU_EXIT=true ;;
   esac
-}
-
-# One failing component is the common case; more than one is offered as a list.
-repair_component_from_menu() {
-  local selector choice
-  local -a components=()
-  selector=$(workload_selector)
-  while IFS= read -r choice; do
-    [ -n "$choice" ] && components+=("$choice")
-  done < <(failed_components "$selector")
-  if [ "${#components[@]}" -eq 0 ]; then
-    ui_info "ℹ️ Every component started; readiness is failing for another reason."
-    return 0
-  fi
-  if [ "${#components[@]}" -eq 1 ]; then
-    repair_failed_component "${components[0]}" || true
-    return 0
-  fi
-  components+=("↩️  Back")
-  choice=$(ui_select 0 "${components[@]}") || return 0
-  [ "$choice" -lt $((${#components[@]} - 1)) ] || return 0
-  repair_failed_component "${components[$choice]}" || true
-}
-
-# kwatch gates its readiness on every component starting cleanly, so one
-# optional monitor that fails to initialise leaves the Pod Running but never
-# Ready. The component logs the failure on startup, which is the only signal
-# available from outside the cluster.
-#
-# Each entry maps the component name kwatch reports to the setting that turns it
-# off, so the manager can offer the same repair it offers for injectors.
-component_setting() {
-  case "$1" in
-    control-plane) printf '%s' "controlPlaneMonitor.enabled" ;;
-    status|network-graph|storage-graph) printf '%s' "clusterResourceMonitor.enabled" ;;
-    runtime-metrics) printf '%s' "runtimeMetricsMonitor.enabled" ;;
-    *) return 1 ;;
-  esac
-}
-
-# Matched against the message text rather than parsed out of it: the same
-# component is reported as "create", "initialize" and "create rest config for",
-# and the component name in the message ("generic status monitor") is not the
-# name kwatch reports it under ("status").
-# Reading 400 log lines is asked for twice on the attention screen -- once to
-# decide whether to offer the repair, once to carry it out. Cache it for the
-# life of one menu render, alongside the other workload lookups.
-failed_components() {
-  local selector="$1" file="" result
-  [ -n "$SESSION_CACHE_DIR" ] && file="$SESSION_CACHE_DIR/failed-components"
-  if [ -n "$file" ] && [ -f "$file" ]; then
-    cat "$file"
-    return 0
-  fi
-  result=$(failed_components_uncached "$selector")
-  cache_list "$file" "$result"
-  printf '%s' "$result"
-  [ -n "$result" ] && printf '\n'
-  return 0
-}
-
-failed_components_uncached() {
-  local selector="$1" line
-  while IFS= read -r line; do
-    case "$line" in
-      *"control-plane monitor"*) printf 'control-plane\n' ;;
-      *"status monitor"*) printf 'status\n' ;;
-      *"network graph monitor"*) printf 'network-graph\n' ;;
-      *"storage graph monitor"*) printf 'storage-graph\n' ;;
-      *"runtime metrics monitor"*) printf 'runtime-metrics\n' ;;
-    esac
-  done < <(kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
-    grep -F 'failed to' || true) | sort -u
-}
-
-component_failure_detail() {
-  local component="$1" selector="$2"
-  kubectl -n "$NAMESPACE" logs -l "$selector" --tail=400 2>/dev/null |
-    grep -F "$component" | grep -F 'failed to' | tail -1 || true
-}
-
-# Offer to switch off the component that cannot start. The alternative is a Pod
-# that never becomes Ready, so the trade is stated plainly and confirmed.
-repair_failed_component() {
-  local component="$1" setting details
-  setting=$(component_setting "$component") || {
-    ui_warn "⚠️ The $component component failed to start and has no setting to disable it."
-    return 1
-  }
-  details="kwatch reports every component healthy or it never becomes Ready, so"
-  details+=" the $component failure keeps the Pod out of service. This sets"
-  details+=" $setting=false in the KwatchConfig resource and restarts kwatch."
-  details+=" Only that component stops; every other monitor keeps running."
-  confirm_repair "disable the $component component" "$details" || return 1
-  check_access patch kwatchconfigs namespace
-  if ! patch_config_value "$setting" boolean false; then
-    return 1
-  fi
-  restart_kwatch || return 1
-  ui_success "✅ $component disabled. Re-enable it with Edit settings once it is fixed upstream."
-  return 0
 }
 
 workload_selector() {
@@ -6165,7 +6282,7 @@ workload_selector_uncached() {
 # the container's own explanation instead of leaving them to run kubectl.
 show_unready_pods() {
   local selector="$1" pod ready waiting terminated scheduling logs line shown=false
-  local phase probe component
+  local phase probe pvc_phase
   while IFS=' ' read -r pod ready; do
     [ -n "$pod" ] || continue
     [ "$ready" = true ] && continue
@@ -6196,18 +6313,26 @@ show_unready_pods() {
         scheduling=$(kubectl -n "$NAMESPACE" get pod "$pod" \
           -o 'jsonpath={.status.conditions[?(@.type=="PodScheduled")].message}' \
           2>/dev/null || true)
+        # A Pending Pod whose state claim is not bound is waiting for storage,
+        # not for a node; say so, since the scheduler's message only hints at it.
+        if [ "$phase" = Pending ]; then
+          pvc_phase=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+            -o 'jsonpath={.status.phase}' 2>/dev/null || true)
+          if [ -n "$pvc_phase" ] && [ "$pvc_phase" != Bound ]; then
+            scheduling="${scheduling:+$scheduling }State volume claim ${RELEASE}-data is $pvc_phase; the cluster may have no default StorageClass."
+          fi
+        fi
       fi
     fi
     ui_warn "$(ui_dot bad) Pod $pod is not ready: ${waiting:-unknown}${terminated:+ (last exit: $terminated)}"
     [ -n "$scheduling" ] && ui_detail "   $(compact_reason "$scheduling")"
     [ -n "$probe" ] && ui_detail "   $(compact_reason "$probe")"
-    # kwatch holds readiness down until every component starts, so name the one
-    # that did not rather than leaving a healthy-looking process unexplained.
-    while IFS= read -r component; do
-      [ -n "$component" ] || continue
-      ui_detail "   ⚠️ component $component failed to start:"
-      ui_detail "      $(compact_reason "$(component_failure_detail "$component" "$selector")")"
-    done < <(failed_components "$selector")
+    # A required component that stopped ends the process, and the supervisor
+    # logs which one; show that rather than leaving the restart unexplained.
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      ui_detail "   ⚠️ $(compact_reason "$line")"
+    done < <(component_stop_lines "$selector")
     logs=$(kubectl -n "$NAMESPACE" logs "$pod" --tail=3 --previous 2>/dev/null ||
       kubectl -n "$NAMESPACE" logs "$pod" --tail=3 2>/dev/null || true)
     [ -n "$logs" ] || continue
@@ -6259,6 +6384,7 @@ status_flow() {
       sed 's/^/  /' || true
     show_unready_pods "$selector" || true
     show_deployment_shape "$deployment"
+    show_storage_status "$deployment"
   else
     ui_warn "⚠️ No kwatch Deployment was found."
   fi
@@ -6565,6 +6691,8 @@ restore_flow() {
 # every permission before the first deletion: `check_access` calls die, so a
 # missing one used to abort mid-way and leave orphaned cluster RBAC behind.
 preflight_uninstall_access() {
+  local purge="${1:-false}"
+  [ "$purge" = true ] && check_access delete persistentvolumeclaims namespace
   check_access delete deployments namespace
   check_access delete services namespace
   check_access delete serviceaccounts namespace
@@ -6595,6 +6723,8 @@ purge_manager_data() {
   invalidate_config_backups
   kubectl -n "$NAMESPACE" delete kwatchconfig "$RELEASE" --ignore-not-found \
     >/dev/null 2>&1 || true
+  # The state volume: incident history, change timeline and the outbox.
+  delete_owned namespace persistentvolumeclaim "${RELEASE}-data"
 }
 
 uninstall_flow() {
@@ -6612,17 +6742,17 @@ uninstall_flow() {
   esac
   if [ "$purge" = true ]; then
     ui_warn \
-      "⚠️ This removes the workload, the configuration resource, every configuration backup, and the cached catalogs."
+      "⚠️ This removes the workload, the configuration resource, every configuration backup, the cached catalogs, and the state volume (incident history)."
     ui_detail "The namespace and the CRD are preserved."
   else
     ui_warn \
       "⚠️ This removes the kwatch workload and its manager-owned configuration Secret."
-    ui_detail "KwatchConfig, backups, namespace, and CRD are preserved."
+    ui_detail "KwatchConfig, backups, the state volume, namespace, and CRD are preserved."
   fi
   confirm=$(ask "Type uninstall to remove kwatch" "") || exit_expected
   [ "$confirm" = uninstall ] || { ui_warn "↩️ Cancelled."; return; }
   ui_busy "Checking uninstall permissions"
-  preflight_uninstall_access
+  preflight_uninstall_access "$purge"
   ui_busy_done
   ui_info \
     "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other resources remain."
@@ -6642,10 +6772,10 @@ uninstall_flow() {
   clear_managed_namespace_labels
   if [ "$purge" = true ]; then
     ui_success \
-      "✅ kwatch removed, along with its configuration, backups, and cached catalogs. The namespace and CRD remain."
+      "✅ kwatch removed, along with its configuration, backups, cached catalogs, and state volume. The namespace and CRD remain."
   else
     ui_success \
-      "✅ kwatch workload removed. KwatchConfig, backups, namespace, and CRD remain."
+      "✅ kwatch workload removed. KwatchConfig, backups, the state volume, namespace, and CRD remain."
   fi
 }
 
@@ -6677,6 +6807,11 @@ Environment:
                                    (default: 5m)
   KWATCH_BACKUP_KEEP               Configuration backups to retain
                                    (default: 5)
+  KWATCH_STORAGE=pvc|emptydir      Where the state lives: a claim on the
+                                   default StorageClass (default), or an
+                                   emptyDir that is lost when the Pod moves
+  KWATCH_STORAGE_CLASS             StorageClass for the state claim
+  KWATCH_STORAGE_SIZE              Size of the state volume (default: 2Gi)
 USAGE
 }
 
@@ -6746,7 +6881,7 @@ configure_deployment_resources_flow() {
     override_field_row "Memory request" "$requests_memory" "$live_requests_memory"
     captions+=("Guaranteed memory. Written as 128Mi, 512Mi or 1Gi.")
     override_field_row "Memory limit" "$limits_memory" "$live_limits_memory"
-    captions+=("Ceiling before the container is killed; also sets GOMEMLIMIT.")
+    captions+=("Ceiling before the container is killed; also caps the Go heap.")
     override_field_row "Placement" "${node_spec:-any node}" "${live_node_spec:-any node}"
     captions+=("Node selector as key=value,key=value — or any node.")
     count=5

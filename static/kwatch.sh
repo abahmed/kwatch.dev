@@ -54,6 +54,9 @@ STORAGE_SIZE="${KWATCH_STORAGE_SIZE:-2Gi}"
 # The first release that keeps its state in one file on the data volume
 # instead of in ConfigMaps. Upgrading across it rebuilds the state.
 VOLUME_STATE_VERSION="v1.0.0-rc.11"
+# The storage driver's topology label chosen before the apply, recorded on
+# the Deployment once it exists so upgrades keep the placement.
+PLANNED_STORAGE_KEY=""
 # Deployment resources and placement are the operator's, not the release's: the
 # manifest is re-downloaded on every run, so a hand-edited Deployment would be
 # reverted by the next upgrade. Recording the choices on the workload itself --
@@ -1972,9 +1975,40 @@ is_storage_failure() {
   return 1
 }
 
-# In-tree provisioner names and the CSI drivers that serve them today. A
-# CSI provisioner name is already the driver name.
-csi_driver_for_provisioner() {
+# The CSI driver that serves a StorageClass, learned from the cluster
+# rather than assumed: a CSI class's provisioner is the driver name, so it
+# is found among the registered drivers; an in-tree class (kubernetes.io/*)
+# is served by whatever driver provisioned a volume of that class before;
+# only when neither answers is Kubernetes' own in-tree-to-CSI translation
+# list consulted. Empty when the driver cannot be determined.
+csi_driver_for_class() {
+  local class="$1" provisioner="$2" registered driver
+  registered=$(kubectl get csinodes \
+    -o 'jsonpath={range .items[*]}{range .spec.drivers[*]}{.name}{"\n"}{end}{end}' \
+    2>/dev/null | sort -u)
+  if printf '%s\n' "$registered" | grep -qx -- "$provisioner"; then
+    printf '%s' "$provisioner"
+    return 0
+  fi
+  driver=$(kubectl get pv \
+    -o "jsonpath={range .items[?(@.spec.storageClassName==\"$class\")]}{.spec.csi.driver}{\"\\n\"}{end}" \
+    2>/dev/null | grep . | head -1 || true)
+  if [ -n "$driver" ]; then
+    printf '%s' "$driver"
+    return 0
+  fi
+  driver=$(csi_driver_for_in_tree_provisioner "$provisioner")
+  if [ -n "$driver" ] && printf '%s\n' "$registered" | grep -qx -- "$driver"; then
+    printf '%s' "$driver"
+    return 0
+  fi
+  return 1
+}
+
+# Kubernetes' in-tree-to-CSI translation list (csi-translation-lib). It is
+# complete for the in-tree plugins Kubernetes migrated; anything else is a
+# CSI driver already, or unknown.
+csi_driver_for_in_tree_provisioner() {
   case "$1" in
     kubernetes.io/aws-ebs) printf 'ebs.csi.aws.com' ;;
     kubernetes.io/gce-pd) printf 'pd.csi.storage.gke.io' ;;
@@ -1982,8 +2016,18 @@ csi_driver_for_provisioner() {
     kubernetes.io/azure-file) printf 'file.csi.azure.com' ;;
     kubernetes.io/cinder) printf 'cinder.csi.openstack.org' ;;
     kubernetes.io/vsphere-volume) printf 'csi.vsphere.vmware.com' ;;
-    *) printf '%s' "$1" ;;
+    kubernetes.io/portworx-volume) printf 'pxd.portworx.com' ;;
+    kubernetes.io/rbd) printf 'rbd.csi.ceph.com' ;;
+    *) printf '' ;;
   esac
+}
+
+# Provisioner and binding mode of a StorageClass in one read. Pinning
+# matters only for WaitForFirstConsumer: with Immediate binding the volume
+# exists before the Pod and carries the node affinity itself.
+storage_class_facts() {
+  kubectl get storageclass "$1" \
+    -o 'jsonpath={.provisioner}{" "}{.volumeBindingMode}' 2>/dev/null || true
 }
 
 # How many nodes have the driver registered, out of all nodes. A driver
@@ -2021,8 +2065,29 @@ csi_driver_topology_key() {
 
 STORAGE_AFFINITY_ANNOTATION="kwatch.sh/storage-topology-key"
 
+# Nodes on which the driver is registered, by name: the fallback when the
+# driver has no topology label of its own. A snapshot, not a rule: nodes
+# added later are not covered, so it is not recorded for upgrades.
+csi_driver_node_names() {
+  kubectl get csinodes \
+    -o "jsonpath={range .items[*]}{.metadata.name}{\" \"}{range .spec.drivers[*]}{.name}{\",\"}{end}{\"\\n\"}{end}" \
+    2>/dev/null | awk -v driver="$1" '
+      index("," $2, "," driver ",") { print $1 }'
+}
+
+# A required node affinity: with one argument, nodes carrying that label;
+# with more, the named nodes.
 storage_affinity_json() {
-  printf '{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"%s","operator":"Exists"}]}]}}}' "$1"
+  local key="$1" values="" name
+  shift
+  if [ "$#" -eq 0 ]; then
+    printf '{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"%s","operator":"Exists"}]}]}}}' "$key"
+    return 0
+  fi
+  for name in "$@"; do
+    values="${values:+$values,}\"$name\""
+  done
+  printf '{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"%s","operator":"In","values":[%s]}]}]}}}' "$key" "$values"
 }
 
 # A storage affinity recorded on the running Deployment is written into the
@@ -2040,7 +2105,8 @@ inject_storage_affinity_into_manifest() {
 
 inject_affinity_key_into_manifest() {
   local manifest="$1" key="$2"
-  awk -v key="$key" '
+  shift 2
+  awk -v key="$key" -v names="$*" '
     { print }
     /^      serviceAccountName: / && !done {
       print "      affinity:"
@@ -2049,10 +2115,81 @@ inject_affinity_key_into_manifest() {
       print "            nodeSelectorTerms:"
       print "            - matchExpressions:"
       print "              - key: " key
-      print "                operator: Exists"
+      if (names == "") {
+        print "                operator: Exists"
+      } else {
+        print "                operator: In"
+        print "                values:"
+        n = split(names, list, " ")
+        for (i = 1; i <= n; i++) print "                - " list[i]
+      }
       done = 1
     }
   ' "$manifest" >"$manifest.tmp" && mv "$manifest.tmp" "$manifest"
+}
+
+# Before the first apply: when the StorageClass's CSI driver is registered
+# on only some nodes, a WaitForFirstConsumer claim binds only if the Pod
+# lands on one of them. Pin the Pod there now, from what the cluster
+# reports, instead of finding out from a claim that never binds. A driver
+# registered on no node cannot provision at all, so the choice is emptyDir
+# or stopping; in-tree provisioners without CSI registration are left to
+# try, since they may still work.
+plan_storage_affinity() {
+  local manifest="$1" existing_deployment="$2" class provisioner driver
+  local with_driver total key recorded="" choice binding name
+  local -a names=()
+  PLANNED_STORAGE_KEY=""
+  [ "$STORAGE_MODE" = pvc ] || return 0
+  if [ -n "$existing_deployment" ]; then
+    recorded=$(kubectl -n "$NAMESPACE" get deployment "$existing_deployment" \
+      -o "jsonpath={.metadata.annotations.${STORAGE_AFFINITY_ANNOTATION//./\\.}}" \
+      2>/dev/null || true)
+    [ -z "$recorded" ] || return 0
+  fi
+  class="$STORAGE_CLASS"
+  if [ -z "$class" ]; then
+    class=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
+      -o 'jsonpath={.spec.storageClassName}' 2>/dev/null || true)
+  fi
+  [ -n "$class" ] || class=$(default_storage_class)
+  [ -n "$class" ] || return 0
+  read -r provisioner binding <<<"$(storage_class_facts "$class")"
+  [ -n "$provisioner" ] || return 0
+  total=$(node_count)
+  [ "${total:-0}" -gt 0 ] || return 0
+  if ! driver=$(csi_driver_for_class "$class" "$provisioner"); then
+    case "$provisioner" in
+      # An in-tree plugin may still provision without a CSI registration.
+      kubernetes.io/*) return 0 ;;
+    esac
+    ui_warn "⚠️ StorageClass '$class' is served by '$provisioner', which is registered on no node, so the state claim cannot bind."
+    choice=$(ui_select 0 \
+      "📦 Use an emptyDir instead (state is lost when the Pod moves)" \
+      "↩️  Cancel") || return 1
+    [ "$choice" = 0 ] || return 1
+    STORAGE_MODE=emptydir
+    apply_storage_mode_to_manifest "$manifest"
+    return
+  fi
+  with_driver=$(csi_driver_node_count "$driver")
+  [ "${with_driver:-0}" -lt "$total" ] || return 0
+  [ "$binding" = WaitForFirstConsumer ] || return 0
+  if key=$(csi_driver_topology_key "$driver"); then
+    ui_detail "📍 The $driver storage driver runs on $with_driver of $total nodes; kwatch is kept on those (label $key)."
+    inject_affinity_key_into_manifest "$manifest" "$key" || return 1
+    PLANNED_STORAGE_KEY="$key"
+    return 0
+  fi
+  # No label of its own: name the nodes, and say the list is a snapshot.
+  while IFS= read -r name; do
+    [ -n "$name" ] && names+=("$name")
+  done < <(csi_driver_node_names "$driver")
+  [ "${#names[@]}" -gt 0 ] || return 0
+  ui_detail "📍 The $driver storage driver runs on $with_driver of $total nodes and has no topology label; kwatch is kept on ${names[*]}."
+  ui_detail "   Nodes added later are not covered; re-run the manager after the node pool changes."
+  inject_affinity_key_into_manifest "$manifest" kubernetes.io/hostname "${names[@]}" ||
+    return 1
 }
 
 # A rollout that failed on an unbound claim. The claim's warning says why;
@@ -2071,9 +2208,10 @@ repair_storage() {
   warning=$(claim_warning)
   class=$(kubectl -n "$NAMESPACE" get pvc "${RELEASE}-data" \
     -o 'jsonpath={.spec.storageClassName}' 2>/dev/null || true)
-  [ -n "$class" ] && provisioner=$(kubectl get storageclass "$class" \
-    -o 'jsonpath={.provisioner}' 2>/dev/null || true)
-  driver=$(csi_driver_for_provisioner "$provisioner")
+  [ -n "$class" ] && read -r provisioner _ <<<"$(storage_class_facts "$class")"
+  driver=""
+  [ -n "$provisioner" ] &&
+    driver=$(csi_driver_for_class "$class" "$provisioner" || true)
   ui_warn "⚠️ The state volume claim ${RELEASE}-data is $phase, so the Pod cannot start."
   [ -n "$warning" ] && ui_detail "  $(compact_reason "$warning")"
   total=$(node_count)
@@ -2081,8 +2219,7 @@ repair_storage() {
     with_driver=$(csi_driver_node_count "$driver")
     key=$(csi_driver_topology_key "$driver" || true)
   fi
-  if [ "${with_driver:-0}" -gt 0 ] && [ "$with_driver" -lt "${total:-0}" ] &&
-    [ -n "$key" ]; then
+  if [ "${with_driver:-0}" -gt 0 ] && [ "$with_driver" -lt "${total:-0}" ]; then
     ui_detail "  The $driver storage driver is registered on $with_driver of $total nodes; the claim was placed on a node without it."
     actions+=(affinity)
     labels+=("📍 Keep kwatch on the $with_driver node(s) where the storage driver runs")
@@ -2094,24 +2231,42 @@ repair_storage() {
   )
   choice=$(ui_select 0 "${labels[@]}") || return 1
   case "${actions[$choice]}" in
-    affinity) repair_storage_affinity "$deployment" "$key" ;;
+    affinity) repair_storage_affinity "$deployment" "$key" "$driver" ;;
     emptydir) repair_storage_emptydir "$version" ;;
     *) return 1 ;;
   esac
 }
 
 repair_storage_affinity() {
-  local deployment="$1" key="$2" details patch
-  details="This adds a node affinity requiring the label $key, which a node"
-  details+=" carries only once the storage driver is registered on it, and lets"
-  details+=" the scheduler place the claim again. The affinity is recorded on the"
-  details+=" Deployment and kept across upgrades."
+  local deployment="$1" key="$2" driver="$3" details patch affinity name
+  local -a names=()
+  if [ -n "$key" ]; then
+    details="This adds a node affinity requiring the label $key, which a node"
+    details+=" carries only once the storage driver is registered on it, and lets"
+    details+=" the scheduler place the claim again. The affinity is recorded on"
+    details+=" the Deployment and kept across upgrades."
+    affinity=$(storage_affinity_json "$key")
+  else
+    while IFS= read -r name; do
+      [ -n "$name" ] && names+=("$name")
+    done < <(csi_driver_node_names "$driver")
+    [ "${#names[@]}" -gt 0 ] || return 1
+    details="The $driver driver has no topology label of its own, so this adds"
+    details+=" a node affinity naming the nodes it runs on today (${names[*]})."
+    details+=" Nodes added later are not covered; re-run the manager after the"
+    details+=" node pool changes."
+    affinity=$(storage_affinity_json kubernetes.io/hostname "${names[@]}")
+  fi
   confirm_repair "keep kwatch on nodes the storage driver serves" "$details" ||
     return 1
   check_access patch deployments namespace
   check_access patch persistentvolumeclaims namespace
-  patch=$(printf '{"metadata":{"annotations":{"%s":"%s"}},"spec":{"template":{"spec":{"affinity":%s}}}}' \
-    "$STORAGE_AFFINITY_ANNOTATION" "$key" "$(storage_affinity_json "$key")")
+  if [ -n "$key" ]; then
+    patch=$(printf '{"metadata":{"annotations":{"%s":"%s"}},"spec":{"template":{"spec":{"affinity":%s}}}}' \
+      "$STORAGE_AFFINITY_ANNOTATION" "$key" "$affinity")
+  else
+    patch=$(printf '{"spec":{"template":{"spec":{"affinity":%s}}}}' "$affinity")
+  fi
   with_loading "Pinning kwatch to nodes with the storage driver" \
     kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=merge \
     -p "$patch" >/dev/null || return 1
@@ -5697,6 +5852,10 @@ apply_manifests() {
     return 1
   }
   strip_kube_system_rbac_if_denied "$tmp"
+  plan_storage_affinity "$tmp" "$existing_deployment" || {
+    LAST_COMMAND_ERROR="no state volume was chosen"
+    return 1
+  }
   inject_storage_affinity_into_manifest "$tmp" "$existing_deployment"
   # Carry the operator's resources and placement into the new manifest. Without
   # this the upgrade silently reverts them: the manifest is downloaded fresh
@@ -5766,6 +5925,11 @@ apply_manifests() {
   fi
   deployment=$(deployment_name)
   [ -n "$deployment" ] || deployment="$RELEASE"
+  if [ -n "$PLANNED_STORAGE_KEY" ]; then
+    kubectl -n "$NAMESPACE" annotate deployment "$deployment" \
+      "$STORAGE_AFFINITY_ANNOTATION=$PLANNED_STORAGE_KEY" --overwrite \
+      >/dev/null 2>&1 || true
+  fi
   if [ "$INJECTOR_OPT_OUT_PATCH_AFTER" = true ]; then
     for profile in "${INJECTOR_OPT_OUT_PROFILES[@]-}"; do
       [ -n "$profile" ] || continue

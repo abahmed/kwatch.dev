@@ -8,7 +8,7 @@ const logo = {
 };
 
 const siteDescription =
-  'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.';
+  'See what broke. Understand why. Know what to do next. Source-available Kubernetes incident monitoring and alerting.';
 
 const config: Config = {
   title: 'kwatch',

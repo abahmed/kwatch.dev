@@ -47,7 +47,7 @@ export default function Home(): ReactElement {
   return (
     <Layout
       title="Kubernetes incidents, explained"
-      description="See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting."
+      description="See what broke. Understand why. Know what to do next. Source-available Kubernetes incident monitoring and alerting."
     >
       <main>
         <Header />

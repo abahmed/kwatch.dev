@@ -33,7 +33,7 @@ export default function Header(): ReactElement {
               </Link>
             </div>
             <div className={styles.facts} aria-label="Why kwatch">
-              <span>Open source</span>
+              <span>Source available</span>
               <span>Runs in your cluster</span>
               <span>No hosted account</span>
             </div>

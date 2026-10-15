@@ -21,7 +21,7 @@ a deployment can get stuck, or a service can lose its healthy backends.
 
 ## What is kwatch?
 
-kwatch is an open-source Kubernetes incident monitor. It turns failures into
+kwatch is a source-available Kubernetes incident monitor. It turns failures into
 clear alerts that explain what broke, why it happened, and what to do next:
 
 1. 👀 **Watch** — kwatch reads Kubernetes status, events, and recent logs.

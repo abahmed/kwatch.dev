@@ -34,7 +34,7 @@ export default function Community(): ReactElement {
   return (
     <Layout
       title="Community"
-      description="Join the kwatch community for Kubernetes monitoring help, bug reports, and open-source discussions."
+      description="Join the kwatch community for Kubernetes monitoring help, bug reports, and project discussions."
     >
       <header id="hero" className={clsx("hero", styles.banner)}>
         <div className="container">

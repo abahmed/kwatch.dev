@@ -8,7 +8,7 @@ description: What data kwatch collects for accounts and Pro licenses, how teleme
 > Draft — review before launch
 
 This policy covers the kwatch website, the account portal and the license
-service at `api.kwatch.dev`. The open-source Community edition runs entirely in
+service at `api.kwatch.dev`. The free Community edition runs entirely in
 your cluster and needs no account.
 
 ## What we collect

@@ -17,8 +17,6 @@ they are not separate installation steps.
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.discord.webhook` | 🔗 Discord webhook URL | Yes |
-| `alert.discord.title` | ✏️ Custom title | No |
-| `alert.discord.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -26,11 +24,9 @@ they are not separate installation steps.
 alert:
   discord:
     webhook: "${file:/config/discord-webhook}"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

@@ -34,7 +34,7 @@ alert:
       password: "${file:/config/webhook-password}"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

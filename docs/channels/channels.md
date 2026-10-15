@@ -2,7 +2,7 @@
 sidebar_position: 1
 slug: /channels
 title: Channels
-description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 56 notification providers
+description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 55 notification providers
 keywords: [kwatch channels, Kubernetes notifications, Kubernetes alerts, Slack, Discord, PagerDuty, webhooks]
 pagination_next: channels/slack
 pagination_prev: null
@@ -10,7 +10,7 @@ pagination_prev: null
 
 # 📣 Channels
 
-kwatch can send the same clear alert to **56 providers**. Pick the place your
+kwatch can send the same clear alert to **55 providers**. Pick the place your
 team already checks:
 
 | You want... | Try... |
@@ -61,12 +61,13 @@ alert:
     webhook: "${file:/config/slack-webhook}"
 ```
 
-You can configure several providers. kwatch sends each incident to all matching
-providers.
+The Community edition sends to one provider; if you configure several, set
+`app.communityProvider` to choose which one is kept (the default is the first
+by name). Pro sends each incident to all matching providers.
 
-## 🎯 Send only the alerts you need
+## 🎯 Send only the alerts you need <span className="kw-pro">Pro</span>
 
-Routes filter alerts by namespace, severity, or reason. All conditions in one
+Routes filter alerts by namespace, severity, reason, or owner. All conditions in one
 route must match:
 
 ```yaml
@@ -98,14 +99,14 @@ alert:
 - 🔁 **Retry** tries temporary failures again, such as timeouts and server errors.
 - 🆘 **Fallback** sends to another configured provider when the first one fails.
 - 📏 **Compact** reduces message size when your channel has strict limits.
-- 🧵 **Threaded mode** keeps Slack updates together when using a bot token.
+- 🧵 **Threads** (<span className="kw-pro">Pro</span>) keep Slack updates together when using a bot token.
 
 Invalid requests and bad credentials are not retried forever. They are reported
 so you can fix the provider configuration.
 
 ## 🔐 Keep credentials safe
 
-The interactive manager stores credentials in a Kubernetes Secret and mounts
+The `kwatch.sh` installer stores credentials in a Kubernetes Secret and mounts
 them at `/config`. Use exact `${file:/absolute/path}` references in the config.
 Plain credentials and environment substitutions in sensitive fields are
 rejected at startup. Read the
@@ -115,8 +116,7 @@ rejected at startup. Read the
 
 1. Run `kwatch lint` to validate the configuration.
 2. Run `kwatch lint --check` to test credentials for providers that support checks.
-3. Enable `healthCheck.diagnostics`, configure its diagnostics token, and call
-   `/test-alert` with that token if you need a real test message. Diagnostic
-   endpoints are protected when enabled; do not put the token in a URL or log.
+3. Start kwatch and check the startup message in the channel. There is no
+   test-alert endpoint; `kwatch lint --check` is the supported credential check.
 
 For installation help, start with [Getting Started](/docs) or [Installation](/docs/installation).

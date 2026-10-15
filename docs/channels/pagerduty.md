@@ -26,7 +26,7 @@ alert:
     integrationKey: "${file:/config/pagerduty-integration-key}"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

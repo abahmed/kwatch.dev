@@ -7,9 +7,9 @@ keywords: [kwatch providers, Kubernetes alerts, alert integrations, webhooks, no
 
 # 📣 All alert providers
 
-kwatch currently supports **56 alert providers**. This page is generated from the versioned `provider-catalog.tsv` shipped with the same release as `kwatch.sh`, so the fields here are the fields the guided setup can configure.
+kwatch currently supports **55 alert providers**. This page is generated from the versioned `provider-catalog.tsv` shipped with the same release as `kwatch.sh`, so the fields here are the fields the guided setup can configure.
 
-Use one or more blocks under `alert:`. Provider credentials, webhook URLs, tokens, API keys, passwords, and access tokens are **Secret-only**: mount them from a Kubernetes Secret and reference them with an exact `${file:/absolute/path}` value. Plain credentials and `${ENV_VAR}` substitutions are rejected for sensitive fields.
+Use one or more blocks under `alert:`. The Community edition sends to one provider (choose it with `app.communityProvider`); Pro sends to all configured providers. Provider credentials, webhook URLs, tokens, API keys, passwords, and access tokens are **Secret-only**: mount them from a Kubernetes Secret and reference them with an exact `${file:/absolute/path}` value. Plain credentials and `${ENV_VAR}` substitutions are rejected for sensitive fields.
 
 > **Source of truth:** `deploy/provider-catalog.tsv` (catalog v1). The catalog lists every canonical provider and field accepted by the current release.
 
@@ -18,7 +18,7 @@ provider name; it uses the same fields and is not a separate integration.
 
 ## Shared delivery options
 
-Every provider supports the delivery controls listed in its table. `routes` filters by namespace, severity, or reason; `retry.maxAttempts` and `retry.delay` control retry behavior; `fallback` names another configured provider.
+Every provider supports the delivery controls listed in its table. `routes` <span className="kw-pro">Pro</span> filters by namespace, severity, reason, or owner; `retry.maxAttempts` and `retry.delay` control retry behavior; `fallback` names another configured provider.
 
 ```yaml
 alert:
@@ -41,8 +41,6 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.slack.webhook` | `string` | no | yes | url | — | Slack webhook URL |
 | `alert.slack.channel` | `string` | no | no | — | — | Override channel |
-| `alert.slack.title` | `string` | no | no | — | — | Custom title |
-| `alert.slack.text` | `string` | no | no | — | — | Custom text |
 | `alert.slack.compact` | `boolean` | no | no | boolean | false | Single-line mode |
 | `alert.slack.token` | `string` | no | yes | — | — | Bot token (xoxb-...) |
 | `alert.slack.routes` | `json` | no | no | json | — | Optional JSON route filters. |
@@ -56,8 +54,6 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.discord.webhook` | `string` | yes | yes | url | — | Discord webhook URL |
-| `alert.discord.title` | `string` | no | no | — | — | Custom title |
-| `alert.discord.text` | `string` | no | no | — | — | Custom text |
 | `alert.discord.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.discord.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.discord.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -69,7 +65,9 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.email.from` | `string` | yes | no | — | — | From address |
-| `alert.email.password` | `string` | yes | yes | — | — | From password |
+| `alert.email.password` | `string` | no | yes | — | — | SMTP password; omit for a relay without authentication |
+| `alert.email.username` | `string` | no | no | — | — | SMTP username; defaults to from |
+| `alert.email.tls` | `string` | no | no | — | — | required (TLS on 465, STARTTLS otherwise) or none for a trusted relay |
 | `alert.email.host` | `string` | yes | no | — | — | SMTP host |
 | `alert.email.port` | `string` | yes | no | port | — | SMTP port |
 | `alert.email.to` | `string` | yes | no | — | — | Receiver email |
@@ -77,17 +75,6 @@ alert:
 | `alert.email.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.email.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
 | `alert.email.fallback` | `string` | no | no | — | — | Optional fallback provider name. |
-
-
-### LINE (`line`)
-
-| Field | Type | Required | Secret | Validation | Default | Description |
-|:--|:--|:--:|:--:|:--|:--|:--|
-| `alert.line.token` | `string` | yes | yes | — | — | LINE Notify access token |
-| `alert.line.routes` | `json` | no | no | json | — | Optional JSON route filters. |
-| `alert.line.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
-| `alert.line.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
-| `alert.line.fallback` | `string` | no | no | — | — | Optional fallback provider name. |
 
 
 ### PagerDuty (`pagerduty`)
@@ -119,7 +106,6 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.teams.webhook` | `string` | yes | yes | url | — | Webhook URL |
 | `alert.teams.title` | `string` | no | no | — | — | Custom title |
-| `alert.teams.text` | `string` | no | no | — | — | Custom text |
 | `alert.teams.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.teams.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.teams.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -131,7 +117,6 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.rocketchat.webhook` | `string` | yes | yes | url | — | Webhook URL |
-| `alert.rocketchat.text` | `string` | no | no | — | — | Custom text |
 | `alert.rocketchat.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.rocketchat.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.rocketchat.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -143,8 +128,6 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.mattermost.webhook` | `string` | yes | yes | url | — | Webhook URL |
-| `alert.mattermost.title` | `string` | no | no | — | — | Custom title |
-| `alert.mattermost.text` | `string` | no | no | — | — | Custom text |
 | `alert.mattermost.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.mattermost.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.mattermost.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -156,8 +139,7 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.opsgenie.apiKey` | `string` | yes | yes | — | — | API Key |
-| `alert.opsgenie.title` | `string` | no | no | — | — | Custom title |
-| `alert.opsgenie.text` | `string` | no | no | — | — | Custom text |
+| `alert.opsgenie.region` | `string` | no | no | — | — | API region: us (default) or eu |
 | `alert.opsgenie.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.opsgenie.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.opsgenie.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -171,8 +153,6 @@ alert:
 | `alert.matrix.homeServer` | `string` | yes | no | url | — | HomeServer URL |
 | `alert.matrix.accessToken` | `string` | yes | yes | — | — | Access token |
 | `alert.matrix.internalRoomId` | `string` | yes | no | — | — | Room ID |
-| `alert.matrix.title` | `string` | no | no | — | — | Custom title |
-| `alert.matrix.text` | `string` | no | no | — | — | Custom text |
 | `alert.matrix.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.matrix.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.matrix.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -198,6 +178,7 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.feishu.webhook` | `string` | yes | yes | url | — | Webhook URL |
 | `alert.feishu.title` | `string` | no | no | — | — | Custom title |
+| `alert.feishu.secret` | `string` | no | yes | — | — | Signing secret when the bot has signature verification enabled |
 | `alert.feishu.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.feishu.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.feishu.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -221,7 +202,6 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.googlechat.webhook` | `string` | yes | yes | url | — | Webhook URL |
-| `alert.googlechat.text` | `string` | no | no | — | — | Custom text |
 | `alert.googlechat.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.googlechat.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.googlechat.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -263,7 +243,9 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.pushover.token` | `string` | yes | yes | — | — | Application token |
 | `alert.pushover.user` | `string` | yes | yes | — | — | User or group key |
-| `alert.pushover.priority` | `integer` | no | no | integer | — | Priority (optional) |
+| `alert.pushover.priority` | `integer` | no | no | integer | — | Priority from -2 to 2 (optional) |
+| `alert.pushover.retry` | `integer` | no | no | integer | — | Emergency retry interval in seconds |
+| `alert.pushover.expire` | `integer` | no | no | integer | — | Emergency expiration in seconds |
 | `alert.pushover.title` | `string` | no | no | — | — | Custom title |
 | `alert.pushover.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.pushover.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
@@ -276,8 +258,8 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.webex.accessToken` | `string` | yes | yes | — | — | Bot access token |
-| `alert.webex.roomId` | `string` | no | no | — | — | Room ID (provide this or `toPersonEmail`) |
-| `alert.webex.toPersonEmail` | `string` | no | no | — | — | Person email (provide this or `roomId`) |
+| `alert.webex.roomId` | `string` | no | no | — | — | Room ID (at least one destination required) |
+| `alert.webex.toPersonEmail` | `string` | no | no | — | — | Person email (at least one destination required) |
 | `alert.webex.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.webex.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.webex.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -331,7 +313,7 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.zapier.url` | `string` | yes | yes | url | — | Zap webhook URL |
 | `alert.zapier.token` | `string` | no | yes | — | — | Optional token |
-| `alert.zapier.title` | `string` | no | no | — | — | Custom title |
+| `alert.zapier.title` | `string` | no | no | — | — | Title (plain messages only) |
 | `alert.zapier.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.zapier.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.zapier.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -344,7 +326,7 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.n8n.url` | `string` | yes | yes | url | — | Workflow webhook URL |
 | `alert.n8n.token` | `string` | no | yes | — | — | Optional auth header value |
-| `alert.n8n.title` | `string` | no | no | — | — | Custom title |
+| `alert.n8n.title` | `string` | no | no | — | — | Title (plain messages only) |
 | `alert.n8n.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.n8n.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.n8n.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -381,7 +363,7 @@ alert:
 | `alert.zulip.email` | `string` | yes | no | — | — | Bot email |
 | `alert.zulip.token` | `string` | yes | yes | — | — | Bot API key |
 | `alert.zulip.channel` | `string` | yes | no | — | — | Channel/stream to post to |
-| `alert.zulip.url` | `string` | no | no | url | https://zulip.example.com/api/v1/messages | Server URL (default: https://zulip.example.com/api/v1/messages) |
+| `alert.zulip.url` | `string` | yes | no | url | — | Server URL (required; example hosts are rejected) |
 | `alert.zulip.title` | `string` | no | no | — | — | Custom title |
 | `alert.zulip.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.zulip.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
@@ -423,7 +405,7 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.datadog.apiKey` | `string` | yes | yes | — | — | API key |
-| `alert.datadog.site` | `string` | no | no | — | datadoghq.com | Datadog site (default: datadoghq.com) |
+| `alert.datadog.site` | `string` | no | no | — | datadoghq.com | Datadog site as a bare host name (default: datadoghq.com) |
 | `alert.datadog.applicationKey` | `string` | no | yes | — | — | Optional application key |
 | `alert.datadog.title` | `string` | no | no | — | — | Custom title |
 | `alert.datadog.alertType` | `string` | no | no | — | error | Alert type (default: error) |
@@ -440,6 +422,7 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.newrelic.apiKey` | `string` | yes | yes | — | — | User API key |
 | `alert.newrelic.accountId` | `string` | yes | no | — | — | Account ID |
+| `alert.newrelic.region` | `string` | no | no | — | us | Data-center region: us (default) or eu |
 | `alert.newrelic.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.newrelic.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.newrelic.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -453,6 +436,8 @@ alert:
 | `alert.clickup.token` | `string` | yes | yes | — | — | Personal API token |
 | `alert.clickup.listId` | `string` | yes | no | — | — | List ID to create tasks in |
 | `alert.clickup.priority` | `integer` | no | no | integer | — | Optional task priority (1-4) |
+| `alert.clickup.closeStatus` | `string` | no | no | — | — | List status a resolve moves the task to (default: comment only) |
+| `alert.clickup.reopenStatus` | `string` | no | no | — | — | List status a closed task returns to when the incident fails again (needs closeStatus; default: open a new task) |
 | `alert.clickup.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.clickup.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.clickup.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -464,7 +449,7 @@ alert:
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.ilert.integrationKey` | `string` | yes | yes | — | — | Integration key |
-| `alert.ilert.priority` | `integer` | no | no | integer | — | Priority (LOW/HIGH/CRITICAL, default: HIGH) |
+| `alert.ilert.priority` | `string` | no | no | one-of:LOW,HIGH,CRITICAL | HIGH | Priority (LOW/HIGH/CRITICAL, default: HIGH) |
 | `alert.ilert.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.ilert.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.ilert.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -582,8 +567,8 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.sendgrid.apiKey` | `string` | yes | yes | — | — | API key |
 | `alert.sendgrid.from` | `string` | yes | no | — | — | From address |
-| `alert.sendgrid.to` | `list` | yes | no | list | — | Recipients (list of addresses) |
-| `alert.sendgrid.subject` | `string` | no | no | — | — | Email subject |
+| `alert.sendgrid.to` | `list` | yes | no | list | — | Recipients: a list or a comma-separated string |
+| `alert.sendgrid.subject` | `string` | no | no | — | — | Email subject (plain messages only) |
 | `alert.sendgrid.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.sendgrid.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.sendgrid.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -596,10 +581,11 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.ses.accessKeyId` | `string` | yes | yes | — | — | AWS access key ID |
 | `alert.ses.secretAccessKey` | `string` | yes | yes | — | — | AWS secret access key |
+| `alert.ses.sessionToken` | `string` | no | yes | — | — | Session token for temporary AWS credentials |
 | `alert.ses.region` | `string` | no | no | — | us-east-1 | AWS region (default: us-east-1) |
 | `alert.ses.from` | `string` | yes | no | — | — | Verified sender address |
 | `alert.ses.to` | `string` | yes | no | — | — | Recipients (comma-separated) |
-| `alert.ses.subject` | `string` | no | no | — | — | Email subject |
+| `alert.ses.subject` | `string` | no | no | — | — | Email subject (plain messages only) |
 | `alert.ses.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.ses.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.ses.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -612,9 +598,10 @@ alert:
 |:--|:--|:--:|:--:|:--|:--|:--|
 | `alert.sns.accessKeyId` | `string` | yes | yes | — | — | AWS access key ID |
 | `alert.sns.secretAccessKey` | `string` | yes | yes | — | — | AWS secret access key |
+| `alert.sns.sessionToken` | `string` | no | yes | — | — | Session token for temporary AWS credentials |
 | `alert.sns.region` | `string` | no | no | — | us-east-1 | AWS region (default: us-east-1) |
 | `alert.sns.topicArn` | `string` | no | no | — | — | SNS topic ARN (or targetArn) |
-| `alert.sns.targetArn` | `string` | no | no | — | — | SNS target ARN (alternative to topicArn). |
+| `alert.sns.targetArn` | `string` | no | no | — | — | SNS target ARN (alternative to topicArn) |
 | `alert.sns.subject` | `string` | no | no | — | — | Optional subject (email subscriptions) |
 | `alert.sns.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.sns.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
@@ -631,6 +618,8 @@ alert:
 | `alert.jira.apiToken` | `string` | yes | yes | — | — | API token |
 | `alert.jira.projectKey` | `string` | yes | no | — | — | Project key |
 | `alert.jira.issueType` | `string` | no | no | — | Task | Issue type (default: Task) |
+| `alert.jira.closeTransition` | `string` | no | no | — | — | Workflow transition a resolve applies (default: comment only) |
+| `alert.jira.reopenTransition` | `string` | no | no | — | — | Transition that reopens a closed issue when the incident fails again (needs closeTransition; default: open a new issue) |
 | `alert.jira.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.jira.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.jira.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -669,7 +658,7 @@ alert:
 | `alert.mailgun.domain` | `string` | yes | no | — | — | Sending domain |
 | `alert.mailgun.from` | `string` | yes | no | — | — | From address |
 | `alert.mailgun.to` | `string` | yes | no | — | — | Recipients (comma-separated) |
-| `alert.mailgun.subject` | `string` | no | no | — | — | Email subject |
+| `alert.mailgun.subject` | `string` | no | no | — | — | Email subject (plain messages only) |
 | `alert.mailgun.url` | `string` | no | no | url | — | Optional endpoint override (e.g. EU region) |
 | `alert.mailgun.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.mailgun.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
@@ -684,7 +673,7 @@ alert:
 | `alert.resend.apiKey` | `string` | yes | yes | — | — | API key |
 | `alert.resend.from` | `string` | yes | no | — | — | From address |
 | `alert.resend.to` | `string` | yes | no | — | — | Recipients (comma-separated) |
-| `alert.resend.subject` | `string` | no | no | — | — | Email subject |
+| `alert.resend.subject` | `string` | no | no | — | — | Email subject (plain messages only) |
 | `alert.resend.routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `alert.resend.retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `alert.resend.retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
@@ -695,7 +684,7 @@ alert:
 
 | Field | Type | Required | Secret | Validation | Default | Description |
 |:--|:--|:--:|:--:|:--|:--|:--|
-| `alert.goalert.url` | `string` | no | no | url | https://goalert.example.com | GoAlert URL (default: https://goalert.example.com) |
+| `alert.goalert.url` | `string` | yes | no | url | — | GoAlert server URL |
 | `alert.goalert.token` | `string` | yes | yes | — | — | API token |
 | `alert.goalert.serviceId` | `string` | yes | no | — | — | Service ID |
 | `alert.goalert.routes` | `json` | no | no | json | — | Optional JSON route filters. |

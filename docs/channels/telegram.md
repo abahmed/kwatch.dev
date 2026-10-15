@@ -28,7 +28,7 @@ alert:
     chatId: "YOUR_CHAT_ID"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

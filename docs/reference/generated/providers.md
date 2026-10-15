@@ -30,8 +30,6 @@ generated: true
 | `token` | string | true | true | `` | Personal API token |
 | `listId` | string | true | false | `` | List ID to create tasks in |
 | `priority` | integer | false | false | `` | Optional task priority (1-4) |
-| `closeStatus` | string | false | false | `` | List status a resolve moves the task to (default: comment only) |
-| `reopenStatus` | string | false | false | `` | List status a closed task returns to when the incident fails again (needs closeStatus; default: open a new task) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -42,7 +40,7 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `apiKey` | string | true | true | `` | API key |
-| `site` | string | false | false | `datadoghq.com` | Datadog site as a bare host name (default: datadoghq.com) |
+| `site` | string | false | false | `datadoghq.com` | Datadog site (default: datadoghq.com) |
 | `applicationKey` | string | false | true | `` | Optional application key |
 | `title` | string | false | false | `` | Custom title |
 | `alertType` | string | false | false | `error` | Alert type (default: error) |
@@ -69,6 +67,8 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Discord webhook URL |
+| `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -79,9 +79,7 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `from` | string | true | false | `` | From address |
-| `password` | string | false | true | `` | SMTP password; omit for a relay without authentication |
-| `username` | string | false | false | `` | SMTP username; defaults to from |
-| `tls` | string | false | false | `` | required (TLS on 465, STARTTLS otherwise) or none for a trusted relay |
+| `password` | string | true | true | `` | From password |
 | `host` | string | true | false | `` | SMTP host |
 | `port` | string | true | false | `` | SMTP port |
 | `to` | string | true | false | `` | Receiver email |
@@ -96,7 +94,6 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Webhook URL |
 | `title` | string | false | false | `` | Custom title |
-| `secret` | string | false | true | `` | Signing secret when the bot has signature verification enabled |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -167,6 +164,7 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Webhook URL |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -239,8 +237,16 @@ generated: true
 | `apiToken` | string | true | true | `` | API token |
 | `projectKey` | string | true | false | `` | Project key |
 | `issueType` | string | false | false | `Task` | Issue type (default: Task) |
-| `closeTransition` | string | false | false | `` | Workflow transition a resolve applies (default: comment only) |
-| `reopenTransition` | string | false | false | `` | Transition that reopens a closed issue when the incident fails again (needs closeTransition; default: open a new issue) |
+| `routes` | json | false | false | `` | Optional JSON route filters. |
+| `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
+| `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
+| `fallback` | string | false | false | `` | Optional fallback provider name. |
+
+## line
+
+| Field | Type | Required | Secret | Default | Description |
+| --- | --- | --- | --- | --- | --- |
+| `token` | string | true | true | `` | LINE Notify access token |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -254,7 +260,7 @@ generated: true
 | `domain` | string | true | false | `` | Sending domain |
 | `from` | string | true | false | `` | From address |
 | `to` | string | true | false | `` | Recipients (comma-separated) |
-| `subject` | string | false | false | `` | Email subject (plain messages only) |
+| `subject` | string | false | false | `` | Email subject |
 | `url` | string | false | false | `` | Optional endpoint override (e.g. EU region) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
@@ -268,6 +274,8 @@ generated: true
 | `homeServer` | string | true | false | `` | HomeServer URL |
 | `accessToken` | string | true | true | `` | Access token |
 | `internalRoomId` | string | true | false | `` | Room ID |
+| `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -278,6 +286,8 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Webhook URL |
+| `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -301,7 +311,7 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `url` | string | true | true | `` | Workflow webhook URL |
 | `token` | string | false | true | `` | Optional auth header value |
-| `title` | string | false | false | `` | Title (plain messages only) |
+| `title` | string | false | false | `` | Custom title |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -313,7 +323,6 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `apiKey` | string | true | true | `` | User API key |
 | `accountId` | string | true | false | `` | Account ID |
-| `region` | string | false | false | `us` | Data-center region: us (default) or eu |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -338,7 +347,8 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `apiKey` | string | true | true | `` | API Key |
-| `region` | string | false | false | `` | API region: us (default) or eu |
+| `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -399,7 +409,7 @@ generated: true
 | `apiKey` | string | true | true | `` | API key |
 | `from` | string | true | false | `` | From address |
 | `to` | string | true | false | `` | Recipients (comma-separated) |
-| `subject` | string | false | false | `` | Email subject (plain messages only) |
+| `subject` | string | false | false | `` | Email subject |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -410,6 +420,7 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Webhook URL |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -421,8 +432,8 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `apiKey` | string | true | true | `` | API key |
 | `from` | string | true | false | `` | From address |
-| `to` | list | true | false | `` | Recipients: a list or a comma-separated string |
-| `subject` | string | false | false | `` | Email subject (plain messages only) |
+| `to` | list | true | false | `` | Recipients (list of addresses) |
+| `subject` | string | false | false | `` | Email subject |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -447,11 +458,10 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `accessKeyId` | string | true | true | `` | AWS access key ID |
 | `secretAccessKey` | string | true | true | `` | AWS secret access key |
-| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials |
 | `region` | string | false | false | `us-east-1` | AWS region (default: us-east-1) |
 | `from` | string | true | false | `` | Verified sender address |
 | `to` | string | true | false | `` | Recipients (comma-separated) |
-| `subject` | string | false | false | `` | Email subject (plain messages only) |
+| `subject` | string | false | false | `` | Email subject |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -488,6 +498,8 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | false | true | `` | Slack webhook URL |
 | `channel` | string | false | false | `` | Override channel |
+| `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `compact` | boolean | false | false | `false` | Single-line mode |
 | `token` | string | false | true | `` | Bot token (xoxb-...) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
@@ -501,7 +513,6 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `accessKeyId` | string | true | true | `` | AWS access key ID |
 | `secretAccessKey` | string | true | true | `` | AWS secret access key |
-| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials |
 | `region` | string | false | false | `us-east-1` | AWS region (default: us-east-1) |
 | `topicArn` | string | false | false | `` | SNS topic ARN (or targetArn) |
 | `targetArn` | string | false | false | `` | SNS target ARN (alternative to topicArn) |
@@ -554,6 +565,7 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `webhook` | string | true | true | `` | Webhook URL |
 | `title` | string | false | false | `` | Custom title |
+| `text` | string | false | false | `` | Custom text |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -659,7 +671,7 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `url` | string | true | true | `` | Zap webhook URL |
 | `token` | string | false | true | `` | Optional token |
-| `title` | string | false | false | `` | Title (plain messages only) |
+| `title` | string | false | false | `` | Custom title |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -683,7 +695,7 @@ generated: true
 | `email` | string | true | false | `` | Bot email |
 | `token` | string | true | true | `` | Bot API key |
 | `channel` | string | true | false | `` | Channel/stream to post to |
-| `url` | string | true | false | `` | Server URL (required; example hosts are rejected) |
+| `url` | string | false | false | `https://zulip.example.com/api/v1/messages` | Server URL (default: https://zulip.example.com/api/v1/messages) |
 | `title` | string | false | false | `` | Custom title |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |

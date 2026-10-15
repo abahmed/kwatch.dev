@@ -9,6 +9,10 @@ pagination_prev: null
 
 # 💓 Heartbeat monitor (dead man's switch)
 
+:::info Pro
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+:::
+
 This is an optional **watch-the-watcher** check. An external service expects a
 regular ping from kwatch; if the pings stop, that service alerts you.
 
@@ -51,8 +55,7 @@ stringData:
   heartbeat-url: "replace-me"
 ```
 
-Add the monitor settings through `kwatch.sh`'s **Configure settings** flow (or
-merge them into the config file used by your supported installation):
+Add the monitor settings through the `kwatch.sh` installer's **Configure settings** flow:
 
 ```yaml
 heartbeatMonitor:

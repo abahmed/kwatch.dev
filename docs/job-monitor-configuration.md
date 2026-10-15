@@ -7,15 +7,17 @@ keywords: [kwatch, Kubernetes Job monitoring, failed Job alerts, suspended Job]
 
 # Failed Kubernetes Job alerts
 
+:::info Pro
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+:::
+
 A Job runs work until it succeeds or reaches its failure condition. kwatch
 watches Jobs that fail or become suspended, helping the team distinguish a
 workload error from an intentional pause.
 
 ## What kwatch detects
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `jobMonitor.enabled` | `true` | Watch failed or suspended Jobs. |
+kwatch reports Jobs that fail or become suspended. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/docs/general-configuration)).
 
 An intentional suspension may not require action. Check who changed the Job
 and whether the pause is part of a planned operation before responding.
@@ -32,15 +34,6 @@ Events and logs to understand whether the problem is in the task, its image,
 configuration, or a cluster dependency. If the Job is suspended, confirm the
 expected schedule and owner.
 
-## Configure the monitor
+## Related
 
-Use the [interactive manager](/docs/installation) to change settings. The
-equivalent configuration fragment is:
-
-```yaml
-jobMonitor:
-  enabled: true
-```
-
-Run `kwatch lint` after a change. For recurring work, see the
-[CronJob monitor](/docs/cronjob-monitor-configuration).
+For recurring work, see the [CronJob monitor](/docs/cronjob-monitor-configuration).

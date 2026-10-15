@@ -54,6 +54,11 @@ const sidebars: SidebarsConfig = {
     'cli-commands',
     {
       type: 'category',
+      label: '💎 Editions & license',
+      items: ['editions', 'license'],
+    },
+    {
+      type: 'category',
       label: '🏗️ How kwatch works',
       items: [
         'architecture/target-architecture',

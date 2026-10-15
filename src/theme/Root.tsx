@@ -60,7 +60,11 @@ export default function Root({children}: {children: ReactNode}) {
     pathname === '/blog/tags' ||
     pathname.startsWith('/blog/tags/');
   const isNoIndexRoute =
-    isThinBlogRoute || pathname === '/404' || pathname === '/404.html';
+    isThinBlogRoute ||
+    pathname === '/signup' ||
+    pathname === '/signin' ||
+    pathname === '/account' ||
+    pathname === '/404' || pathname === '/404.html';
   const canonicalPath =
     pathname.length > 1 && pathname.endsWith('/')
       ? pathname.slice(0, -1)

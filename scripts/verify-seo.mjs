@@ -11,6 +11,9 @@ const noIndexRoutes = new Set([
   '/blog/tags',
   '/charts',
   '/search',
+  '/signup',
+  '/signin',
+  '/account',
 ]);
 
 function isExcluded(route) {

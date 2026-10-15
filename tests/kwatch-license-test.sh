@@ -210,6 +210,60 @@ assert_contains "$log" '"$patch":"delete"' "env removed"
 assert_contains "$log" "delete secret kwatch-license --ignore-not-found" "secret deleted"
 assert_lacks "$log" "kwatch-license-instance" "removal touched the instance Secret"
 
+# --- move to this cluster ---------------------------------------------------
+saved_kubectl=$(declare -f kubectl)
+saved_pod_name=$(declare -f kwatch_pod_name)
+: >"$KUBECTL_LOG"
+confirm_change() { return 0; }
+kwatch_pod_name() { printf '%s' kwatch-abc; }
+MOVE_RC=0
+kubectl() {
+  printf '%s\n' "$*" >>"$KUBECTL_LOG"
+  case "$*" in
+    *"license move"*)
+      if [ "$MOVE_RC" -eq 0 ]; then
+        echo "License lic_…1234 is now active on this cluster."
+      else
+        echo "ERROR: transfer limit reached: a license can move 3 times in 30 days. A slot frees up in 3 days." >&2
+      fi
+      return "$MOVE_RC"
+      ;;
+    *"get secret kwatch-license"*"go-template"*)
+      [ "$LICENSE_SECRET_PRESENT" = true ] && printf '%s' "$(printf '%s' "$VALID_KEY" | base64 | tr -d '\n')"
+      ;;
+    *"get secret kwatch-license"*)
+      [ "$LICENSE_SECRET_PRESENT" = true ] && printf '%s\n' secret/kwatch-license
+      ;;
+  esac
+  return 0
+}
+LICENSE_SECRET_PRESENT=true
+out=$(license_move_flow 2>&1)
+assert_contains "$(cat "$KUBECTL_LOG")" "-n kwatch exec kwatch-abc -- kwatch license move" "move runs in the Pod"
+assert_contains "$out" "now active on this cluster" "move result is shown"
+MOVE_RC=1
+rc=0
+out=$(license_move_flow 2>&1) || rc=$?
+[ "$rc" -ne 0 ] || fail "a refused move must fail"
+assert_contains "$out" "A slot frees up in 3 days." "refusal is shown"
+assert_contains "$out" "transfer it at https://kwatch.dev/account" "refusal points at the website"
+# Without a key there is nothing to move and the Pod is not touched.
+: >"$KUBECTL_LOG"
+LICENSE_SECRET_PRESENT=false
+out=$(license_move_flow 2>&1)
+assert_contains "$out" "Add it first" "no key"
+assert_lacks "$(cat "$KUBECTL_LOG")" "license move" "no key reached the Pod"
+LICENSE_SECRET_PRESENT=true
+# Declining the confirmation changes nothing.
+: >"$KUBECTL_LOG"
+confirm_change() { return 1; }
+out=$(license_move_flow 2>&1)
+assert_contains "$out" "Nothing was changed" "declined"
+assert_lacks "$(cat "$KUBECTL_LOG")" "license move" "declined move reached the Pod"
+confirm_change() { return 0; }
+eval "$saved_kubectl"
+eval "$saved_pod_name"
+
 # --- status fallback -------------------------------------------------------
 # Exact output of `kwatch license status` (internal/app/license_cli.go).
 CLI_VALID=$'Key:     KW1-…abcd\nState:   valid key (activation is not checked here)\nPlan:    pro\nLicense: l-…1\nExpires: 2027-01-01 (30 days left)'
@@ -272,8 +326,9 @@ assert_eq "$(license_state_word 'License: expired (was active)')" expired "state
 assert_eq "$(license_state_word 'License: conflict')" conflict "conflict word"
 assert_eq "$(license_state_word 'Edition: Community')" community "community word"
 assert_contains "$(license_state_hint conflict)" \
-  "license is bound to another cluster — transfer it at https://kwatch.dev/account" "conflict hint"
+  "license is bound to another cluster — choose \"Move license to this cluster\" in License / Pro, or transfer it at https://kwatch.dev/account" "conflict hint"
 out=$(license_print_status $'Edition: Pro\nLicense: conflict\nPro features configured but inactive: routes' 2>&1)
+assert_contains "$out" "Move license to this cluster" "status conflict suggests the move option"
 assert_contains "$out" "transfer it at https://kwatch.dev/account" "status conflict hint"
 assert_contains "$out" "Pro features configured but inactive: routes" "inactive line"
 

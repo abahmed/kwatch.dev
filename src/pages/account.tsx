@@ -195,8 +195,8 @@ helm upgrade --install kwatch kwatch/kwatch \\
         <Dialog title="Transfer to another cluster" onClose={() => setDialog(null)}>
           <p>
             A license works on one cluster at a time. Transferring releases it from the current
-            cluster so you can activate it on a new one. The old cluster falls back to Community
-            after its offline grace period ends.
+            cluster so you can activate it on a new one. The new cluster picks up the license within
+            about 5 minutes; the old cluster drops to Community at its next daily check.
           </p>
           <p><strong>Transfers left: {license.transfers_left}</strong></p>
           <div className={styles.row}>

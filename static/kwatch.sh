@@ -7508,7 +7508,7 @@ license_state_word() {
 
 license_state_hint() {
   case "$1" in
-    conflict) printf 'license is bound to another cluster — transfer it at %s' "$LICENSE_ACCOUNT_URL" ;;
+    conflict) printf 'license is bound to another cluster — choose "Move license to this cluster" in License / Pro, or transfer it at %s' "$LICENSE_ACCOUNT_URL" ;;
     grace) printf 'kwatch could not verify the license recently; Pro keeps working for now — check egress or renew at %s' "$LICENSE_ACCOUNT_URL" ;;
     expired) printf 'the license has expired and Pro features are off — renew it at %s' "$LICENSE_ACCOUNT_URL" ;;
     revoked) printf 'the license was revoked — manage it at %s' "$LICENSE_ACCOUNT_URL" ;;
@@ -7904,6 +7904,32 @@ license_remove_flow() {
   ui_success "✅ License key removed; kwatch is running as Community."
 }
 
+# Takes the license over from the cluster that holds it. `kwatch license move`
+# runs in the Pod: it asks the leader to move and prints the outcome (moved,
+# already here, transfer limit reached, invalid key). It can wait up to about
+# two minutes for the leader, so its output is shown as it comes.
+license_move_flow() {
+  local pod
+  ui_heading "🚚  Move the license to this cluster"
+  if ! license_secret_exists; then
+    ui_detail "  No license key is configured here. Add it first with Add or replace key."
+    return 0
+  fi
+  confirm_change "🚚 Move the license to this cluster." \
+    "The cluster that holds it now drops to Community at its next daily check. A license can move 3 times in 30 days." ||
+    { ui_info "↩️ Nothing was changed."; return 0; }
+  pod=$(kwatch_pod_name) || {
+    ui_error "❌ No kwatch Pod was found in $NAMESPACE; wait for kwatch to start and try again."
+    return 1
+  }
+  ui_info "⏳ Asking kwatch to move the license (this can take up to 2 minutes)"
+  LICENSE_COMMUNITY_CACHE=""
+  if ! kubectl -n "$NAMESPACE" exec "$pod" -- kwatch license move; then
+    ui_warn "⚠️ The license was not moved. You can also transfer it at $LICENSE_ACCOUNT_URL"
+    return 1
+  fi
+}
+
 license_flow() {
   local choice
   LICENSE_FLOW_CHANGED=false
@@ -7913,12 +7939,14 @@ license_flow() {
     choice=$(ui_select 0 \
       "📋 Show license status" \
       "🔑 Add or replace key" \
+      "🚚 Move license to this cluster" \
       "🗑️  Remove key" \
       "↩️  Back") || break
     case "$choice" in
       0) license_show_status; ui_pause ;;
       1) license_add_flow; ui_pause ;;
-      2) license_remove_flow; ui_pause ;;
+      2) license_move_flow || true; ui_pause ;;
+      3) license_remove_flow; ui_pause ;;
       *) break ;;
     esac
   done

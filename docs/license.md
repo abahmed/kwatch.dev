@@ -1,7 +1,7 @@
 ---
 sidebar_position: 9
 title: License
-description: Get, install, transfer and troubleshoot a kwatch Pro license key.
+description: Get, install, move and troubleshoot a kwatch Pro license key.
 keywords: [kwatch license, kwatch Pro, license key, helm, activation, grace period]
 ---
 
@@ -48,15 +48,40 @@ If the license service is unreachable, kwatch keeps its Pro features for up
 to 7 days from the last successful renewal: each renewal is valid for 3 days,
 followed by a 4-day grace period.
 
-## Transfer
+## Moving to another cluster
 
-A key is bound to one cluster. To move it, use **Transfer to another cluster**
-on the account page, then install the key on the new cluster. The number of
-transfers left is shown there. You get 3 transfers per 30 days. Releasing the
-license during uninstall (`kwatch license deactivate`) counts as a transfer.
+A key is bound to one cluster at a time. There are two ways to move it, and
+both count toward the same limit of 3 moves per 30 days.
+
+**From the new cluster.** Run `kwatch license move` in the kwatch pod on the
+new cluster, or choose **Move license to this cluster** under **License / Pro**
+in the [kwatch.sh manager](/docs/kwatch-sh) while pointed at the new cluster:
+
+```bash
+kubectl -n kwatch exec deploy/kwatch -- kwatch license move
+```
+
+The command takes the license over and prints the outcome: moved, already on
+this cluster, transfer limit reached (with the days until a slot frees), or
+invalid key. Install the key on the new cluster first if it is not there yet.
+
+**From the website.** Use **Transfer to another cluster** on your
+[account page](/account). This releases the license; the new cluster picks it
+up on its own within about 5 minutes. A cluster that finds its license bound
+elsewhere asks again every 5 minutes for the first hour, then hourly.
+
+**The old cluster.** It learns about the move at its next daily check and
+drops to Community; detection and alerting keep running. You also get an email
+when a license is moved with `kwatch license move`, so you can regenerate the
+key if it was not you.
+
+The number of moves left is shown on the account page. A move made with
+`kwatch license move`, a transfer on the website and releasing the license
+during uninstall (`kwatch license deactivate`) all use the same 3 per 30 days.
 If the old cluster has not renewed for 7 days, for example because it was
-deleted, the key moves to the new cluster automatically. **Regenerate key**
-issues a new key and invalidates the old one.
+deleted, the key moves to the new cluster automatically, without using one of
+the 3 moves. **Regenerate key** issues a new key and invalidates
+the old one.
 
 ## Expiry
 
@@ -76,7 +101,7 @@ The license state appears in the `/status` output:
 | `grace` | Renewal failing, within the grace period (up to 7 days offline). | Restore network access to `api.kwatch.dev`. |
 | `expired` | The license has expired. | Start or renew a license on your account page. |
 | `revoked` | The license was revoked. | Contact hello@kwatch.dev. |
-| `conflict` | The key is active on another cluster. | Transfer it to this cluster, or use a separate key. |
+| `conflict` | The key is active on another cluster. | Run `kwatch license move` here, transfer it on your account page, or use a separate key. |
 
 ## What is sent
 

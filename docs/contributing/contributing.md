@@ -2,7 +2,7 @@
 sidebar_position: 1
 title: Contributing
 description: how to contribute code, documentation, tests, and ideas to kwatch
-keywords: [kwatch, contribute, open source, github, pull request]
+keywords: [kwatch, contribute, github, pull request, documentation]
 pagination_next: contributing/cloning-and-building
 pagination_prev: null
 ---

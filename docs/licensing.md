@@ -21,13 +21,39 @@ limitations:
 3. You may not remove or obscure licensing, copyright or other notices.
 
 The [Community edition](/docs/editions) is free with no account or license
-key. [Pro](/pricing) features are enabled with a license key, one per cluster.
+key. [Pro](/docs/editions) features are enabled with a license key, one per cluster.
+Pro is free during early access. A license is checked against
+`https://api.kwatch.dev` and keeps working for up to 7 days offline. See
+[Community vs Pro](/docs/editions) and the [license guide](/docs/license).
 
 ## Earlier releases
 
 Releases up to and including `v1.0.0-rc.10` were published under the
 [MIT License](https://github.com/abahmed/kwatch/blob/v1.0.0-rc.10/LICENSE),
-and those releases remain available under MIT.
+and those releases remain available under MIT. The MIT copyright notice for
+that code is:
+
+```text
+Copyright (c) 2021 Abdelrahman Ahmed
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## Contributions
 

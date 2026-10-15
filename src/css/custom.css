@@ -763,3 +763,19 @@ html[data-theme="dark"] .theme-code-block .copyBtn {
 html[data-theme="dark"] .theme-code-block .copyBtn:hover {
   background: var(--ifm-color-emphasis-300);
 }
+
+/* Pro badge used inline in docs: <span className="kw-pro">Pro</span> */
+.kw-pro {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  margin-left: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  vertical-align: middle;
+}

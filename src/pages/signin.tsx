@@ -28,7 +28,7 @@ function SigninCard(): ReactElement | null {
     setBusy(true);
     setError('');
     try {
-      await apiFetch(apiUrl, '/v1/auth/verify', {method: 'POST', body: {t}});
+      await apiFetch(apiUrl, '/auth/verify', {method: 'POST', body: {t}});
       history.push('/account');
     } catch (err) {
       const e = err as ApiError;

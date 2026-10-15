@@ -95,7 +95,7 @@ function SignupForm(): ReactElement {
   // Already signed in? Go to the account page.
   useEffect(() => {
     let cancelled = false;
-    apiFetch(apiUrl, '/v1/account')
+    apiFetch(apiUrl, '/account')
       .then(() => {
         if (!cancelled) history.replace('/account');
       })
@@ -138,7 +138,7 @@ function SignupForm(): ReactElement {
     }
     setBusy(true);
     try {
-      await apiFetch(apiUrl, '/v1/auth/start', {
+      await apiFetch(apiUrl, '/auth/start', {
         method: 'POST',
         body: {email: email.trim(), turnstile_token: token},
       });

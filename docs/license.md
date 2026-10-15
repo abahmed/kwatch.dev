@@ -2,7 +2,7 @@
 sidebar_position: 9
 title: License
 description: Get, install, move and troubleshoot a kwatch Pro license key.
-keywords: [kwatch license, kwatch Pro, license key, helm, activation, grace period]
+keywords: [kwatch license, kwatch Pro, license key, installer, activation, grace period]
 ---
 
 # License
@@ -25,17 +25,24 @@ account does not reset it. Need more? [Contact us](mailto:hello@kwatch.dev).
 
 ## Install the key
 
-With Helm:
+The [kwatch.sh installer](/docs/kwatch-sh) is the way to set up a license.
+Run it:
 
 ```bash
-kubectl create secret generic kwatch-license -n kwatch \
-  --from-literal=license-key=YOUR_KEY
-helm upgrade --install kwatch kwatch/kwatch \
-  --set license.existingSecret=kwatch-license
+/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
 ```
 
-With the [kwatch.sh manager](/docs/kwatch-sh): run it and open the **License**
-menu.
+Then open **License / Pro** and choose **Add or replace key**, and paste your
+key. The installer stores it in a Kubernetes Secret and applies it to kwatch.
+During a fresh install it also asks for a key at the end.
+
+For a non-interactive run, set `KWATCH_LICENSE_KEY` in the environment of the
+same command, and the installer stores and applies the key without prompting:
+
+```bash
+KWATCH_LICENSE_KEY=YOUR_KEY \
+  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+```
 
 ## How activation works
 

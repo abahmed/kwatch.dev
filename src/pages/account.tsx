@@ -95,10 +95,13 @@ function LicenseCard({
   const left = daysLeft(license.expires_at);
   const active = license.status === 'active';
   const shownKey = revealed ? key : key.slice(0, 6) + '•'.repeat(24);
-  const snippet = `kubectl create secret generic kwatch-license -n kwatch \\
-  --from-literal=license-key=${revealed ? key : '<LICENSE_KEY>'}
-helm upgrade --install kwatch kwatch/kwatch \\
-  --set license.existingSecret=kwatch-license`;
+  const installer = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
+  const snippet = `${installer}
+# then choose License / Pro > Add or replace key and paste your key
+
+# or, non-interactively:
+KWATCH_LICENSE_KEY=${revealed ? key : '<LICENSE_KEY>'} \\
+  ${installer}`;
 
   async function copy(text: string) {
     try {
@@ -115,7 +118,7 @@ helm upgrade --install kwatch kwatch/kwatch \\
     setError('');
     setMessage('');
     try {
-      const r = await apiFetch(apiUrl, `/v1/account/licenses/${encodeURIComponent(license.lid)}/${path}`, {
+      const r = await apiFetch(apiUrl, `/account/licenses/${encodeURIComponent(license.lid)}/${path}`, {
         method: 'POST',
       });
       ok(r);
@@ -174,12 +177,12 @@ helm upgrade --install kwatch kwatch/kwatch \\
       <pre className={styles.snippet}><code>{snippet}</code></pre>
       <div className={styles.row} style={{marginBottom: '0.75rem'}}>
         <button className="button button--sm button--secondary" onClick={() => copy(snippet.replace('<LICENSE_KEY>', key))}>
-          Copy commands with key
+          Copy install commands with key
         </button>
       </div>
       <p className={styles.muted} style={{fontSize: '0.88rem'}}>
-        Prefer the guided installer? The <Link to="/docs/kwatch-sh">kwatch.sh</Link> manager has a
-        License menu that does this for you. See <Link to="/docs/license">License docs</Link>.
+        The <Link to="/docs/kwatch-sh">kwatch.sh</Link> installer is the way to set up a
+        license. See <Link to="/docs/license">License docs</Link>.
       </p>
 
       <div className={styles.row}>
@@ -254,7 +257,7 @@ function Account(): ReactElement {
 
   const load = useCallback(async () => {
     try {
-      setData(await apiFetch<AccountResponse>(apiUrl, '/v1/account'));
+      setData(await apiFetch<AccountResponse>(apiUrl, '/account'));
     } catch (err) {
       if ((err as ApiError).status === 401) {
         history.replace('/signup');
@@ -270,7 +273,7 @@ function Account(): ReactElement {
 
   async function logout() {
     try {
-      await apiFetch(apiUrl, '/v1/auth/logout', {method: 'POST'});
+      await apiFetch(apiUrl, '/auth/logout', {method: 'POST'});
     } catch {
       /* leave regardless */
     }
@@ -281,7 +284,7 @@ function Account(): ReactElement {
     setBusy(true);
     setError('');
     try {
-      await apiFetch(apiUrl, '/v1/account/trial', {method: 'POST'});
+      await apiFetch(apiUrl, '/account/trial', {method: 'POST'});
       await load();
     } catch (err) {
       setError(errorMessage(err, 'Could not create the license. Please try again.'));
@@ -295,7 +298,7 @@ function Account(): ReactElement {
     setBusy(true);
     setError('');
     try {
-      await apiFetch(apiUrl, '/v1/account', {method: 'DELETE'});
+      await apiFetch(apiUrl, '/account', {method: 'DELETE'});
       history.replace('/signup');
     } catch (err) {
       setError(errorMessage(err, 'Could not delete the account. Please try again.'));

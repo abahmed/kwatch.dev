@@ -1,214 +1,84 @@
 ---
 title: Production readiness
-description: Operational guarantees, failure behavior, and validation for running kwatch reliably.
+description: Operating model, health signals, memory sizing, delivery guarantees, and validation for running kwatch reliably on Kubernetes.
 sidebar_position: 1
 keywords: [kwatch, production, readiness, failover, health, persistence, Kubernetes]
 ---
 
 # Production readiness
 
-Kwatch is designed for a Kubernetes-native, single-writer operating model.
-Use this page to decide whether an installation is ready for the workload it
-is expected to monitor and to choose the right signal when something fails.
+kwatch is designed for a Kubernetes-native, single-writer operating model. Use this page to decide whether an installation is ready for the workload it monitors and to choose the right signal when something fails. It is an operations reference, not a promise of high availability.
 
 ## Supported operating model
 
-The default deployment uses two replicas and a Kubernetes Lease:
+- kwatch runs **one replica** with the `Recreate` strategy.
+- With Pro, state lives in a database file on a `ReadWriteOnce` PVC mounted at `/var/lib/kwatch`. Community keeps state in memory.
+- A Kubernetes Lease is only a **lock**: it stops two processes from writing the volume at once. There is no second Pod and no kwatch self-failover; if the Pod or its node fails, Kubernetes restarts it.
+- Running several replicas (standbys that take over the lock) is part of kwatch Pro. See [Replication and failover](/docs/operations/replication-and-failover).
 
-- Exactly one replica is the active leader.
-- The other `N-1` replicas are standbys that run election and health serving
-  only. They do not watch resources, process incidents, send notifications,
-  or write mutable persistence.
-- Scaling from two to five adds takeover capacity, not monitoring throughput.
-- One replica is supported for constrained clusters, but it has no Kwatch
-  self-failover.
-- Spread replicas across failure domains when node loss matters.
-
-The Kubernetes API and Lease are the election authority. Kwatch does not form
-its own quorum. This protects against normal process or Pod loss, but cannot
-protect against a total Kubernetes API, cluster, node, or network failure.
-Notification delivery is not exactly once; provider retries and a leadership
-transition can produce a duplicate or require operator review.
+Notification delivery is at least once, not exactly once; provider retries and a restart can produce a duplicate.
 
 ## Operational targets
 
-These are initial SLO-oriented targets for normal cluster conditions, not hard
-protocol guarantees:
-
-| Signal | Initial target |
-| --- | --- |
-| Healthy startup to readiness | 120 seconds |
-| Leader takeover | 90 seconds |
-| Graceful shutdown | 45 seconds |
-| Normal persistence restore | 30 seconds |
-| Delivery queue growth | Bounded by configured limits |
-| Health endpoint responsiveness | Independent of monitor activity |
-
-The deployment reserves at least 60 seconds for shutdown. Measure these targets
-in the same cluster size and API-server conditions as the production workload.
+Initial targets for normal cluster conditions, not guarantees: readiness within 120 seconds after a healthy startup, and graceful shutdown within 45 seconds (the deployment allows 60 seconds). After a hard node failure, plan for up to about 7 to 8 minutes without monitoring (see [Replication and failover](/docs/operations/replication-and-failover#node-failure-the-real-monitoring-gap)).
 
 ## Health signals
 
 | Endpoint | Meaning |
 | --- | --- |
-| `/healthz` | Process liveness. A leader and a standby can both be live. |
-| `/readyz` | The active leader has restored required state and synchronized required sources. |
-| `/availabilityz` | Deployment availability for a leader or standby participating in Lease election. |
-| `/health` | Safe leadership, component, watcher, source, migration, and degradation state. |
+| `/healthz` | Process liveness. |
+| `/readyz` | The Pod holds the Lease, has claimed the state file, every source finished its initial list, and delivery is running. |
+| `/availabilityz` | Deployment availability, used for rolling updates. Not monitoring readiness. |
+| `/health` | JSON with overall status, state lock status, component states, coverage and bounded reason codes. |
 | `/metrics` | Prometheus metrics with bounded labels. |
+| `/status` <span className="kw-pro">Pro</span> | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents. Plain text; JSON needs Pro. |
 
-Diagnostic endpoints such as `/incidents`, `/deadletters`, `/persistence`,
-`/informer`, `/kubelet`, `/security`, `/controlplane`, and `/test-alert` are
-disabled unless explicitly enabled. When enabled for a production profile,
-they require a bearer token. Pprof follows the same rule and is disabled by
-default. Public health responses contain safe reason codes, not raw errors,
-payloads, URLs, credentials, or Kubernetes object data.
+kwatch serves no other endpoints: there are no profiling or test-alert endpoints. `/status` lists object names to anyone who can reach the health port, so keep that port inside the cluster and read it with `kubectl port-forward`. Health responses carry safe reason codes, not raw errors. The full reason vocabulary is in [General configuration](/docs/general-configuration#-health-reasons).
 
-Readiness should be false while the leader is restoring state, waiting for a
-required cache, missing a required source, or recovering required persistence.
-An unavailable optional API is degraded in `/health` but does not by itself
-make an otherwise healthy leader unready.
+An unavailable optional API is degraded in `/health` and does not make kwatch unready. Readiness is withdrawn while a required source (Pods, Nodes) is unavailable, for example after its permission is revoked, and returns when it recovers.
 
-The application evaluates readiness through one leadership-epoch coordinator.
-For an active epoch, all of these required gates must be open: leader role,
-startup restore, required controller caches, required source configuration,
-required persistence writers, the incident engine, and configured delivery.
-A callback from an older epoch cannot reopen readiness after a takeover or
-shutdown.
+## Shutdown and recovery
 
-## Leadership loss and recovery
+On termination readiness drops at once, sources stop, the final incident snapshot is written, queued alerts are sent (or dead-lettered once the drain deadline passes, keeping their outbox records for the next start) and the state file is closed. A required component failure makes the Pod unready and lets Kubernetes restart it. The heartbeat monitor <span className="kw-pro">Pro</span> pings only while monitoring is ready, so an external dead man's switch notices a Pod that is up but not monitoring.
 
-When a leader loses its Lease or a required component fails, it:
+With Pro, after a restart kwatch restores open incidents from the state file, so they are not announced again, and records changes made while it was down. See [Persistence and recovery](/docs/operations/persistence-recovery). Without a license, state is in memory and a restart takes a fresh baseline.
 
-1. Marks readiness false.
-2. Cancels the active monitoring generation.
-3. Stops delivery intake and provider retries.
-4. Fences mutable persistence writes.
-5. Stops producers and watcher generations, waiting for completion handles
-   within bounded deadlines.
-6. Performs a final persistence snapshot only when leadership fencing still
-   permits it.
-7. Exits so Kubernetes can restart it and a standby can take over.
+## Memory and CPU
 
-The new leader loads the latest compatible state, produces one startup migration
-report, restores incidents, groups, baseline, engine, threads, PVC, and other
-supported state, then waits for required cache synchronization before active
-processing. Standbys do not perform this restore or reconciliation work. It
-reconciles current objects and reports the monitoring gap from
-the last persisted liveness stamp. Kubernetes Events that expired during the
-gap cannot be reconstructed and are reported as unknown history rather than
-invented evidence.
+The default memory limit is 512Mi (the Go soft limit is set to 90% of it) and the default CPU is a 100m request with a 500m limit. kwatch holds about 26 KB of live heap per pod; plan for twice that.
 
-## Required and optional components
+| Pods | Memory request and limit |
+| --- | --- |
+| up to 5,000 | `512Mi` (default; suits about 8,000 realistic pods) |
+| 10,000 | `768Mi` |
+| 20,000 | `1Gi` |
 
-Required startup and runtime components include health serving, Lease election,
-state restore, the controller and required caches, incident processing, and
-delivery when providers are configured. A required failure removes readiness,
-stops active processing, and makes the Pod restart-eligible.
-
-Graphs, status and probe integrations, control-plane checks, kubelet metrics,
-RBAC checks, TLS sweeps, CRD watching after initial setup, telemetry, upgrader,
-heartbeat, cleanup, and snapshots may be optional. Optional failures are
-reported with bounded reason codes and retried with capped backoff while core
-monitoring continues. Missing listers always skip detection: they never create
-or resolve a synthetic incident.
-
-## Persistence and migration
-
-Restart-critical data is kept in namespace-scoped ConfigMaps. Writes use
-optimistic concurrency and bounded conflict retries. Missing state is a safe
-first-run condition; corrupt data, malformed schema metadata, and unsupported
-future versions are preserved and reported. Required restore failures block
-active monitoring and delivery so a restart cannot silently fork incident
-state.
-
-Before upgrades:
-
-1. Confirm the current ConfigMaps and their backups are present.
-2. Review the migration report in protected diagnostics and logs.
-3. Verify the target version's migration and rollback notes.
-4. Keep a recoverable backup until the new version is healthy.
-
-For recovery, restore the last known-good ConfigMaps, restart one controlled
-leader, and verify readiness, incident identity, and provider delivery before
-scaling back to the desired replica count.
+Raise `resources.requests.memory` and `resources.limits.memory` together, and measure with the `self-health` log line rather than trusting the table at the edges.
 
 ## Delivery, queues, and outages
 
-Delivery uses immutable provider generations, bounded queues, shared context-aware
-transport, retry classification, fallbacks by stable name, and a dead-letter
-ring. A provider outage should increase retry and terminal-failure metrics and
-may populate dead letters; it should not make the process appear dead. Queue
-saturation coalesces queued updates and prioritizes create and recovery
-messages. Remaining overflow is recorded as a bounded failure signal.
-
-During reconfiguration, a generation moves from `accepting` to `draining` and
-then to `stopped` or `failed`. The replacement is not published until the old
-generation has stopped. A successful drain is a normal reconfiguration event;
-a failed or timed-out drain makes required delivery unavailable and stops active
-processing rather than allowing two ambiguous worker generations to run.
-
-Payload limits are explicit per-provider policy. Known protocol limits use
-deterministic truncation that preserves the headline, reason, resource identity,
-and newest evidence. Providers whose final renderer owns its limit are marked
-`provider_owned` instead of receiving an arbitrary universal limit. Complete
-payloads and secrets are never written to logs or diagnostics.
-
-Inspect provider status, retry counts, queue saturation, dead letters, and
-provider-specific rate limits before changing retry settings. Do not place
-credentials or complete provider payloads in logs or diagnostics.
+Delivery uses bounded per-provider queues, retries for failures that can succeed (timeouts, 5xx, rate limits), fallbacks and a dead-letter list. Queued deliveries are kept in a persisted outbox (at most 2048 jobs, none older than 24 hours at restore). A provider outage should raise retry and terminal-failure metrics and may produce dead letters; it should not make the process appear dead. Alert on `kwatch_delivery_dropped_total`: it is the difference between "no incidents" and "no deliveries".
 
 ## Kubernetes and security review
 
 For production installations, review:
 
-- two replicas, Lease Role/RoleBinding, and a PodDisruptionBudget with
-  `minAvailable: 1` for multi-replica deployments;
-- 60-second or longer termination grace, probes, resource requests and limits,
-  and topology spread or preferred anti-affinity;
-- non-root execution, read-only root filesystem, dropped capabilities, and
-  seccomp settings;
-- feature-specific RBAC, including the documented Secret access needed by TLS
-  and dependency evidence;
-- optional NetworkPolicy and restricted diagnostic exposure;
-- immutable image tags or, preferably, release image digests.
+- the read-only ClusterRole and `rbac.mode` (`full` by default, `least-privilege` optional), see [RBAC and deployment security](/docs/operations/rbac-and-security);
+- the state volume: `ReadWriteOnce` block storage, never NFS or `ReadWriteMany`;
+- a 60-second termination grace period, probes, and resource requests and limits;
+- non-root execution, read-only root filesystem, dropped capabilities and the `RuntimeDefault` seccomp profile (the shipped manifests set these);
+- the optional NetworkPolicy: allow egress to the kubelet port (10250), and open any probe, proxy or non-443 provider port you use;
+- release image digests rather than mutable tags.
 
-Use the feature-permission matrix before disabling or enabling monitors. Verify
-the service account with `kubectl auth can-i` in the target namespace and
-cluster. The manager applies release resources with the documented election,
-security, probe, persistence, and shutdown settings.
-
-## Release and validation checklist
-
-Before calling a release production-ready, run the repository's unit, lint,
-architecture, manifest, security, documentation, and race checks. CI or an
-operational cluster must additionally test:
-
-- replicas 1 through 5, scale-up and scale-down, standby deletion, and leader
-  deletion or process termination;
-- API and provider outage/recovery, queue saturation, large event bursts, and
-  optional API absence;
-- migration, ConfigMap conflict and partial-write recovery, restart, rollback,
-  and graceful shutdown;
-- RBAC `can-i`, readiness/liveness, node placement, and persisted incident
-  identity after takeover.
-
-Kind, Docker, kubectl, real provider outages, large-cluster load, and disaster
-recovery are environment-dependent. Do not describe them as locally passed
-when those tools or environments are unavailable. Verify release checksums,
-image signatures, provenance, SBOMs, and vulnerability policy before rollout.
+Verify the service account with `kubectl auth can-i` in the target cluster. The `kwatch.sh` installer applies release resources with the documented lock, security, probe, persistence and shutdown settings.
 
 ## First-response checklist
 
 When an alert is missing or delayed:
 
-1. Check `/healthz`, `/readyz`, and protected `/health` diagnostics.
-2. Confirm the Pod's Lease role and whether it is the active leader.
-3. Check required source and informer synchronization status.
-4. Check queue depth, retry/failure metrics, dead letters, and provider status.
-5. Check persistence migration or restore status after a restart.
-6. Review namespace/reason scope, filters, baseline, cooldown, inhibition,
-   grouping, and audit records.
+1. Check `/healthz`, `/readyz` and `/health`.
+2. Confirm the Pod holds the Lease and that required sources are synced.
+3. Check delivery queue depth, retry and failure metrics, and provider status.
+4. Check namespace and reason scope, silences, baseline, cooldown and the audit log.
 
-See [Troubleshoot missing alerts](./troubleshooting) for the detailed decision
-path.
+See [Troubleshoot missing alerts](/docs/operations/troubleshooting) for the detailed path.

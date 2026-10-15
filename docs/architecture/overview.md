@@ -1,84 +1,82 @@
 ---
 sidebar_position: 1
 title: Overview
-description: High-level kwatch architecture — how the restart-safe controller watches, detects, manages incidents, and alerts
-keywords: [kwatch, kubernetes, architecture, overview, informers, incidents, leader election]
+description: High-level kwatch architecture - how one decision loop turns Kubernetes observations into objects, health, root causes, incidents and messages.
+keywords: [kwatch, kubernetes, architecture, overview, informers, incidents, root cause]
 pagination_next: architecture/packages-overview
 ---
 
 # 🏗️ Architecture overview
 
 This section is for people who want to understand the system, extend it, or
-debug an unusual alert. Start here, then follow the alert path from detection
-to delivery.
+debug an unusual alert. Start here, then follow an alert from detection to
+delivery.
 
-kwatch is a **restart-safe, single-binary** Kubernetes controller that watches
-cluster resources via informers, detects incidents, builds a dependency graph
-to explain why they happened, correlates and deduplicates them, and dispatches
-alerts through **56 providers**. Restart-critical state is persisted in
-namespace-scoped ConfigMaps.
+kwatch does not forward Kubernetes events to chat. It keeps a model of the
+whole cluster, finds what is unhealthy, works out a small set of causes that
+explain it, and sends one short message per incident. A node that runs out of
+memory and takes forty pods with it is one incident that names the node.
 
-The default deployment runs two replicas with Kubernetes Lease election. One
-replica is the active leader; the other is a standby that serves health
-endpoints and participates in election. Only the leader watches resources,
-delivers notifications, or writes mutable state. A one-replica deployment is
-supported but has no Kwatch self-failover.
+## The pipeline
 
----
-
-## High-Level Architecture
-
-```
-                    ┌─────────────────────────────────────┐
-                    │         Kubernetes API Server        │
-                    └────────┬────────┬────────┬───────────┘
-                             │        │        │
-               ┌──────────────┘   ┌────┘   ┌────┘
-               ▼                  ▼        ▼
-┌───────────────────────┐  ┌──────────┐  ┌────────────────┐
-│  Pod Informer         │  │Node Inf. │  │Deploy/Job/DS/  │
-│  (events, secrets)    │  │          │  │CJ/HPA Inf.     │
-└──────────┬────────────┘  └────┬─────┘  └───────┬────────┘
-           │                    │                 │
-           ▼                    ▼                 ▼
-    ┌──────────────────────────────────────────────────┐
-    │        Monitor families + direct runtimes          │
-    │  policy → enrichment → observations → hints        │
-    └──────────────────────┬───────────────────────────┘
-                           │
-                           ▼ Incident
-    ┌──────────────────────────────────────────────────┐
-    │        Incident Engine (internal/incident)        │
-    │  • Incidents keyed by owner (create/update/resolve)│
-    │  • Insight engine: cause, impact, what-changed    │
-    │  • Dependency graph (pod→node/owner/config)       │
-    │  • Mass-failure detection (30% blast radius)       │
-    │  • Smart grouping + cooldown + escalation          │
-    │  • Node inhibition                                 │
-    │  • Resolve hold-down (flap dampening)             │
-    └──────────────────────┬───────────────────────────┘
-                           │
-                           ▼ Enriched Incident
-    ┌──────────────────────────────────────────────────┐
-    │           Delivery Manager (internal/delivery)    │
-    │  • 56 providers, one report for all               │
-    │  • Non-blocking fan-out                           │
-    │  • Retry (only retryable failures)                 │
-    │  • Fallback provider                              │
-    │  • Dead-letter queue                              │
-    └──┬───────────┬───────────┬───────────┬────────────┘
-       ▼           ▼           ▼           ▼
-    ┌──────┐  ┌────────┐  ┌───────┐  ┌──────────┐
-    │Slack │  │Discord │  │Email  │  │Webhook   │  ...56 providers
-    └──────┘  └────────┘  └───────┘  └──────────┘
+```text
+ Kubernetes API   kubelet stats   probes   pod logs
+        │ observations (one common format)
+        ▼
+ ┌─────────────────────── internal/pipeline ───────────────────────────┐
+ │  decision loop (one goroutine, no I/O)                              │
+ │                                                                     │
+ │  inventory ─► detection ─► rootcause/explain ─► incident            │
+ │  objects      health +      chosen causes        settle, update,    │
+ │  links        failure mode  that cover the       resolve, flapping  │
+ │  changes      per object    failures                  │             │
+ │                                                       ▼             │
+ │                                       notification/compose          │
+ └───────┬───────────────────────────────────────────────┬─────────────┘
+         │ bounded workers                               │ Message
+         ▼                                               ▼
+   investigation (logs, scheduler text)        delivery manager
+   storage writer (about once a second)        retries, pacing, fallback
+         │                                               │
+         ▼                                               ▼
+   state.db (one file, Pro)                    providers (55 integrations)
 ```
 
-The source tree under `internal/` organizes the controller, monitor families,
-incident engine, insight, config, delivery providers, and periodic watchdogs.
-Each is described in
-more detail on the following pages.
+One goroutine, the engine loop, owns every decision. Sources submit
+observations from any goroutine into a bounded queue. The loop applies them to
+the inventory in order, asks the detectors about each touched object, solves
+root cause once for the whole batch, and ticks the incident lifecycles. Slow
+work (log reads, storage writes, delivery) never runs on the loop. Every loop
+iteration reports progress, so a stuck loop shows up as a stall and Kubernetes
+restarts the pod.
 
----
+## The four concepts
+
+| Concept | Meaning |
+| --- | --- |
+| Object | Anything with identity: every Kubernetes object, plus virtual ones such as a registry, cluster DNS, a zone, a node pool or the API server. |
+| Link | A typed, directed relation between objects: owned-by, runs-on, selects, references, mounts, routes-to, serves, pulls. Links say how failure can travel. |
+| Health | The state a detector computes for an object: healthy, degraded, failing or unknown, plus a short failure mode such as `CrashLoop` or `MemoryPressure`. |
+| Change | A recorded edit to an object: what changed, who changed it, when. Status churn is not a change. |
+
+Unknown is a real state. An object kwatch cannot observe (no permission, API
+not served, cache not synced) is unknown. Unknown never causes a blame and
+never lets an incident resolve.
+
+## Editions
+
+One binary, two editions (see [Community vs Pro](/docs/editions)). Community
+detects pod crashes, OOM, Pending and restarts and node failures, explains them
+with a root-cause headline, and keeps state in memory. Pro adds the other
+detectors, full proof, who changed what, impact and log excerpts, routing,
+threads, templates, persistence on disk and standby replicas. Pro is free during
+early access.
+
+## One replica and a state lock
+
+kwatch runs as one replica with the `Recreate` strategy. A Kubernetes Lease is
+only a lock that guards the state volume; there is no second Pod and no
+self-failover. See [Replication and failover](/docs/operations/replication-and-failover).
 
 Continue reading to explore each package, the end-to-end data flow, and the
 design decisions that shaped kwatch.

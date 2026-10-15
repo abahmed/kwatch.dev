@@ -1,70 +1,46 @@
 ---
 title: Persistence and recovery
-description: Back up, migrate, and recover Kwatch restart state safely.
+description: Where kwatch keeps its state, what is retained, how it recovers after a crash or schema change, and what the Community edition keeps in memory.
 sidebar_position: 3
 ---
 
 # Persistence and recovery
 
-Kwatch stores restart-critical state in ConfigMaps in its own namespace. The
-wire format and ConfigMap names are compatibility boundaries. Do not edit their
-JSON by hand unless following an incident recovery procedure.
+:::info Pro
+Keeping incidents and history on disk across restarts is part of kwatch Pro, which is free during early access. The Community edition keeps state in memory. See [Community vs Pro](/docs/editions).
+:::
 
-## State stores
+With Pro, kwatch stores restart-critical state in one transactional database file, `/var/lib/kwatch/state.db`, on a PVC. It is not stored in ConfigMaps. The file is created with owner-only permissions and holds one bucket per data class: incidents, changes, baselines, evidence, timeline, object fingerprints, lifecycle state, provider thread IDs, the delivery outbox and the flight recording.
 
-The startup migration report covers startup metadata, schema state, baseline,
-incidents, groups, engine, provider threads, PVC state, RCA state, telemetry,
-feedback, and change history. Each entry identifies an operation such as
-`restore`, `migrate`, `recover`, `write`, or `initialize`, alongside its source
-and destination format. Missing optional state may degrade; missing or corrupt
-required state prevents unsafe active startup.
+Without a license (Community), kwatch keeps state in memory. After a restart it takes a fresh baseline, so existing failures are not re-sent.
 
-## Backup before an upgrade
+## Retention
 
-Use a namespace-scoped export with restricted file permissions:
+| Data | Retention |
+| --- | --- |
+| Changes | 7 days, at most 8 MiB |
+| Timeline | 7 days, at most 32 MiB |
+| Flight recording | 48 hours, at most 64 MiB |
+| Evidence | 30 days, at most 128 MiB |
+| Resolved incidents | 7 days after resolution |
+| Baselines | Dropped 7 days after their workload is gone |
+| Delivery outbox | Until a provider accepts the job; at most 2048 jobs, none older than 24 hours at restore |
+| Open incidents, fingerprints, state, threads | No expiry |
 
-```sh
-kubectl -n "$KWATCH_NAMESPACE" get configmap \
-  kwatch-state kwatch-baseline kwatch-incidents kwatch-groups \
-  kwatch-engine kwatch-threads kwatch-pvc kwatch-changes \
-  kwatch-rca kwatch-telemetry -o yaml > kwatch-state-backup.yaml
-chmod 600 kwatch-state-backup.yaml
-```
+The logical size of the store is capped at 512 MiB by default. Over the cap, the oldest entries are deleted first across evidence, timeline, changes and resolved incidents. Open incidents, baselines, fingerprints, state, threads and the outbox are never evicted; if they alone keep the store over the cap, `/health` shows `state-store-size` as degraded with `storage_over_cap`. Retention and caps are fixed in this release.
 
-The exact set of stores can vary with enabled features. Confirm the names in
-the target release's generated reference and retain the backup until the new
-leader has been ready and delivered a controlled test notification.
+## Schema changes reset the store
 
-## Migration behavior
+There are no migrations. When the state file has another schema version, or cannot be read, kwatch renames it to `state.db.corrupt.<UTC time>` (the newest two copies are kept), creates a fresh store and continues. It starts cold and sends one startup summary; open incidents are re-announced once. After a schema change the delivery outbox and thread IDs are copied into the fresh file so queued pages and resolves are still sent. The reset appears on `/health` as the degraded `state-store` component with reason `storage_reset` and is counted by `kwatch_storage_resets_total`; it does not affect readiness. A file locked by another process is not reset: startup fails and Kubernetes retries.
 
-- Missing version: use the compatible legacy path.
-- Supported older version: migrate and record `completed` or `failed`.
-- Current version: record `not_required`.
-- Future version: preserve the data and record `unsupported`.
-- Malformed metadata or corrupt payload: preserve the data and block unsafe
-  overwrite.
+## After a crash
 
-Each startup produces one detached report with the store, operation, source
-format, destination format, status, recoverability, continuation safety, and a
-bounded operator reason. Statuses are `completed`, `failed`, `unsupported`, or
-`not_required`. Inspect protected diagnostics and structured logs; raw payloads
-and secrets are not exposed.
+A kill at any moment (SIGKILL, OOM, node loss) leaves a file that opens at the next start. Every incident and change write is one transaction: it is there whole or not at all, and open incidents come back open. A message accepted by a provider just before a crash may be sent once more at the next start, with the same conversation key so a thread or paging alert treats it as the same one.
 
-## Recovery procedure
+## Reset or recover
 
-1. Stop or scale down the active deployment if writes must be frozen.
-2. Preserve the current ConfigMaps and controller logs.
-3. Restore only the last known-good backup into the original namespace and
-   names, using normal Kubernetes conflict safeguards.
-4. Start one controlled leader and wait for `/readyz`.
-5. Confirm the migration report, active incident identity, baseline, and
-   delivery status.
-6. Scale back to the desired replica count and verify one Lease holder.
+The state file can be removed to reset kwatch: it then starts cold and sends one startup summary. To recover, scale the Deployment to zero, restore or remove the file on the volume, and start one replica. Open incidents are restored from the file, and kwatch compares saved object fingerprints with the live cluster to record changes made while it was down.
 
-If required restore fails, Kwatch remains not-ready and does not start active
-incident or delivery processing. A monitoring gap is reported from the last
-persisted liveness stamp; expired Kubernetes Events are unknown history.
+If a copy is wanted before an upgrade, copy `/var/lib/kwatch/state.db` from the volume while the Pod is stopped. See [Replication and failover](/docs/operations/replication-and-failover) for the volume requirements.
 
-Never claim that a notification was delivered exactly once after a crash or
-leadership transition. Use incident state, audit records, provider logs, and
-dead letters to reconcile the result.
+Never assume a notification was delivered exactly once. Delivery is at least once; use incident state, the audit log, provider logs and dead letters to reconcile.

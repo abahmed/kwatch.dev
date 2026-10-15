@@ -1,315 +1,75 @@
 ---
 sidebar_position: 5
 title: Data Flow
-description: End-to-end trace of a pod crash through kwatch — from informer detection to Slack notification, with code references
-keywords: [kwatch, kubernetes, architecture, data flow, pod crash, alert pipeline, monitor policy, incident, insight]
+description: End-to-end trace of a bad rollout through kwatch - from the changed Deployment and crashing pod to the single message that names the cause.
+keywords: [kwatch, kubernetes, architecture, data flow, pod crash, root cause, incident, delivery]
 pagination_prev: architecture/infrastructure-packages
 pagination_next: architecture/design-decisions
 ---
 
-# 🔎 Data flow — a Pod crashes
+# 🔀 Data flow
 
-This page traces a single pod crash through every stage of kwatch, from
-Kubernetes API watch to a chat message. Each step references the real
-package and function involved.
+This page follows one failure through the pipeline described in the
+[overview](/docs/architecture/overview). Some steps use Pro capabilities
+(who changed what, log excerpts, impact); the Community edition sends the
+root-cause headline without them.
 
----
+## One incident, from crash to message
 
-## Phase 1: Detection (Informer → Workqueue)
+A bad release of `api` in namespace `shop` makes its pods crash. This is
+the `bad-rollout` scenario in `internal/scenarios`.
 
-```
-Pod transitions to CrashLoopBackOff
-       │
-       ▼
-Pod informer (SharedInformer) receives ADD/UPDATE event
-       │
-       ▼
-Event handler registered by controller.New() fires
-       │
-       ▼
-enqueue.go: changeRecordingHandler / graph-aware pod handler update
-the change tracker + dependency graph, then enqueue namespace/key
-       │
-       ▼
-The pod's resourcePipeline workqueue receives "namespace/name"
-```
+1. **A change is recorded.** Someone sets a new image on the Deployment. The
+   Deployment schema in `inventory/kube` diffs the two versions, sees that
+   `spec.template` changed, and the model keeps a `Change` with the actor and
+   revision. A status-only update would record nothing.
+2. **The pod crashes.** The pod informer delivers the new pod. `PodSchema`
+   turns it into an observation with the container's restart count and waiting
+   reason. The source calls `Engine.Submit`.
+3. **The loop applies it.** `Engine.drain` folds the observation into the
+   `Model` and returns the touched objects.
+4. **A detector sets health.** `detection.Registry.Evaluate` runs the
+   detectors for the container. `detectors.Container` returns a finding with
+   reason `CrashLoopBackOff`, severity critical and evidence (the last
+   error). `Classify` fills in health `failing` and mode `CrashLoop`. The `Tracker` compares it with the last result and
+   reports a raised transition.
+5. **Root cause is solved once.** `explain.Explain` groups the failing objects
+   into connected areas. For each area it walks links upstream from every
+   failure (container, pod, ReplicaSet, Deployment, node), keeps only
+   candidates that are unhealthy or changed inside the causal window, and
+   scores them. The Deployment changed just before the first crash, only
+   new-revision pods fail, and old pods on the same node are fine. The
+   `rollout` row of the propagation table matches, evidence adds up, and set
+   cover picks the Deployment as the one cause. The node is not blamed.
+6. **The incident manager decides.** `incident.Manager.Apply` attaches the
+   findings to an incident rooted at the Deployment. Its tier is page. The
+   incident settles for 15 seconds (75 for lower tiers, and for a burst of
+   three or more incidents settling at once) so late failures join
+   it, then `Tick` returns an announce decision.
+7. **Investigation joins in.** When the incident opened, a worker read a short
+   log excerpt, redacted. If it arrives within a short wait it is attached;
+   otherwise the message goes without it.
+8. **The note is written.** `compose.Writer` turns the facts into sentences:
+   what broke and why, who changed what, the one or two facts that prove it,
+   who is affected, and one `kubectl` suggestion. A read-only suggestion
+   stands as it is; one that changes the cluster, such as a rollback, is
+   marked "(changes the cluster)". The result is one
+   `notification.Message`.
+9. **Delivery sends it.** The sink in `internal/app` records an audit entry
+   and calls `NotifyIncident`. The delivery manager queues the message per
+   provider, retries and paces it, and the provider adapter renders it.
 
-The controller builds one `resourcePipeline` per watched kind
-(`internal/controller/pipeline.go`): a named rate-limited workqueue, informer
-sync state, a sync function, and a `startWorkers` gate. Each queue is
-independent — a slow deployment reconcile can't block a pod crash. Sync
-dispatch functions (`sync.go`) share one signature
-`func (c *Controller) syncX(_ context.Context, key string) error`.
+When the Deployment's pods stay healthy for the hold time (three minutes), the
+manager resolves the incident and the writer says who fixed it, for example
+that someone rolled back.
 
-Handlers also feed the two side structures the diagnostic engine needs:
-
-- `recordChange` → `graphcontext.ChangeTracker`, so "what changed recently" has data;
-- the graph-aware Pod event handler → `graphcontext.ResourceGraph`, so cause/impact
-  analysis can walk the cluster's family tree.
-
----
-
-## Phase 2: Pod Family (Controller → Policy → Enrichment)
-
-```
-Worker goroutine picks up key from the pod queue
-       │
-       ▼
-       monitor/pod.Runtime.ProcessPod() is called with the queue key
-       │
-       ▼
-`monitor/pod/policy` evaluates a small policy.Context:
-  • Pod/container state and configuration only
-  • an injected clock for time-based decisions
-       │
-       ▼
-Detector chain (DecisionSuppress → pod dropped)
-       │
-       ▼ (DecisionDefer / DecisionAlert)
-Per-container evaluation (remaining detectors)
-       │
-       ▼
-`monitor/pod` coordinates enrichment (events, owner, bounded logs,
-suppression evidence)
-       │
-       ▼
-monitor/pod builds a model.Observation and calls the incident sink
+```text
+🟠 api in shop (prod-eu-1): rollout 14 restarted 4 times in its first 2
+minutes; rollout 13 did not restart. The previous image was
+registry.example.com/api:2.2. Its dependents failed soon after it
+changed. Rolling back fixes it (changes the cluster): kubectl rollout
+undo deployment/api -n shop --to-revision=13
 ```
 
-The Pod family owns evaluation order. Policy writes deterministic findings;
-enrichment adds evidence and ownership; the family runtime assembles the final
-observation. Time-based decisions read the injected clock rather than the wall
-clock.
-
-Key filters for a CrashLoopBackOff → OOM story:
-
-- `monitor/pod/policy/pod_status.go` — pod-level issues first;
-- `monitor/pod/policy/container_state.go`,
-  `monitor/pod/policy/container_reasons.go` — the container
-  is `terminated` with reason `OOMKilled`;
-- `monitor/pod/policy/container_restarts.go` — the container is restarting (restart
-  count increased since `LastState`);
-- `monitor/pod/policy/noise.go` — skips banal reasons (`Normal`, `Scheduled`,
-  `Pulled`, `Pulling`); `OOMKilled` is not among them, so it passes;
-- `monitor/pod/enrichment/container_killing.go`,
-  `monitor/pod/enrichment/container_logs.go`,
-  `monitor/pod/enrichment/pod_events.go`,
-  `monitor/pod/enrichment/pod_owners.go` — enrichment.
-
----
-
-## Phase 3: Incident Engine (State & Dedup)
-
-```
-incident.Engine.Process(observation)
-       │
-       ▼
-processLocked — every path through the same five stages:
-       1) baseline      was it already broken at startup?      → quiet
-       2) attribution   symptom of node / shared-dep / owner?  → counted, silent
-       3) cooldown      resolved a moment ago?                 → silent revival
-       4) identity      which incident is this?                → dedup / fold / escalate
-       5) announcement  speak now?                             → group or edge
-       │
-       ▼
-emit() → LifecycleHook(inc, action)
-       │
-       ▼
-app.lifecycleHook: audit once → insight diagnosis → delivery.NotifyIncident()
-```
-
-### Dedup key
-
-Incidents are keyed by `namespace:owner:reason:container`
-(`key.go` `BuildKey`). Crash-looping reasons fold into one canonical key once
-restarts pass the threshold, so the incident's identity is stable across the
-container's momentary states. Image-pull failures with global scope (rate
-limits, registry timeouts, DNS, TLS) use a cluster-wide key.
-
-### Edge-triggered notification
-
-```go
-// internal/incident/engine.go
-func notifSig(inc *model.Incident) string {
-    st := "firing"
-    if inc.State == model.StateResolved {
-        st = "resolved"
-    }
-    return st + "|" + string(inc.Severity)
-}
-```
-
-The signature `"firing|critical"` is compared against the incident's
-`NotifiedSig`. If unchanged, the action is `ActionSkip` — no duplicate alert
-on every poll. First sighting gives `ActionCreate`; later changes give
-`ActionUpdate`; the transition to resolved gives `ActionResolved`.
-
-### Severity resolution
-
-The `DefaultEnricher` (wired in `internal/app` from `severityByReason` /
-`severityByOwnerKind`) resolves severity in order:
-
-1. **By reason** — from `severityByReason` (defaults: `Evicted`,
-   `ImagePullBackOff` → `medium`);
-2. **By owner kind** — from `severityByOwnerKind` (default:
-   `StatefulSet` → `high`);
-3. **Default** — `normal`.
-
-Severity is monotonic: once raised (including by escalation tiers), it never
-downgrades until the incident resolves.
-
-### Escalation check
-
-```go
-// Default tiers: [3, 10]. Crossing the first raises severity to "high",
-// crossing the second to "critical".
-if cur >= e.config.EscalationTiers[i] {
-    ev.Severity = severityForTier(i, inc.Severity)
-}
-```
-
-7 restarts cross tier 0 (≥3), so severity escalates to `high`.
-
-### Node inhibition
-
-When `inhibition.nodeSuppressesPods` is enabled and the pod's node has an
-active node-level incident, the pod is attributed to the node's alert — it is
-counted and listed, but not announced itself.
-
-### Smart grouping
-
-If the event should speak but arrives inside the grouping window, it is
-buffered (`grouping.go`, `group_flush.go`). The window closes → one `ActionUpdate`
-notification summarizing the whole group on a stable group key, throttled by a
-`4×`-window cooldown. If the OOM story was one pod, it is announced at the edge
-immediately.
-
----
-
-## Phase 4: Insight (Cause / Impact / What-Changed)
-
-The old "AI analysis" step never existed. In-process analysis replaces it:
-
-```
-LifecycleHook fires (action != skip)
-       │
-       ▼
-app.lifecycleHook: opts.diagnose(inc, action)
-       │   (no diagnosis for resolves or mass failures)
-       ▼
-insight.Engine.Analyze(inc) — walks the dependency graph
-       │
-       ├── cause.go     "node worker-2 may be unhealthy"
-       │                 "owning Deployment orders-api is unhealthy"
-       │                 "referenced ConfigMap may have changed"
-       │                (else: walk backward to the deepest root)
-       ├── impact.go    "5 pods, affecting 2 services"  (walk downstream)
-       ├── changes.go   "Deployment dev/api updated 3m ago" (ChangeTracker)
-       └── patterns.go  recognised signatures (repeating OOM, probes, image pulls)
-       │
-       ▼
-Result travels with the notification as the 🧠 Diagnosis block
-```
-
-There is no external model, no sidecar container, and no enrichment channel —
-kwatch analyzes the incident with the graph it already maintains. If
-diagnoses come back empty on a large cluster, check `kwatch_graph_nodes` and
-`kwatch_graph_edges` on `/metrics`: an empty graph explains nothing.
-
----
-
-## Phase 5: Alert Dispatch (NotifyIncident → Provider)
-
-```
-delivery.NotifyIncident(inc, action, insight)
-       │
-       ▼
-Silence check ──── match? → DROP (silence.go, compiled silence index)
-       │ no match
-       ▼
-fanOut: clone incident → one deliverJob per configured provider channel
-       │ non-blocking
-       ▼
-Channel saturated? ──→ drop the arriving job, record dead-letter
-       │ delivered (channel cap 256)
-       ▼
-Provider worker: deliverOne (delivery.go)
-       ├── routes match? (routing.go) ── no match → Skip provider
-       ├── buildMessage → ReportBuilder + provider renderer
-       ├── truncate to provider byte limit
-       ├── Send through shared transport:
-       │     • 2xx        → success
-       │     • 429        → ratelimit.Error; honour Retry-After (header or body)
-       │     • other 4xx  → PermanentError → dead-letter immediately
-       │     • 5xx / transport → retried with backoff
-       └── all attempts failed?
-           ├── fallback configured? → try the fallback provider
-           └── else → dead-letter queue (ring buffer of 100, /deadletters)
-```
-
-Only retryable failures are retried. A malformed 4xx payload dead-letters
-immediately instead of delaying the alerts queued behind it. Provider
-delivery is through the shared `delivery/transport` helper; the architecture
-check forbids
-raw `net/http` inside providers.
-
-### What the message looks like
-
-Every notification is built from one provider-agnostic `Report` and rendered
-top-down:
-
-```
-🟠 Pod not ready — dev/api · Deployment · ContainersNotReady · high
-pod stopped being ready 2m ago
-
-🧠 Diagnosis
-• Why: node ip-10-0-81-7 may be unhealthy (node_failure)
-• Impact: affects service api
-• Changed recently: deployment dev/api updated 3m ago
-
-💡 check readiness probe and recent logs
-  pod api-584ddc9849-gjwjp · image api:1.2.0 · node ip-10-0-81-7 · 2m · dev
-
-🔍 Events — from api-584ddc9849-gjwjp
-  Aug 25 23:52:21  FailedScheduling  0/5 nodes are available …
-```
-
-Report sections (`internal/message/report.go`) are populated selectively:
-headline, current state, diagnosis (hint + cause + impact + pattern), evidence
-(logs/events), recent changes, and type-specific sections (OOM timeline,
-probe endpoint, image-pull, scheduling delay). Renderers
-(`slack_renderer.go`, `discord_renderer.go`, `plaintext_renderer.go`,
-`text_renderer.go`) drop what they don't understand.
-
----
-
-## Phase 6: Delivery & User Notification
-
-```
-Provider accepts the payload (HTTP 2xx)
-       │
-       ▼
-Retry loop exits, breaker state resets
-       │
-       ▼
-User sees the notification in #kwatch-alerts
-```
-
-The entire flow — from pod crash to chat message — completes in well under a
-second in normal operation. There is no AI stage and no sidecar round-trip:
-the diagnostic block is computed locally from the in-memory dependency graph.
-
----
-
-## Summary: End-to-End in 8 Steps
-
-| # | Phase | Package |
-|---|-------|---------|
-| 1 | Informer detects pod change, enqueues key | `internal/controller` |
-| 2 | Pod policy and enrichment evaluate the pod | `internal/monitor/pod/policy` + `internal/monitor/pod/enrichment` |
-| 3 | Incident engine dedups and decides (five stages) | `internal/incident` |
-| 4 | Severity resolved, escalation applied | `internal/incident` + `internal/enricher` |
-| 5 | Insight diagnoses cause / impact / what-changed | `internal/insight` |
-| 6 | Delivery manager formats the report | `internal/delivery` + `internal/message` |
-| 7 | Provider retry / dispatch | `internal/alert/*` (via `delivery/transport`) |
-| 8 | User receives notification | the configured provider |
+For the stages after the decision, see
+[Incident lifecycle and delivery](/docs/architecture/correlation-and-alerting).

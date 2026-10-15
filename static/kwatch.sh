@@ -1644,10 +1644,13 @@ rewrite_release_lease_name() {
 # evidence and the control-plane Leases, the data claim, the ServiceAccount
 # the Pod runs as, and the container the manager looks up by name.
 # The control-plane Role's "namespace: kube-system" is left alone.
+# kwatch-license-instance keeps its name: the kwatch binary and the license
+# Role's resourceNames hardcode it.
 rewrite_release_names() {
   local manifest="$1" version="$2"
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
+    -e "s/^\( *name: \)kwatch-license-instance$/\1__KWATCH_LICENSE_INSTANCE__/" \
     -e "s/^\( *-\{0,1\} *name: \)kwatch$/\1$RELEASE/g" \
     -e "s/^\( *serviceAccountName: \)kwatch$/\1$RELEASE/" \
     -e "s/^\( *name: \)kwatch-\([a-z][a-z-]*\)$/\1${RELEASE}-\2/g" \
@@ -1657,6 +1660,7 @@ rewrite_release_names() {
     -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
+    -e "s/__KWATCH_LICENSE_INSTANCE__/kwatch-license-instance/" \
     "$manifest"
   rm -f "$manifest.bak"
   rewrite_release_lease_name "$manifest"
@@ -3085,7 +3089,7 @@ LEGACY_BACKUP_NAME=""
 LAST_BACKUP_TIMESTAMP=""
 LAST_BACKUP_SUFFIX=0""
 backup_config() {
-  local resource timestamp candidate license_key license_backup_file
+  local resource timestamp candidate license_key license_backup_file backup_rc=0
   local -a license_backup_args=()
   resource=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o json)
   timestamp=$(date -u +%Y%m%d%H%M%S)
@@ -3121,8 +3125,9 @@ backup_config() {
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
     --from-literal=resource.json="$resource" \
     ${license_backup_args[@]+"${license_backup_args[@]}"} \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null || backup_rc=$?
   [ -z "$license_backup_file" ] || rm -f "$license_backup_file"
+  [ "$backup_rc" -eq 0 ] || return "$backup_rc"
   kubectl -n "$NAMESPACE" label secret "$BACKUP_NAME" \
     app.kubernetes.io/instance="$RELEASE" \
     app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
@@ -5053,6 +5058,8 @@ remove_namespaced_workload() {
   delete_owned namespace rolebinding "${RELEASE}-leader-election"
   delete_owned namespace role "${RELEASE}-restart-evidence"
   delete_owned namespace rolebinding "${RELEASE}-restart-evidence"
+  delete_owned namespace role "${RELEASE}-license"
+  delete_owned namespace rolebinding "${RELEASE}-license"
   delete_owned ns:kube-system role "${RELEASE}-control-plane-leases"
   delete_owned ns:kube-system rolebinding "${RELEASE}-control-plane-leases"
   # Releases before the data volume shipped these.

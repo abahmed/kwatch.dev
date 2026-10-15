@@ -36,6 +36,36 @@ rewrite_release_lease_name "$lease_fixture"
 grep -Fxq 'value: "payments-monitor-leader"' "$lease_fixture"
 RELEASE=kwatch
 
+# The license instance Secret keeps its fixed name; the Role and RoleBinding follow the release.
+license_fixture="$CAPTURE_DIR/license-rename.yaml"
+cat >"$license_fixture" <<'YAML'
+kind: Role
+metadata:
+  name: kwatch-license
+rules:
+- resourceNames:
+    - kwatch-license-instance
+---
+kind: Secret
+metadata:
+  name: kwatch-license-instance
+  namespace: kwatch
+---
+kind: RoleBinding
+metadata:
+  name: kwatch-license
+roleRef:
+  kind: Role
+  name: kwatch-license
+YAML
+RELEASE=prod
+rewrite_release_names "$license_fixture" v9.9.9
+RELEASE=kwatch
+grep -Fxq '  name: kwatch-license-instance' "$license_fixture"
+grep -Fxq '    - kwatch-license-instance' "$license_fixture"
+grep -Fxq '  name: prod-license' "$license_fixture"
+! grep -q 'prod-license-instance' "$license_fixture"
+
 (
   NAMESPACE=kwatch
   RELEASE=payments-monitor

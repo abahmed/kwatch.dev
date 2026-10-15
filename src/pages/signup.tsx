@@ -30,12 +30,38 @@ declare global {
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
+const LOAD_TIMEOUT_MS = 15000;
+
 function loadTurnstile(): Promise<TurnstileApi> {
   return new Promise((resolve, reject) => {
     if (window.turnstile) return resolve(window.turnstile);
     let script = document.querySelector<HTMLScriptElement>(
       'script[data-kwatch-turnstile]',
     );
+    // A tag left behind by a failed load would never fire again: drop it.
+    if (script && script.dataset.state === 'error') {
+      script.remove();
+      script = null;
+    }
+    const timer = window.setTimeout(() => {
+      script?.remove();
+      reject(new Error('turnstile timeout'));
+    }, LOAD_TIMEOUT_MS);
+    const onLoad = () => {
+      window.clearTimeout(timer);
+      if (window.turnstile) {
+        if (script) script.dataset.state = 'loaded';
+        resolve(window.turnstile);
+      } else {
+        script?.remove();
+        reject(new Error('turnstile'));
+      }
+    };
+    const onError = () => {
+      window.clearTimeout(timer);
+      script?.remove();
+      reject(new Error('turnstile'));
+    };
     if (!script) {
       script = document.createElement('script');
       script.src = SCRIPT_SRC;
@@ -44,10 +70,11 @@ function loadTurnstile(): Promise<TurnstileApi> {
       script.dataset.kwatchTurnstile = '1';
       document.head.appendChild(script);
     }
-    script.addEventListener('load', () =>
-      window.turnstile ? resolve(window.turnstile) : reject(new Error('turnstile')),
-    );
-    script.addEventListener('error', () => reject(new Error('turnstile')));
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', () => {
+      if (script) script.dataset.state = 'error';
+      onError();
+    });
   });
 }
 
@@ -93,7 +120,7 @@ function SignupForm(): ReactElement {
         });
       })
       .catch(() =>
-        setError('Could not load the verification widget. Disable content blockers and reload.'),
+        setError('Could not load the verification widget, please retry.'),
       );
     return () => {
       cancelled = true;

@@ -25,7 +25,12 @@ function readCatalog(name) {
 }
 
 function escapeCell(value) {
-  return String(value ?? '').replaceAll('|', '\\|').replaceAll('\n', ' ');
+  return String(value ?? '')
+    .replaceAll('|', '\\|')
+    .replaceAll('\n', ' ')
+    .replaceAll('{', '&#123;')
+    .replaceAll('}', '&#125;')
+    .replaceAll('<', '&lt;');
 }
 
 function codeCell(value) {

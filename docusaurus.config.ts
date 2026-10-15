@@ -130,7 +130,7 @@ const config: Config = {
         {to: '/docs/channels', label: 'Channels', position: 'left'},
         {to: '/search', label: 'Search', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
-        {to: '/pricing', label: 'Pricing', position: 'left'},
+        {to: '/pricing', label: 'Pro', position: 'left'},
         {to: '/signup', label: 'Sign in', position: 'right'},
         {to: '/community', label: 'Community', position: 'right'},
         {
@@ -190,7 +190,7 @@ const config: Config = {
         {
           title: 'Legal',
           items: [
-            {label: 'Pricing', to: '/pricing'},
+            {label: 'Pro', to: '/pricing'},
             {label: 'Privacy', to: '/privacy'},
             {label: 'Terms', to: '/terms'},
           ],

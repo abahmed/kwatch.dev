@@ -18,7 +18,7 @@ and without a license key it never contacts the license service.
 
 | Data | When | Why |
 | --- | --- | --- |
-| Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a trial about to end) |
+| Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a license about to expire) |
 | Session cookie (`kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
 | License usage: hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and trial limits and investigate abuse |

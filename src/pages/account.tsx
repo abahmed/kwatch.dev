@@ -29,8 +29,8 @@ function errorMessage(err: unknown, fallback: string): ReactNode {
   if (e?.code === 'trial_limit_reached' || e?.code === 'trial_already_used') {
     const who =
       e.scope === 'organization'
-        ? `Your organization${e.domain ? ` (${e.domain})` : ''} has used all 2 free trial clusters.`
-        : 'This account has used all 2 free trial clusters.';
+        ? `Your organization${e.domain ? ` (${e.domain})` : ''} has used both free Pro clusters.`
+        : 'This account has used both free Pro clusters.';
     return (
       <>
         {who} Need more time or more clusters?{' '}
@@ -284,7 +284,7 @@ function Account(): ReactElement {
       await apiFetch(apiUrl, '/v1/account/trial', {method: 'POST'});
       await load();
     } catch (err) {
-      setError(errorMessage(err, 'Could not start the trial. Please try again.'));
+      setError(errorMessage(err, 'Could not create the license. Please try again.'));
       await load();
     } finally {
       setBusy(false);
@@ -326,9 +326,9 @@ function Account(): ReactElement {
         {data.trial_available && (
           <div style={{marginTop: '1rem'}}>
             <button className="button button--primary button--lg" disabled={busy} onClick={startTrial}>
-              {busy ? 'Starting...' : 'Start 90-day Pro trial'}
+              {busy ? 'Starting...' : 'Get 3 months of Pro free'}
             </button>
-            <span className={styles.muted} style={{marginLeft: '0.75rem'}}>No credit card. One cluster per trial.</span>
+            <span className={styles.muted} style={{marginLeft: '0.75rem'}}>Free during early access. One cluster per license.</span>
           </div>
         )}
         {data.trials && (

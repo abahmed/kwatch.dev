@@ -45,11 +45,11 @@ const platformRows: Row[] = [
 
 const faqs: {q: string; a: ReactElement | string}[] = [
   {
-    q: 'How does the free trial work?',
-    a: 'Every account gets a 90-day free trial for up to 2 clusters, no credit card needed. Each trial runs 90 days from the day you start it. With a work email the limit is 2 clusters per company domain, shared by everyone using that domain.',
+    q: 'How does early access work?',
+    a: 'kwatch is in early access, so Pro is free: every account gets 3 months of Pro for up to 2 clusters, with no payment details. Each license runs 3 months from the day you start it, and we may renew it. With a work email the limit is 2 clusters per company domain, shared by everyone using that domain.',
   },
   {
-    q: 'What happens when my trial expires?',
+    q: 'What happens when my Pro license expires?',
     a: 'kwatch falls back to Community. Detection and alerting never stop, you simply lose the Pro features. Your cluster keeps running with no downtime and no data loss.',
   },
   {
@@ -85,14 +85,14 @@ export default function Pricing(): ReactElement {
   const features = tiers as Feature[];
   return (
     <Layout
-      title="Pricing"
-      description="kwatch Community is free forever. kwatch Pro is $29 per cluster per month with a 90-day free trial for up to 2 clusters (per company domain for work emails) and no credit card."
+      title="Editions"
+      description="kwatch Community is free forever. During early access, kwatch Pro is free for 3 months for up to 2 clusters (per company domain for work emails), and we may renew it."
     >
       <main>
         <div className={portal.page}>
           <div className="container">
             <div style={{textAlign: 'center', marginBottom: '2rem'}}>
-              <p className={portal.eyebrow}>Pricing</p>
+              <p className={portal.eyebrow}>Editions</p>
               <h1>Free to run. Pro when you need the proof.</h1>
               <p className={portal.muted}>
                 Detection and alerting are free forever. Pro adds the depth for production teams.
@@ -119,8 +119,8 @@ export default function Pricing(): ReactElement {
               <section className={`${styles.plan} ${styles.featured}`} aria-labelledby="plan-pro">
                 <h2 id="plan-pro">Pro</h2>
                 <p className={portal.muted}>For production clusters.</p>
-                <p className={styles.price}>$29 <small>per cluster / month</small></p>
-                <p className={portal.muted} style={{margin: 0}}>or $290 per cluster / year</p>
+                <p className={styles.price}>Free <small>during early access</small></p>
+                <p className={portal.muted} style={{margin: 0}}>3 months per license, and we may renew it</p>
                 <ul className={styles.planList}>
                   <li>Everything in Community</li>
                   <li>Workloads, storage, network, control plane and more</li>
@@ -129,10 +129,10 @@ export default function Pricing(): ReactElement {
                   <li>90-day incident history, HA and flight recorder</li>
                 </ul>
                 <Link className="button button--primary button--lg" to="/signup">
-                  90-day free trial, no credit card
+                  Get Pro free for 3 months
                 </Link>
                 <p className={styles.note}>
-                  Free trial for up to 2 clusters (per company domain for work emails).
+                  Up to 2 clusters per account (per company domain for work emails). No payment details.
                 </p>
                 <p className={styles.note}>Licensed per cluster under ELv2.</p>
               </section>

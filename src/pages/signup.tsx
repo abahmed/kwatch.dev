@@ -193,10 +193,10 @@ function SignupForm(): ReactElement {
   return (
     <form className={styles.card} onSubmit={submit} noValidate>
       <p className={styles.eyebrow}>kwatch Pro</p>
-      <h1>Sign in or start your free trial</h1>
+      <h1>Sign in or get kwatch Pro free</h1>
       <p className={styles.muted}>
         Enter your email and we will send you a sign-in link. New here? That creates your account
-        and unlocks a 90-day Pro trial. No credit card.
+        and unlocks 3 months of Pro, free during early access.
       </p>
       {linkExpired && (
         <div className={styles.error} role="alert">
@@ -240,8 +240,8 @@ function SignupForm(): ReactElement {
 export default function Signup(): ReactElement {
   return (
     <Layout
-      title="Sign in or start a free trial"
-      description="Create a kwatch account with a magic link and start a 90-day Pro trial, no credit card needed."
+      title="Sign in or get kwatch Pro free"
+      description="Create a kwatch account with a magic link and get kwatch Pro free for 3 months during early access."
     >
       <main className={styles.page}>
         <div className="container">

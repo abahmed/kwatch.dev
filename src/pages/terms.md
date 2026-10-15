@@ -32,18 +32,21 @@ features are enabled by a license key. Releases up to and including
 - When a license expires, is revoked or cannot be renewed, kwatch falls back
   to the Community edition and keeps detecting and alerting.
 
-## Trials
+## Early access
 
-Pro trials last 90 days from issue and require no credit card. Each account
-may start trials for up to 2 clusters. For work email addresses the limit is
-2 trial clusters per company domain in total, across all accounts using that
-domain, including deleted accounts. We may extend a trial at our discretion.
+kwatch is in early access. Pro licenses are free, last 3 months (90 days)
+from issue and require no payment details. Each account may start Pro
+licenses for up to 2 clusters. For work email addresses the limit is
+2 clusters per company domain in total, across all accounts using that
+domain, including deleted accounts. We may renew or extend a license at our
+discretion.
 
-## Paid plans
+## Pricing
 
-Pro is priced per cluster, as shown on the [pricing page](/pricing). When paid
-plans are available, payment, renewal and refund terms will be shown at
-checkout and form part of these terms.
+Pro is free during early access. If we introduce paid plans, we will announce
+prices in advance on this site, and you will never be charged without
+explicitly purchasing a plan. Payment, renewal and refund terms will then be
+shown at checkout and form part of these terms.
 
 ## Acceptable use
 
@@ -51,7 +54,7 @@ You agree not to:
 
 - share a license key or use it on more clusters than it allows;
 - create multiple accounts or use other email addresses to obtain additional
-  trials;
+  free licenses;
 - move, change, disable or circumvent license key functionality, as the ELv2
   also forbids;
 - overload, probe or attack the license service, or use it other than through

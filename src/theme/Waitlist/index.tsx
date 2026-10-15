@@ -12,10 +12,10 @@ function Waitlist() {
               <span className={styles.category}>kwatch Pro</span>
               <br/>
               Full root-cause proof, who changed what, unlimited alert providers and 90 days of incident history.
-              Try everything free for 90 days, no credit card needed.
+              Free for 3 months during early access, no payment details needed.
               <div style={{marginTop: "1rem"}}>
                 <Link className="button button--primary button--lg" to="/signup">
-                  Start free Pro trial
+                  Get kwatch Pro free
                 </Link>
               </div>
             </div>

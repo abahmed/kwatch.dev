@@ -85,7 +85,7 @@ export default function Pricing(): ReactElement {
   const features = tiers as Feature[];
   return (
     <Layout
-      title="Editions"
+      title="Community and Pro"
       description="kwatch Community is free forever. During early access, kwatch Pro is free for 3 months for up to 2 clusters (per company domain for work emails), and we may renew it."
     >
       <main>

@@ -1,5 +1,7 @@
 import type {ReactElement} from 'react';
 import Link from '@docusaurus/Link';
+import CodeSnippet from '@site/src/theme/CodeSnippet';
+import EarlyAccess from '@site/src/theme/EarlyAccess';
 
 import styles from './styles.module.css';
 
@@ -12,30 +14,37 @@ export default function Header(): ReactElement {
             <p className={styles.eyebrow}>
               Kubernetes incidents, explained
             </p>
+            <p className={styles.badge}>
+              <EarlyAccess onDark />
+            </p>
             <h1>
               See what broke.
               <span>Understand why.</span>
               <span>Know what to do next.</span>
             </h1>
             <p className={styles.summary}>
-              kwatch turns Kubernetes failures into clear alerts with the
-              likely cause, useful evidence, and a practical next step.
+              kwatch is the on-call teammate for your Kubernetes cluster. It
+              finds the one thing that caused a failure and tells your team in
+              plain words, with the command to run next.
             </p>
             <div className={styles.actions}>
-              <Link
-                className="button button--primary button--lg"
-                to="/docs/installation"
-              >
-                Install kwatch <span aria-hidden="true">→</span>
+              <Link className="button button--primary button--lg" to="#installation">
+                Install with kwatch.sh <span aria-hidden="true">→</span>
               </Link>
-              <Link className={styles.secondaryAction} to="/docs">
-                Explore the docs <span aria-hidden="true">↗</span>
+              <Link className={styles.secondaryAction} to="/signup">
+                Get Pro free (early access) <span aria-hidden="true">↗</span>
               </Link>
             </div>
+            <div className={styles.command}>
+              <CodeSnippet
+                language="bash"
+                code={'/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"'}
+              />
+            </div>
             <div className={styles.facts} aria-label="Why kwatch">
-              <span>Source available</span>
               <span>Runs in your cluster</span>
-              <span>No hosted account</span>
+              <span>50+ alert providers</span>
+              <span>Source available</span>
             </div>
           </div>
 

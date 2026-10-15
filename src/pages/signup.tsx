@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import type {FormEvent, ReactElement} from 'react';
 import Layout from '@theme/Layout';
+import EarlyAccess from '@site/src/theme/EarlyAccess';
 import Link from '@docusaurus/Link';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import {useHistory, useLocation} from '@docusaurus/router';
@@ -246,6 +247,7 @@ export default function Signup(): ReactElement {
       <main className={styles.page}>
         <div className="container">
           <div className={styles.narrow}>
+            <EarlyAccess variant="banner" />
             <BrowserOnly fallback={<div className={styles.card}><h1>Sign in</h1></div>}>
               {() => <SignupForm />}
             </BrowserOnly>

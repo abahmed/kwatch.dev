@@ -1,6 +1,7 @@
 import type {ReactElement} from 'react';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
+import EarlyAccess from '@site/src/theme/EarlyAccess';
 import tiers from '../data/feature-tiers.json';
 
 import styles from './pricing.module.css';
@@ -26,7 +27,7 @@ const groups: {prefix: string; title: string; extra: Row[]}[] = [
   {
     prefix: 'incidents',
     title: 'Incidents',
-    extra: [{label: 'Incident history', community: '—', pro: '90 days'}],
+    extra: [],
   },
   {prefix: 'policy', title: 'Policy', extra: []},
   {
@@ -39,7 +40,7 @@ const groups: {prefix: string; title: string; extra: Row[]}[] = [
 
 const platformRows: Row[] = [
   {label: '/status JSON API', community: false, pro: true},
-  {label: 'HA (multiple replicas)', community: false, pro: true},
+  {label: 'Standby replicas (high availability)', community: false, pro: true},
   {label: 'Flight recorder & replay export', community: false, pro: true},
 ];
 
@@ -86,7 +87,7 @@ export default function Pricing(): ReactElement {
   return (
     <Layout
       title="Community and Pro"
-      description="kwatch Community is free forever. During early access, kwatch Pro is free for 3 months for up to 2 clusters (per company domain for work emails), and we may renew it."
+      description="Compare kwatch Community and Pro. Community is free forever; Pro is free during early access with 3-month licenses for up to 2 clusters (per company domain for work emails)."
     >
       <main>
         <div className={portal.page}>
@@ -98,6 +99,8 @@ export default function Pricing(): ReactElement {
                 Detection and alerting are free forever. Pro adds the depth for production teams.
               </p>
             </div>
+
+            <EarlyAccess variant="banner" />
 
             <div className={styles.plans}>
               <section className={styles.plan} aria-labelledby="plan-community">
@@ -126,7 +129,7 @@ export default function Pricing(): ReactElement {
                   <li>Workloads, storage, network, control plane and more</li>
                   <li>Full root-cause proof and who changed what</li>
                   <li>Unlimited alert providers, routing and threads</li>
-                  <li>90-day incident history, HA and flight recorder</li>
+                  <li>State kept across restarts, standby replicas and flight recorder</li>
                 </ul>
                 <Link className="button button--primary button--lg" to="/signup">
                   Get Pro free for 3 months

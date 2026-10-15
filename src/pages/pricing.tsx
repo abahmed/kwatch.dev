@@ -45,6 +45,10 @@ const platformRows: Row[] = [
 
 const faqs: {q: string; a: ReactElement | string}[] = [
   {
+    q: 'How does the free trial work?',
+    a: 'Every account gets a 90-day free trial for up to 2 clusters, no credit card needed. Each trial runs 90 days from the day you start it. With a work email the limit is 2 clusters per company domain, shared by everyone using that domain.',
+  },
+  {
     q: 'What happens when my trial expires?',
     a: 'kwatch falls back to Community. Detection and alerting never stop, you simply lose the Pro features. Your cluster keeps running with no downtime and no data loss.',
   },
@@ -82,7 +86,7 @@ export default function Pricing(): ReactElement {
   return (
     <Layout
       title="Pricing"
-      description="kwatch Community is free forever. kwatch Pro is $29 per cluster per month with a 90-day free trial and no credit card."
+      description="kwatch Community is free forever. kwatch Pro is $29 per cluster per month with a 90-day free trial for up to 2 clusters (per company domain for work emails) and no credit card."
     >
       <main>
         <div className={portal.page}>
@@ -127,6 +131,9 @@ export default function Pricing(): ReactElement {
                 <Link className="button button--primary button--lg" to="/signup">
                   90-day free trial, no credit card
                 </Link>
+                <p className={styles.note}>
+                  Free trial for up to 2 clusters (per company domain for work emails).
+                </p>
                 <p className={styles.note}>Licensed per cluster under ELv2.</p>
               </section>
             </div>

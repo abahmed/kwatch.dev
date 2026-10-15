@@ -21,10 +21,23 @@ function daysLeft(unix: number): number {
   return Math.ceil((unix * 1000 - Date.now()) / 86_400_000);
 }
 
-function errorMessage(err: unknown, fallback: string): string {
+const CONTACT_URL = 'mailto:hello@kwatch.dev';
+
+function errorMessage(err: unknown, fallback: string): ReactNode {
   const e = err as ApiError;
   if (e?.code === 'network') return 'Could not reach the kwatch license service. Try again.';
-  if (e?.code === 'trial_already_used') return 'The free trial has already been used on this account.';
+  if (e?.code === 'trial_limit_reached' || e?.code === 'trial_already_used') {
+    const who =
+      e.scope === 'organization'
+        ? `Your organization${e.domain ? ` (${e.domain})` : ''} has used all 2 free trial clusters.`
+        : 'This account has used all 2 free trial clusters.';
+    return (
+      <>
+        {who} Need more time or more clusters?{' '}
+        <a href={CONTACT_URL}>Contact us</a> and we will help.
+      </>
+    );
+  }
   if (e?.code === 'transfer_limit') return 'No transfers left for this license. Contact support if you need another.';
   if (e?.status === 401) return 'Your session expired. Please sign in again.';
   return fallback;
@@ -74,7 +87,7 @@ function LicenseCard({
   const [copied, setCopied] = useState(false);
   const [dialog, setDialog] = useState<null | 'transfer' | 'regenerate'>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ReactNode>('');
   const [message, setMessage] = useState('');
 
   useEffect(() => setKey(license.key), [license.key]);
@@ -234,7 +247,7 @@ function Account(): ReactElement {
   const {apiUrl} = useSiteConfig();
   const history = useHistory();
   const [data, setData] = useState<AccountResponse | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ReactNode>('');
   const [busy, setBusy] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -315,8 +328,14 @@ function Account(): ReactElement {
             <button className="button button--primary button--lg" disabled={busy} onClick={startTrial}>
               {busy ? 'Starting...' : 'Start 90-day Pro trial'}
             </button>
-            <span className={styles.muted} style={{marginLeft: '0.75rem'}}>No credit card. One cluster.</span>
+            <span className={styles.muted} style={{marginLeft: '0.75rem'}}>No credit card. One cluster per trial.</span>
           </div>
+        )}
+        {data.trials && (
+          <p className={styles.muted} style={{margin: '0.75rem 0 0'}}>
+            Trial clusters: {data.trials.used} of {data.trials.limit} used
+            {data.trials.scope === 'organization' && data.trials.domain ? ` for ${data.trials.domain}` : ''}
+          </p>
         )}
       </div>
 

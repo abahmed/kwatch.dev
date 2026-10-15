@@ -15,6 +15,13 @@ Community needs no license. Pro features need a license key, one per cluster.
 **Start 90-day Pro trial** on your [account page](/account). Your key is
 shown there.
 
+The free trial covers up to 2 clusters (one license key per cluster, each a
+90-day trial from the day you start it). With a work email the limit is 2
+trial clusters per company domain, shared by everyone using that domain, for
+example alice@acme.com and bob@acme.com together get 2. With a free mailbox
+provider such as Gmail or Outlook the limit is per account. Deleting an
+account does not reset it. Need more? [Contact us](mailto:hello@kwatch.dev).
+
 ## Install the key
 
 With Helm:

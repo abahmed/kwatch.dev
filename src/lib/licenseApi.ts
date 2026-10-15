@@ -21,15 +21,28 @@ export type AccountResponse = {
   account: {email: string; created_at: number};
   licenses: License[];
   trial_available: boolean;
+  trials?: TrialInfo;
+};
+
+export type TrialInfo = {
+  used: number;
+  limit: number;
+  scope: 'account' | 'organization';
+  domain?: string;
 };
 
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(status: number, code?: string) {
+  /** Extra fields of an error response, e.g. trial_limit_reached has scope and domain. */
+  scope?: string;
+  domain?: string;
+  constructor(status: number, code?: string, extra: {scope?: string; domain?: string} = {}) {
     super(code ?? `HTTP ${status}`);
     this.status = status;
     this.code = code;
+    this.scope = extra.scope;
+    this.domain = extra.domain;
   }
 }
 
@@ -63,12 +76,18 @@ export async function apiFetch<T = unknown>(
   }
   if (!res.ok) {
     let code: string | undefined;
+    let extra: {scope?: string; domain?: string} = {};
     try {
-      code = (await res.json())?.error;
+      const body = await res.json();
+      code = body?.error;
+      extra = {
+        scope: typeof body?.scope === 'string' ? body.scope : undefined,
+        domain: typeof body?.domain === 'string' ? body.domain : undefined,
+      };
     } catch {
       /* no body */
     }
-    throw new ApiError(res.status, code);
+    throw new ApiError(res.status, code, extra);
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : {}) as T;

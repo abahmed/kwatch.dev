@@ -16,8 +16,11 @@ the self-serve transfer on your [account page](/account).
 
 ## Trials
 
-Pro trials last 90 days, require no credit card and may be extended at our
-discretion. When a trial ends, kwatch falls back to Community and continues to
+Pro trials last 90 days from issue, require no credit card and may be
+extended at our discretion. Each account may start trials for up to 2
+clusters; for work email addresses the limit is 2 trial clusters per company
+domain in total, across all accounts using that domain. The limits also count
+trials of accounts that were deleted. When a trial ends, kwatch falls back to Community and continues to
 detect and alert.
 
 ## Accounts

@@ -28,9 +28,9 @@ export default function Header(): ReactElement {
               plain words, with the command to run next.
             </p>
             <div className={styles.actions}>
-              <Link className="button button--primary button--lg" to="#installation">
+              <a className="button button--primary button--lg" href="#installation">
                 Install with kwatch.sh <span aria-hidden="true">→</span>
-              </Link>
+              </a>
               <Link className={styles.secondaryAction} to="/signup">
                 Get Pro free (early access) <span aria-hidden="true">↗</span>
               </Link>

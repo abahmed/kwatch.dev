@@ -110,10 +110,6 @@ export default function Home(): ReactElement {
           </div>
         </nav>
 
-        <Features />
-
-        <Installation />
-
         <TrustPoints />
 
         <HomeFaq />

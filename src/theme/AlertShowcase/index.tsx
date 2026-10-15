@@ -97,7 +97,7 @@ export default function AlertShowcase(): ReactElement {
           <code>✅ api in shop (prod-eu-1) is healthy again. It was down for eight minutes.</code>
         </p>
         <div className={styles.more}>
-          <Link to="/docs/getting-started">
+          <Link to="/docs">
             See how alerts are built <span aria-hidden="true">→</span>
           </Link>
         </div>

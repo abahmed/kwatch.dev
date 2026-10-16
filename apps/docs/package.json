@@ -1,0 +1,55 @@
+{
+  "name": "@kwatch/docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "docusaurus": "docusaurus",
+    "start": "docusaurus start",
+    "build": "docusaurus build && node scripts/build-search-index.mjs",
+    "test:manager": "bash tests/kwatch-kubectl-wrapper-test.sh && bash tests/kwatch-manager-test.sh && bash tests/kwatch-provider-flow-test.sh",
+    "docs:generate": "node scripts/generate-kwatch-reference.mjs --source ../../../kwatch/deploy && node scripts/build-feature-tiers.mjs --source ../../../kwatch/deploy",
+    "docs:verify": "node scripts/verify-kwatch-reference.mjs && node scripts/verify-provider-guides.mjs",
+    "seo:verify": "node scripts/verify-seo.mjs && node scripts/verify-performance.mjs",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "write-translations": "docusaurus write-translations",
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@docusaurus/core": "^3.10.2",
+    "@docusaurus/plugin-google-analytics": "^3.10.2",
+    "@docusaurus/plugin-google-gtag": "^3.10.2",
+    "@docusaurus/plugin-sitemap": "^3.10.2",
+    "@docusaurus/preset-classic": "^3.10.2",
+    "@mdx-js/react": "^3.1.1",
+    "classnames": "^2.5.1",
+    "clsx": "^2.1.1",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "^3.10.2",
+    "@docusaurus/tsconfig": "^3.10.2",
+    "@docusaurus/types": "^3.10.2",
+    "typescript": "^6.0.3"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0"
+  }
+}

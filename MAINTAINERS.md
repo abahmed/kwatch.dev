@@ -30,5 +30,5 @@ runtime behavior or configuration contracts.
 yarn test:manager
 yarn docs:verify
 yarn typecheck
-yarn build
+yarn build:docs
 ```

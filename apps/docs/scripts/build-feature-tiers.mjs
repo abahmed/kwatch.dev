@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const args = process.argv.slice(2);
 const sourceIndex = args.indexOf('--source');
-const source = sourceIndex >= 0 ? args[sourceIndex + 1] : '../kwatch/deploy';
+const source = sourceIndex >= 0 ? args[sourceIndex + 1] : '../../../kwatch/deploy';
 const file = path.join(source, 'feature-catalog.tsv');
 const lines = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
 

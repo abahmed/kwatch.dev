@@ -337,7 +337,7 @@ function Account(): ReactElement {
         )}
         {data.trials && (
           <p className={styles.muted} style={{margin: '0.75rem 0 0'}}>
-            Trial clusters: {data.trials.used} of {data.trials.limit} used
+            Free Pro clusters: {data.trials.used} of {data.trials.limit} used
             {data.trials.scope === 'organization' && data.trials.domain ? ` for ${data.trials.domain}` : ''}
           </p>
         )}

@@ -21,8 +21,8 @@ and without a license key it never contacts the license service.
 | Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a license about to expire) |
 | Session cookie (`kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
 | License usage: hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
-| License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and trial limits and investigate abuse |
-| Trial records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You start a trial | To limit trials to 2 clusters per account or per company domain |
+| License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
+| Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |
 | IP address | Any request to `api.kwatch.dev` | Rate limiting and abuse prevention. The last IP that activated or renewed a license is kept on its activation record |
 
 We never receive workload names, logs, secrets, alerts or any other content
@@ -47,7 +47,7 @@ licensing and contains no personal data. Turn it off with
 | Sessions | 30 days, or until you sign out |
 | Rate-limit counters | A few hours to a day |
 | License event log | 180 days, keyed by license ID only |
-| Trial records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the trial limit |
+| Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |
 
 ## How we use data and legal bases
 
@@ -55,7 +55,7 @@ We use data only to provide the account and license service, send the emails
 described above, prevent fraud and abuse, and keep the service secure. For
 people in the EU, UK and similar jurisdictions, our legal bases are performing
 our contract with you (accounts and licenses) and our legitimate interests in
-preventing abuse and securing the service (rate limiting, trial limits, event
+preventing abuse and securing the service (rate limiting, free-license limits, event
 log).
 
 We do not sell your data and do not share it for advertising.

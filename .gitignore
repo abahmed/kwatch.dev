@@ -19,3 +19,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 build
+
+# Astro
+apps/web/dist
+apps/web/.astro

@@ -8,6 +8,10 @@
   ],
   "scripts": {
     "start:docs": "yarn workspace @kwatch/docs start",
+    "dev:app": "yarn workspace @kwatch/app dev",
+    "build:app": "yarn workspace @kwatch/app build",
+    "typecheck:app": "yarn workspace @kwatch/app typecheck",
+    "test:app": "yarn workspace @kwatch/app test",
     "build:docs": "yarn workspace @kwatch/docs build",
     "typecheck": "yarn workspace @kwatch/docs typecheck",
     "docs:generate": "yarn workspace @kwatch/docs docs:generate",

@@ -40,14 +40,14 @@ jobs:
 
       - name: Verify generated reference
         env:
-          KWATCH_SOURCE: kwatch
+          KWATCH_SOURCE: ${{ github.workspace }}/kwatch
         run: yarn docs:verify
 
       - name: Verify generated files are committed
-        run: git diff --exit-code -- docs/reference/generated
+        run: git diff --exit-code -- apps/docs/docs/reference/generated
 
       - name: Check shell syntax
-        run: bash -n static/kwatch.sh tests/*.sh
+        run: bash -n apps/docs/static/kwatch.sh apps/docs/tests/*.sh
 
       - name: Check whitespace
         run: git diff --check
@@ -59,7 +59,7 @@ jobs:
         run: yarn typecheck
 
       - name: Build website
-        run: yarn build
+        run: yarn build:docs
 
       - name: Verify SEO metadata and sitemap coverage
         run: yarn seo:verify

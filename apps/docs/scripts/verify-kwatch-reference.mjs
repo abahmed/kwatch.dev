@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 
-const source = process.env.KWATCH_SOURCE || '../kwatch';
+const source = process.env.KWATCH_SOURCE || '../../../kwatch';
 
 const result = spawnSync(
   process.execPath,

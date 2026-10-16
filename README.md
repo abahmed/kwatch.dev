@@ -16,7 +16,7 @@ Requirements: Node.js 18+, Yarn, and Git.
 git clone https://github.com/abahmed/kwatch.dev.git
 cd kwatch.dev
 yarn install
-yarn start
+yarn start:docs
 ```
 
 Open the local URL printed by Docusaurus, usually `http://localhost:3000/`.
@@ -25,13 +25,13 @@ Open the local URL printed by Docusaurus, usually `http://localhost:3000/`.
 
 | Location | Contains |
 | --- | --- |
-| `docs/` | Public documentation pages |
-| `src/pages/index.tsx` | Landing page layout |
-| `src/theme/` | Homepage components and shared docs UI |
-| `src/css/` | Site-wide styles |
-| `static/kwatch.sh` | Interactive installer and manager |
-| `src/data/releases.json` | Stable and preview versions shown on the site |
-| `sidebars.ts` | Documentation navigation |
+| `apps/docs/docs/` | Public documentation pages |
+| `apps/docs/src/pages/index.tsx` | Landing page layout |
+| `apps/docs/src/theme/` | Homepage components and shared docs UI |
+| `apps/docs/src/css/` | Site-wide styles |
+| `apps/docs/static/kwatch.sh` | Interactive installer and manager |
+| `apps/docs/src/data/releases.json` | Stable and preview versions shown on the site |
+| `apps/docs/sidebars.ts` | Documentation navigation |
 
 Write for someone who may be seeing Kubernetes for the first time: start with
 the goal, explain unfamiliar terms, show a complete command, and use fake
@@ -43,9 +43,9 @@ credentials in examples. Emojis are welcome when they improve scanning. 🙌
 yarn docs:verify
 yarn test:manager
 yarn typecheck
-yarn build
+yarn build:docs
 yarn seo:verify
-bash -n static/kwatch.sh tests/*.sh
+bash -n apps/docs/static/kwatch.sh apps/docs/tests/*.sh
 ```
 
 `yarn docs:verify` reads the catalogs from a checkout of the Kwatch repository
@@ -59,7 +59,7 @@ from indexing.
 
 ## 📦 Release updates
 
-The kwatch release workflow updates `src/data/releases.json` automatically:
+The kwatch release workflow updates `apps/docs/src/data/releases.json` automatically:
 
 - an RC updates the preview install link;
 - a stable release updates the stable install link and clears the preview; and

@@ -31,7 +31,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Build
-        run: yarn build
+        run: yarn build:docs
 
       - name: Publish to Cloudflare Pages
         env:
@@ -43,7 +43,7 @@ jobs:
             echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets are required."
             exit 1
           fi
-          npx --yes wrangler@4.124.0 pages deploy build \
+          npx --yes wrangler@4.124.0 pages deploy apps/docs/build \
             --project-name kwatch-site \
             --branch main \
             --commit-dirty=true

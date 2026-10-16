@@ -1,0 +1,42 @@
+/* kwatch brand tokens. Light is the default; dark follows the OS setting. */
+:root {
+  --bg: #FFFFFF;
+  --surface: #F2F3F0;
+  --line: #DADDE2;
+  --text: #0E1116;
+  --text-muted: #5B6270;
+
+  --signal: #C8F542;
+  --on-signal: #0E1116;
+
+  --failing: #B42318;
+  --failing-bg: #FDECEC;
+  --degraded: #8A5300;
+  --degraded-bg: #FDF1DC;
+  --resolved: #1D5FC2;
+  --resolved-bg: #E8F0FD;
+
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'Instrument Sans', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171B;
+    --surface: #1E2126;
+    --line: #2A2E35;
+    --text: #ECEDEA;
+    --text-muted: #9AA0AA;
+
+    --signal: #B5DE3C;
+    --on-signal: #0E1116;
+
+    --failing: #FF9B8F;
+    --failing-bg: #3A1F1E;
+    --degraded: #F5B953;
+    --degraded-bg: #3A2C14;
+    --resolved: #8DB8FF;
+    --resolved-bg: #1B2A44;
+  }
+}

@@ -69,8 +69,9 @@ the file stays valid when you upgrade.
   start it, and we may renew it.
 - **Offline for 7 days.** kwatch renews daily. A renewal is valid for 3 days,
   followed by a 4-day grace period.
-- **3 moves per 30 days** to another cluster, with `kwatch license move`, the
-  installer, or **Transfer** on your account page.
+- **3 moves per 30 days** to another cluster, with the installer
+  (**License / Pro**, then **Move license to this cluster**) or **Transfer** on
+  your account page.
 - **When a license ends**, kwatch falls back to Community. Detection and
   alerting never stop.
 - **What is sent:** a hashed cluster id, the kwatch version and the node count.

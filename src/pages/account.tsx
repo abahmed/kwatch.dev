@@ -198,7 +198,8 @@ KWATCH_LICENSE_KEY=${revealed ? key : '<LICENSE_KEY>'} \\
         <Dialog title="Transfer to another cluster" onClose={() => setDialog(null)}>
           <p>
             A license works on one cluster at a time. Transferring releases it from the current
-            cluster so you can activate it on a new one. The new cluster picks up the license within
+            cluster so you can activate it on a new one. On the new cluster, run the installer and
+            choose License / Pro, then Add or replace key. The new cluster picks up the license within
             about 5 minutes; the old cluster drops to Community at its next daily check.
           </p>
           <p><strong>Transfers left: {license.transfers_left}</strong></p>

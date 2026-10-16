@@ -1,0 +1,18 @@
+# Renamed and removed pages.
+/pricing /pro 301
+/community / 301
+/blog / 301
+/blog/* / 301
+/search https://docs.kwatch.dev/search 301
+
+# Account pages now live on the app host.
+/signup https://app.kwatch.dev/signup 301
+/signin https://app.kwatch.dev/signin 301
+/account https://app.kwatch.dev/account 301
+/signup/* https://app.kwatch.dev/signup/:splat 301
+/signin/* https://app.kwatch.dev/signin/:splat 301
+/account/* https://app.kwatch.dev/account/:splat 301
+
+# Documentation moved to its own host.
+/docs https://docs.kwatch.dev/ 301
+/docs/* https://docs.kwatch.dev/:splat 301

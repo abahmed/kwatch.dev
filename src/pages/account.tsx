@@ -135,7 +135,7 @@ KWATCH_LICENSE_KEY=${revealed ? key : '<LICENSE_KEY>'} \\
     <section className={styles.card} aria-label={`License ${license.lid}`}>
       <div className={styles.spread}>
         <div className={styles.row}>
-          <h3 style={{margin: 0}}>{license.plan === 'trial' ? 'Pro trial' : 'Pro'}</h3>
+          <h3 style={{margin: 0}}>Pro</h3>
           <span className={`${styles.badge} ${active ? styles.badgeActive : styles.badgeBad}`}>
             {license.status}
           </span>

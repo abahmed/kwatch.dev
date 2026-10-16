@@ -69,6 +69,9 @@ generated: true
 | `auditLog.output` | string | `stdout` | active | Audit output: stdout or a supported output sink. |
 | `templates` | json | `&#123;&#125;` | active | JSON map of optional reason-specific message templates. |
 | `runbooks` | json | `&#123;&#125;` | active | JSON map of reason-to-runbook URLs. |
+| `app.hideProHints` | boolean | `false` | active | Remove the note that names what kwatch Pro adds from Community messages. |
+| `license.key` | string | `empty` | active | kwatch Pro license key; reference it as $&#123;KWATCH_LICENSE_KEY&#125;. The KWATCH_LICENSE_KEY variable wins over this setting. Empty runs the Community edition. |
+| `app.communityProvider` | string | `empty` | active | Alert provider the Community edition keeps when several are configured; empty keeps the first by name. |
 
 ## Security
 

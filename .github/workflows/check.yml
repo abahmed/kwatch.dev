@@ -63,3 +63,29 @@ jobs:
 
       - name: Verify SEO metadata and sitemap coverage
         run: yarn seo:verify
+
+  app:
+    name: Check app.kwatch.dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out website
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck app
+        run: yarn typecheck:app
+
+      - name: Test app
+        run: yarn test:app
+
+      - name: Build app
+        run: yarn build:app

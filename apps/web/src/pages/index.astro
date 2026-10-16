@@ -1,0 +1,372 @@
+---
+import Base from '../layouts/Base.astro';
+
+const failures = ['CrashLoopBackOff', 'OOMKilled', 'ImagePullBackOff', 'NodeNotReady', 'FailedScheduling', 'CertificateExpiring', 'PVC Pending', 'WebhookTimeout', 'RolloutStuck', 'CronJob missed'];
+
+const alerts = [
+  'FIRING KubePodCrashLooping checkout-api-7f9c-2xk',
+  'FIRING KubePodCrashLooping checkout-api-7f9c-q8d',
+  'FIRING TargetDown payments/checkout',
+  'FIRING HighErrorRate cart-svc 5xx 38%',
+  'FIRING KubeDeploymentReplicasMismatch checkout',
+  'FIRING KubePodNotReady checkout-api-7f9c-mm1',
+  '+ 41 more',
+];
+
+const catches = [
+  ['Pods', 'Crash loops, OOM kills, image pulls, Pending'],
+  ['Nodes', 'NotReady, pressure, draining'],
+  ['Workloads', 'Stuck rollouts, failed Jobs, missed CronJobs'],
+  ['Storage', 'Pending claims, attach failures, full volumes'],
+  ['Network', 'Services with no endpoints, Ingress, policies'],
+  ['Certificates', 'Expiring and invalid TLS'],
+  ['Control plane', 'API server, etcd, DNS, webhooks'],
+  ['Custom resources', 'Failing conditions on CRDs'],
+];
+
+const timeline = [
+  ['03:07', 'Opened: checkout-api crash-looping, cause found'],
+  ['03:11', 'Update: cart-svc now affected too'],
+  ['03:16', 'Fix detected: checkout-config rolled back'],
+  ['03:21', 'Resolved after 14 minutes'],
+];
+
+const faq = [
+  ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
+  ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
+  ['What leaves my cluster?', 'Your alerts, to the channels you choose. With Pro, a daily license check sends a hashed cluster ID, the kwatch version and the node count. Nothing else.'],
+  ['What permissions does it need?', 'Read access to the resources it watches. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
+  ['Why is Pro free?', "We want kwatch proven on real clusters before we charge anything. If that changes, you'll hear well in advance."],
+];
+---
+<Base
+  title="kwatch — Kubernetes incidents, explained"
+  description="kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next."
+>
+  <section class="hero wrap">
+    <div class="hero-text">
+      <p class="mono-line">03:07 · #prod-alerts · 47 new messages</p>
+      <h1>Fifty alerts.<br /><span class="mark">One cause.</span></h1>
+      <p class="lede">kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.</p>
+      <div class="actions">
+        <a class="btn btn-primary big" href="#install">Install free</a>
+        <a class="link-strong big-link" href="#pro">Pro is free during early access →</a>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <ul class="noise" aria-hidden="true">
+        {alerts.map((a, i) => <li class:list={{ dim1: i === 5, dim2: i === 6 }}>{a}</li>)}
+      </ul>
+      <div class="card on-ink" role="group" aria-label="Example kwatch alert">
+        <div class="card-top"><span>kwatch · 1 incident</span><span class="signal">ROOT CAUSE FOUND</span></div>
+        <p class="card-title">checkout-api is crash-looping because a ConfigMap changed 4 minutes ago.</p>
+        <dl>
+          <dt>Why</dt><dd><code>DB_HOST</code> points to a host that doesn't resolve</dd>
+          <dt>Who</dt><dd>deploy-bot, via Argo CD</dd>
+          <dt>Impact</dt><dd>payments, cart</dd>
+          <dt>Next</dt><dd>Roll back <code>checkout-config</code></dd>
+        </dl>
+      </div>
+      <p class="note">Illustrative example.</p>
+    </div>
+  </section>
+
+  <div class="strip on-ink" aria-hidden="true">
+    <div class="track">
+      {[0, 1].map(() => (
+        <span class="run">{failures.map((f) => <span class="item">{f}<i>/</i></span>)}</span>
+      ))}
+    </div>
+  </div>
+
+  <section id="how" class="wrap section">
+    <p class="eyebrow">How it works</p>
+    <h2 class="display h2-lg">It follows the trail, the way you would. <span class="underline">In seconds.</span></h2>
+    <ol class="steps">
+      <li>
+        <p class="eyebrow">1 — watch</p>
+        <h3>Keeps a live map of your cluster</h3>
+        <p>Pods, workloads, nodes, volumes, configs, services and certificates, how they connect, and every change made to them, with who made it.</p>
+      </li>
+      <li>
+        <p class="eyebrow">2 — trace</p>
+        <h3>Walks back to the first domino</h3>
+        <p>When something fails, it follows the links upstream and only blames what is actually broken or recently changed.</p>
+        <ol class="trace" aria-label="Example trace, from symptom to cause">
+          <li>Pod checkout-api-7f9c · <span class="failing">CrashLoopBackOff</span></li>
+          <li>Deployment checkout-api · healthy before 03:03</li>
+          <li>Node worker-3 · <span class="resolved">healthy</span></li>
+          <li class="cause">ConfigMap checkout-config · changed 03:03 ← cause</li>
+        </ol>
+      </li>
+      <li>
+        <p class="eyebrow">3 — tell</p>
+        <h3>Sends one message, then stays quiet</h3>
+        <p>Symptoms join one incident. You hear again only when something material changes, and once more when it's resolved.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section id="catches" class="band">
+    <div class="wrap section-tight">
+      <div class="catches-head">
+        <div>
+          <p class="eyebrow">What it catches</p>
+          <h2 class="display h2-md">The failures that wake people up.</h2>
+        </div>
+        <p class="catches-sub">Built in, no rules to write. Community covers pod failures and NotReady nodes; Pro covers everything below.</p>
+      </div>
+      <ul class="grid">
+        {catches.map(([name, text]) => (
+          <li><p class="cell-name">{name}</p><p class="cell-text">{text}</p></li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap section quiet">
+    <div>
+      <p class="eyebrow">One incident, one thread</p>
+      <h2 class="display h2-md">Quiet by default.</h2>
+      <p class="quiet-lede">No repeats every five minutes, no flapping storms. kwatch waits for failures to settle, merges what belongs together and speaks when there is news.</p>
+      <p class="quiet-note">Updates arrive in one thread on Slack with Pro; in Community they arrive as short follow-up messages.</p>
+    </div>
+    <ol class="timeline">
+      {timeline.map(([t, text], i) => (
+        <li>
+          <p class="time">{t}</p>
+          <p class="event">{i === 3 ? <><span class="resolved">Resolved</span> after 14 minutes</> : text}</p>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <section class="band">
+    <div class="wrap section-tight privacy">
+      <div>
+        <h2 class="display h2-md">Your data stays in your cluster.</h2>
+        <p class="privacy-lede">kwatch is one pod. It redacts secrets before anything is stored or sent, and it talks only to the channels you choose. There is no kwatch cloud reading your logs.</p>
+      </div>
+      <ul class="facts">
+        <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>
+        <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
+        <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="install" class="install on-ink">
+    <div class="wrap section">
+      <h2 class="display h2-lg">Paste one line.<br /><span class="signal">Answer a few questions.</span></h2>
+      <div class="terminal" role="group" aria-label="Example installer session">
+        <div><span class="dim">$</span> /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</div>
+        <div class="gap dim">✓ Connected to <span class="bright">prod-eu-1</span></div>
+        <div class="dim">? Where should alerts go? <span class="signal">› Slack</span></div>
+        <div class="dim">? Add a Pro license key? <span class="bright">(Enter to skip)</span></div>
+        <div class="dim">✓ kwatch is running</div>
+      </div>
+      <p class="install-note">Run it again any time to upgrade, change settings or manage your license.</p>
+    </div>
+  </section>
+
+  <section id="pro" class="wrap section">
+    <div class="pro-head">
+      <h2 class="display h2-lg">Free. And Pro is free too.</h2>
+      <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per company.</p>
+    </div>
+    <div class="editions">
+      <div class="edition community">
+        <h3>Community</h3>
+        <p class="sub">Free forever. No account.</p>
+        <p class="body">Crash loops, OOM kills, Pending pods and NotReady nodes, explained in one line, sent to one channel.</p>
+        <a class="btn btn-line" href="#install">Install</a>
+      </div>
+      <div class="edition pro on-signal">
+        <h3>Pro</h3>
+        <p class="sub">Free during early access.</p>
+        <p class="body">Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks.</p>
+        <div class="actions">
+          <a class="btn btn-solid" href="https://app.kwatch.dev">Get a free Pro license</a>
+          <a class="link-strong compare" href="/pro">Compare editions →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq">
+    <div class="faq-inner">
+      <h2 class="display">Fair questions</h2>
+      {faq.map(([q, a]) => (
+        <details>
+          <summary>{q}</summary>
+          <p>{a}</p>
+        </details>
+      ))}
+    </div>
+  </section>
+
+  <section class="cta on-signal">
+    <div class="wrap cta-inner">
+      <h2 class="display">Sleep through<br />the noise.</h2>
+      <a class="btn btn-solid big" href="#install">Install kwatch free</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); gap: 48px; align-items: center; padding-block: 56px 96px; }
+  .mono-line { font-family: var(--font-mono); font-size: 14px; color: var(--text-muted); }
+  h1 {
+    margin-top: 18px; font-family: var(--font-display); font-weight: 800;
+    font-size: clamp(48px, 4vw + 32px, 92px); line-height: 0.95; letter-spacing: -0.045em;
+  }
+  .mark { background: var(--signal); color: var(--on-signal); padding: 0 12px; border-radius: 8px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .lede { margin-top: 28px; font-size: clamp(18px, 1vw + 14px, 21px); color: var(--text-soft); max-width: 540px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; align-items: center; }
+  .big { padding: 16px 28px; font-size: 17px; }
+  .big-link { padding: 16px 22px; font-size: 17px; }
+  .hero-visual { padding: 8px 0; min-width: 0; }
+  .noise { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+  .noise li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
+  .noise .dim1 { opacity: .6; }
+  .noise .dim2 { opacity: .4; }
+  .card {
+    margin: -150px 0 0 28px; position: relative; background: var(--ink); color: var(--ink-text);
+    border-radius: 14px; padding: 24px 24px 22px; box-shadow: 0 24px 60px rgba(14, 17, 22, .28);
+  }
+  .card-top { display: flex; justify-content: space-between; gap: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+  .signal { color: var(--signal); }
+  .card-title { margin-top: 14px; font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.2; }
+  .card dl { margin-top: 16px; display: grid; grid-template-columns: 80px 1fr; gap: 6px 12px; font-size: 15px; }
+  .card dt { color: var(--ink-muted); }
+  .card code { font-size: 13px; }
+  .note { margin: 14px 0 0 28px; font-size: 13px; color: var(--text-muted); }
+
+  /* Failure strip */
+  .strip { background: var(--ink); color: var(--ink-text); overflow: hidden; white-space: nowrap; font-family: var(--font-mono); font-size: 15px; padding: 16px 0; }
+  .track { display: inline-flex; animation: scroll 60s linear infinite; will-change: transform; }
+  .run { display: inline-block; padding-left: 24px; }
+  .item { margin-right: .6em; }
+  .item i { font-style: normal; color: var(--signal); margin-left: .6em; }
+  @keyframes scroll { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .track { animation: none; }
+    .strip { overflow-x: hidden; }
+  }
+
+  /* Sections */
+  .section { padding-block: 110px; }
+  .section-tight { padding-block: 100px; }
+  .band { background: var(--surface); }
+  .h2-lg { font-size: clamp(36px, 3vw + 24px, 60px); margin-top: 12px; max-width: 900px; }
+  .h2-md { font-size: clamp(34px, 2vw + 24px, 52px); letter-spacing: -0.03em; margin-top: 12px; }
+  .underline { box-shadow: inset 0 -0.35em 0 var(--signal); }
+  .resolved { color: var(--resolved); }
+  .failing { color: var(--failing); }
+
+  /* How */
+  .steps { list-style: none; padding: 0; margin-top: 64px; display: grid; grid-template-columns: 4fr 5fr 3fr; border-top: 2px solid var(--text); }
+  .steps > li { padding: 32px; border-right: 1px solid var(--line); min-width: 0; }
+  .steps > li:first-child { padding-left: 0; }
+  .steps > li:last-child { padding-right: 0; border-right: 0; }
+  .steps h3 { margin: 14px 0 10px; font-family: var(--font-display); font-weight: 700; font-size: 28px; letter-spacing: -0.02em; line-height: 1.15; }
+  .steps p:not(.eyebrow) { color: var(--text-soft); }
+  .trace { list-style: none; padding: 0; margin-top: 18px; font-family: var(--font-mono); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+  .trace li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-muted); }
+  .trace li:nth-child(2) { margin-left: 18px; }
+  .trace li:nth-child(3) { margin-left: 36px; }
+  .trace li.cause { margin-left: 54px; background: var(--signal); color: var(--on-signal); font-weight: 500; border-color: var(--signal); }
+
+  /* Catches */
+  .catches-head { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: end; }
+  .catches-sub { color: var(--text-soft); font-size: 18px; }
+  .grid { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .grid li { background: var(--bg); padding: 22px; }
+  .cell-name { font-weight: 600; }
+  .cell-text { margin-top: 6px; font-size: 14px; color: var(--text-muted); }
+
+  /* Quiet */
+  .quiet { display: grid; grid-template-columns: 5fr 7fr; gap: 64px; align-items: center; }
+  .quiet-lede { margin-top: 18px; color: var(--text-soft); font-size: 18px; }
+  .quiet-note { margin-top: 14px; font-size: 14px; color: var(--text-muted); }
+  .timeline { list-style: none; margin: 0; padding: 0 0 0 24px; border-left: 2px solid var(--text); display: flex; flex-direction: column; gap: 22px; }
+  .time { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+  .event { margin-top: 2px; font-weight: 600; }
+
+  /* Privacy */
+  .privacy { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 56px; align-items: center; }
+  .privacy-lede { margin-top: 22px; font-size: 19px; color: var(--text-soft); }
+  .facts { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 18px; }
+  .facts li { background: var(--bg); border-radius: 6px; padding: 18px 22px; }
+
+  /* Install */
+  .install { background: var(--ink); color: var(--ink-text); }
+  .terminal { margin-top: 48px; background: #000; border: 1px solid var(--ink-line); border-radius: 10px; padding: 26px 28px; font-family: var(--font-mono); font-size: 16px; overflow-x: auto; white-space: pre; }
+  .terminal .gap { margin-top: 16px; }
+  .dim { color: var(--ink-muted); }
+  .bright { color: var(--ink-text); }
+  .install-note { margin-top: 20px; color: var(--ink-muted); font-size: 15px; }
+
+  /* Pro */
+  .pro-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; align-items: end; }
+  .pro-head p { max-width: 400px; color: var(--text-soft); }
+  .pro-head .h2-lg { margin-top: 0; }
+  .editions { display: grid; grid-template-columns: 5fr 7fr; gap: 20px; margin-top: 48px; }
+  .edition { border-radius: 10px; padding: 34px; }
+  .edition h3 { font-family: var(--font-display); font-size: 32px; font-weight: 700; line-height: 1.2; }
+  .edition .sub { margin-top: 4px; }
+  .edition .body { margin-top: 22px; }
+  .community { border: 2px solid var(--text); }
+  .community .sub { color: var(--text-muted); }
+  .community .body { color: var(--text-soft); }
+  .community .btn { margin-top: 26px; }
+  .pro { background: var(--signal); color: var(--on-signal); }
+  .pro .sub { color: #1E2126; }
+  .pro .actions { margin-top: 26px; gap: 10px; }
+  .compare { padding: 13px 8px; }
+
+  /* FAQ */
+  .faq { border-top: 1px solid var(--line); }
+  .faq-inner { max-width: 900px; margin: 0 auto; padding: 90px var(--gutter); }
+  .faq h2 { font-size: 40px; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 24px; }
+  details { border-top: 1px solid var(--line); padding: 20px 0; }
+  details:last-of-type { border-bottom: 1px solid var(--line); }
+  summary { cursor: pointer; font-weight: 600; font-size: 19px; }
+  details p { margin-top: 10px; color: var(--text-soft); }
+
+  /* CTA */
+  .cta { background: var(--signal); color: var(--on-signal); }
+  .cta-inner { padding-block: 120px; display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between; }
+  .cta h2 { font-size: clamp(48px, 6vw + 16px, 104px); line-height: .92; letter-spacing: -0.05em; }
+  .btn.big { padding: 18px 32px; font-size: 18px; }
+
+  /* Tablet */
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; gap: 40px; padding-block: 40px 64px; }
+    .card { margin-top: 16px; margin-left: 0; }
+    .big-link { padding-inline: 0; }
+    .note { margin-left: 0; }
+    .section { padding-block: 72px; }
+    .section-tight { padding-block: 64px; }
+    .steps { grid-template-columns: 1fr; margin-top: 40px; }
+    .steps > li, .steps > li:first-child, .steps > li:last-child { padding: 28px 0; border-right: 0; border-bottom: 1px solid var(--line); }
+    .catches-head, .quiet, .editions { grid-template-columns: 1fr; gap: 28px; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cta-inner { padding-block: 80px; }
+  }
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .edition { padding: 26px 22px; }
+    .terminal { padding: 20px 16px; font-size: 14px; }
+    .card { padding: 20px 18px; }
+    .card dl { grid-template-columns: 64px 1fr; }
+    .trace li:nth-child(n) { margin-left: 0; }
+    .trace li:nth-child(2) { margin-left: 10px; }
+    .trace li:nth-child(3) { margin-left: 20px; }
+    .trace li.cause { margin-left: 30px; }
+    .faq-inner { padding-block: 56px; }
+    .faq h2 { font-size: 32px; }
+  }
+</style>

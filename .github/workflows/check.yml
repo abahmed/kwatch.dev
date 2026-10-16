@@ -89,3 +89,33 @@ jobs:
 
       - name: Build app
         run: yarn build:app
+
+  web:
+    name: Build and check marketing site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out website
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type and template check
+        run: yarn typecheck:web
+
+      - name: Build marketing site
+        run: yarn build:web
+
+      - name: Check installer and charts are published
+        run: |
+          test -s apps/web/dist/kwatch.sh
+          test -s apps/web/dist/charts/index.yaml
+          test -s apps/web/dist/_redirects
+          test -s apps/web/dist/_headers

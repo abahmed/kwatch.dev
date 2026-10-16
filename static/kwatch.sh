@@ -7727,6 +7727,68 @@ license_wire_env() {
     -p "$(license_env_patch "$container")" >/dev/null
 }
 
+# The license Role, RoleBinding and instance Secret. Installs older than
+# licensing lack them and kwatch cannot keep its instance key without them.
+# Anything missing is created; anything present is left alone (the Secret in
+# particular holds kwatch's key and is never rewritten).
+license_ensure_instance_access() {
+  local deployment="$1" sa role
+  role=$(license_secret_name)
+  sa=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={.spec.template.spec.serviceAccountName}' 2>/dev/null || true)
+  [ -n "$sa" ] || sa="$RELEASE"
+  if ! kubectl -n "$NAMESPACE" get role "$role" >/dev/null 2>&1; then
+    kubectl -n "$NAMESPACE" apply -f - >/dev/null <<EOF || return 1
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: $role
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/instance: $RELEASE
+    app.kubernetes.io/managed-by: kwatch.sh
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["$LICENSE_INSTANCE_SECRET"]
+  verbs: ["get", "update"]
+EOF
+  fi
+  if ! kubectl -n "$NAMESPACE" get rolebinding "$role" >/dev/null 2>&1; then
+    kubectl -n "$NAMESPACE" apply -f - >/dev/null <<EOF || return 1
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: $role
+  namespace: $NAMESPACE
+  labels:
+    app.kubernetes.io/instance: $RELEASE
+    app.kubernetes.io/managed-by: kwatch.sh
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: $role
+subjects:
+- kind: ServiceAccount
+  name: $sa
+  namespace: $NAMESPACE
+EOF
+  fi
+  if ! kubectl -n "$NAMESPACE" get secret "$LICENSE_INSTANCE_SECRET" >/dev/null 2>&1; then
+    kubectl -n "$NAMESPACE" create secret generic "$LICENSE_INSTANCE_SECRET" \
+      >/dev/null || return 1
+    kubectl -n "$NAMESPACE" label secret "$LICENSE_INSTANCE_SECRET" \
+      app.kubernetes.io/instance="$RELEASE" \
+      app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
+  fi
+}
+
+license_rollout_incomplete() {
+  ui_warn "⚠️ The key is saved and kwatch was told to use it, but the rollout has not finished."
+  ui_warn "   Nothing was deleted or repaired. Check the Pod with Status and Logs; the rollout"
+  ui_warn "   keeps going on its own, and Remove key restores the previous state."
+}
+
 # Stores the key and wires it into kwatch. Mode "record" stops short of touching
 # the running workload: the next apply_manifests picks the marker up (used when
 # an upgrade is about to apply the manifest anyway).
@@ -7747,6 +7809,14 @@ license_apply_key() {
     ui_detail "  The key is stored; it is applied with the next install or upgrade."
     return 0
   fi
+  with_loading "Checking kwatch's access to its license record" \
+    license_ensure_instance_access "$deployment" || {
+    ui_error "❌ This install predates licensing and its license RBAC could not be added." \
+      "$(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
+    ui_detail "  The key is stored, but kwatch was not changed. Upgrade kwatch from the"
+    ui_detail "  menu first (it adds the missing Role, RoleBinding and Secret), then add the key again."
+    return 1
+  }
   license_env_wired "$deployment" && already=true
   with_loading "Pointing kwatch at the license Secret" \
     license_wire_env "$deployment" || {
@@ -7762,11 +7832,21 @@ license_apply_key() {
   LICENSE_FLOW_CHANGED=true
   invalidate_deployment_name
   LICENSE_COMMUNITY_CACHE=""
+  # Exactly one rollout. Wiring the env into the Deployment changes the Pod
+  # template, which rolls it out by itself; only a key that was already wired
+  # (a replaced key) needs the restart. Neither path deletes anything: on a
+  # timeout the rollout is left as it is, with its diagnostics shown.
   if [ "$already" = true ]; then
-    restart_kwatch || return 1
+    restart_kwatch || {
+      license_rollout_incomplete
+      return 1
+    }
   else
     with_loading "Waiting for kwatch rollout" \
-      wait_for_kwatch_rollout "$deployment" || return 1
+      wait_for_kwatch_rollout "$deployment" || {
+      license_rollout_incomplete
+      return 1
+    }
   fi
   ui_success "✅ License key applied: $(license_mask "$key")"
 }

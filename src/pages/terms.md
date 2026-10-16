@@ -24,7 +24,7 @@ features are enabled by a license key. Releases up to and including
 
 - One license key is active on **one cluster** at a time.
 - You may move a license to another cluster up to **3 times per 30 days**,
-  using `kwatch license move`, the installer or the
+  using the installer or the
   [account page](/account). Releasing a license on uninstall counts as a
   move.
 - A licensed kwatch renews with the license service daily and keeps Pro

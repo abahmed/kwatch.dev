@@ -101,8 +101,8 @@ Community needs no key. For [Pro](/docs/editions) open **License / Pro**:
 - **Show license status** prints the license state.
 - **Add or replace key** stores your key in a Kubernetes Secret and wires it
   to kwatch as `KWATCH_LICENSE_KEY`. A fresh install also offers this step.
-- **Move license to this cluster** runs `kwatch license move` in the pod; it
-  counts toward the 3 moves per 30 days.
+- **Move license to this cluster** takes the license over from the cluster
+  that holds it; it counts toward the 3 moves per 30 days.
 - **Remove key** releases the license so another cluster can use it, and can
   delete the license Secrets.
 

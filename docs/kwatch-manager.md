@@ -166,7 +166,7 @@ offers only actions valid for the detected running state:
 | ⚙️ Edit settings | Change monitors, thresholds, or filters |
 | 🧮 Edit Deployment resources and placement | Keep CPU/memory and node-selector choices across upgrades |
 | 🧩 View capabilities | See what the installed release supports, marked Community or Pro |
-| 🔑 License / Pro | Show status, add or replace a key, move the license to this cluster, or remove the key. See [License](/docs/license) |
+| 🔑 License / Pro | Show license status, add or replace a key, move the license to this cluster, or remove the key. See [License](/docs/license) |
 | ♻️ Restore a previous configuration | Replace the current KwatchConfig from a retained backup |
 | 🧹 Uninstall kwatch | Remove the kwatch workload and notification Secret |
 

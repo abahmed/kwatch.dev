@@ -17,7 +17,6 @@ they are not separate installation steps.
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.rocketchat.webhook` | 🔗 Webhook URL | Yes |
-| `alert.rocketchat.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -25,10 +24,9 @@ they are not separate installation steps.
 alert:
   rocketchat:
     webhook: "${file:/config/rocketchat-webhook}"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

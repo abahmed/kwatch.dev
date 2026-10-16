@@ -28,7 +28,7 @@ alert:
     title: "optional customized title"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

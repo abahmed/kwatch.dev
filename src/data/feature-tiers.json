@@ -1,0 +1,330 @@
+[
+  {
+    "id": "core.detection.pods",
+    "lifecycle": "runtime",
+    "description": "Detect pod and container failures",
+    "deps": [],
+    "tier": "community"
+  },
+  {
+    "id": "core.pods.scheduling",
+    "lifecycle": "runtime",
+    "description": "Detect pod scheduling failures",
+    "deps": [
+      "core.detection.pods"
+    ],
+    "tier": "community"
+  },
+  {
+    "id": "core.pods.oom",
+    "lifecycle": "runtime",
+    "description": "Detect out-of-memory kills and repeated OOMs",
+    "deps": [
+      "core.detection.pods"
+    ],
+    "tier": "community"
+  },
+  {
+    "id": "core.pods.readiness",
+    "lifecycle": "runtime",
+    "description": "Detect sustained pod readiness failures",
+    "deps": [
+      "core.detection.pods"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.pods.restarts",
+    "lifecycle": "runtime",
+    "description": "Detect crash loops and excessive restarts",
+    "deps": [
+      "core.detection.pods"
+    ],
+    "tier": "community"
+  },
+  {
+    "id": "core.detection.workloads",
+    "lifecycle": "runtime",
+    "description": "Detect workload rollout and execution failures",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.workloads.rollouts",
+    "lifecycle": "runtime",
+    "description": "Detect stuck workload rollouts",
+    "deps": [
+      "core.detection.workloads"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.workloads.jobs",
+    "lifecycle": "runtime",
+    "description": "Detect failed Jobs and failed or missed CronJobs",
+    "deps": [
+      "core.detection.workloads"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.workloads.pdb",
+    "lifecycle": "runtime",
+    "description": "Detect PodDisruptionBudgets that block disruption",
+    "deps": [
+      "core.detection.workloads"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.workloads.hpa",
+    "lifecycle": "runtime",
+    "description": "Diagnose HorizontalPodAutoscaler failures",
+    "deps": [
+      "core.detection.workloads"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.nodes",
+    "lifecycle": "runtime",
+    "description": "Detect node readiness, pressure and draining",
+    "deps": [],
+    "tier": "community"
+  },
+  {
+    "id": "core.nodes.usage",
+    "lifecycle": "runtime",
+    "description": "Detect node resource pressure from kubelet stats",
+    "deps": [
+      "core.detection.nodes"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.storage",
+    "lifecycle": "runtime",
+    "description": "Detect claim, volume and attachment failures",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.storage.usage",
+    "lifecycle": "runtime",
+    "description": "Detect volumes nearly full",
+    "deps": [
+      "core.detection.storage"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.network",
+    "lifecycle": "runtime",
+    "description": "Detect Service, Ingress and NetworkPolicy failures",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.admission",
+    "lifecycle": "runtime",
+    "description": "Detect admission webhook and policy failures",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.certificates",
+    "lifecycle": "runtime",
+    "description": "Detect expiring and invalid TLS certificates",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.quota",
+    "lifecycle": "runtime",
+    "description": "Detect exhausted ResourceQuotas and LimitRange rejections",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.custom-resources",
+    "lifecycle": "runtime",
+    "description": "Detect failing conditions on custom and built-in resources",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.control-plane",
+    "lifecycle": "runtime",
+    "description": "Check API server, etcd, DNS, scheduler and controller-manager",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.probes",
+    "lifecycle": "runtime",
+    "description": "Run configured HTTP, TCP and DNS checks",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.risks",
+    "lifecycle": "runtime",
+    "description": "Quote configuration risks (no probe, no limit, mutable tag, single replica) when a failure shows their cost",
+    "deps": [
+      "core.detection.workloads"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.detection.unusual-events",
+    "lifecycle": "runtime",
+    "description": "Report repeated Warning events kwatch has no detector for, quoting the event",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "analysis.root-cause",
+    "lifecycle": "runtime",
+    "description": "Explain each incident by its most likely root cause",
+    "deps": [],
+    "tier": "community"
+  },
+  {
+    "id": "analysis.shared-factors",
+    "lifecycle": "runtime",
+    "description": "Suspect a node that workloads failing together share when nothing else explains them",
+    "deps": [
+      "analysis.root-cause"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "analysis.changes",
+    "lifecycle": "runtime",
+    "description": "Relate incidents to recent changes and who made them",
+    "deps": [
+      "analysis.root-cause"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "analysis.impact",
+    "lifecycle": "runtime",
+    "description": "Show which workloads and services an incident affects",
+    "deps": [
+      "analysis.root-cause"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "analysis.investigation",
+    "lifecycle": "runtime",
+    "description": "Attach a redacted log excerpt to announcements",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "incidents.noise-control",
+    "lifecycle": "runtime",
+    "description": "Settle, merge symptoms and send only material changes",
+    "deps": [
+      "analysis.root-cause"
+    ],
+    "tier": "community"
+  },
+  {
+    "id": "incidents.flapping",
+    "lifecycle": "runtime",
+    "description": "Recognise flapping and routine recurring incidents",
+    "deps": [
+      "incidents.noise-control"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "incidents.startup-summary",
+    "lifecycle": "startup",
+    "description": "Summarise pre-existing incidents once at cold start",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "incidents.state",
+    "lifecycle": "startup",
+    "description": "Keep incidents and history on disk across restarts",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "incidents.downtime-changes",
+    "lifecycle": "startup",
+    "description": "Report changes made while kwatch was down",
+    "deps": [
+      "incidents.state"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "policy.scope",
+    "lifecycle": "runtime",
+    "description": "Filter by namespace, reason, selector and silences",
+    "deps": [],
+    "tier": "community"
+  },
+  {
+    "id": "policy.severity",
+    "lifecycle": "runtime",
+    "description": "Override severity by reason and owner kind",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "policy.maintenance",
+    "lifecycle": "runtime",
+    "description": "Hold incidents for objects under maintenance",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "policy.runbooks",
+    "lifecycle": "runtime",
+    "description": "Attach reason-aware runbook links",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "delivery.routing",
+    "lifecycle": "runtime",
+    "description": "Route incidents to providers by scope",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "delivery.threads",
+    "lifecycle": "runtime",
+    "description": "Update one message thread per incident where supported",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "delivery.templates",
+    "lifecycle": "runtime",
+    "description": "Render operator-selected text templates",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "delivery.audit-log",
+    "lifecycle": "runtime",
+    "description": "Write a JSON line for every incident decision",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "security.rbac-audit",
+    "lifecycle": "runtime",
+    "description": "Report missing permissions",
+    "deps": [],
+    "tier": "community"
+  }
+]

@@ -12,7 +12,7 @@ const structuredData = {
       name: 'kwatch',
       url: 'https://kwatch.dev/',
       description:
-        'Open-source Kubernetes incident monitoring and alerting.',
+        'Source-available Kubernetes incident monitoring and alerting.',
       inLanguage: 'en',
       publisher: {'@id': 'https://kwatch.dev/#organization'},
     },
@@ -38,7 +38,7 @@ const structuredData = {
       applicationSubCategory: 'Kubernetes monitoring and alerting',
       operatingSystem: 'Kubernetes',
       description:
-        'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.',
+        'See what broke. Understand why. Know what to do next. Source-available Kubernetes incident monitoring and alerting.',
       url: 'https://kwatch.dev/',
       image: 'https://kwatch.dev/img/kwatch-logo-full.png',
       downloadUrl: 'https://github.com/abahmed/kwatch/releases/latest',
@@ -60,7 +60,11 @@ export default function Root({children}: {children: ReactNode}) {
     pathname === '/blog/tags' ||
     pathname.startsWith('/blog/tags/');
   const isNoIndexRoute =
-    isThinBlogRoute || pathname === '/404' || pathname === '/404.html';
+    isThinBlogRoute ||
+    pathname === '/signup' ||
+    pathname === '/signin' ||
+    pathname === '/account' ||
+    pathname === '/404' || pathname === '/404.html';
   const canonicalPath =
     pathname.length > 1 && pathname.endsWith('/')
       ? pathname.slice(0, -1)

@@ -2,7 +2,7 @@
 sidebar_position: 10
 title: Trademarks
 description: Kwatch name and logo usage guidance.
-keywords: [kwatch trademark, kwatch logo, open source branding]
+keywords: [kwatch trademark, kwatch logo, source available branding]
 ---
 
 # ™️ Trademarks

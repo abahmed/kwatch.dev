@@ -51,7 +51,11 @@ const sidebars: SidebarsConfig = {
         'tls-monitor-configuration',
       ],
     },
-    'cli-commands',
+    {
+      type: 'category',
+      label: '💎 Community vs Pro',
+      items: ['editions', 'license', 'cli-commands'],
+    },
     {
       type: 'category',
       label: '🏗️ How kwatch works',

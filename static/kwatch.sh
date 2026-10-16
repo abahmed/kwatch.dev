@@ -10,7 +10,7 @@ CATALOG_VERSION=1
 FEATURE_CATALOG_VERSION=1
 PROVIDER_CATALOG_VERSION=1
 SUPPORTED_CATALOG_VERSION=1
-SUPPORTED_FEATURE_CATALOG_VERSION=1
+SUPPORTED_FEATURE_CATALOG_VERSIONS="1 2"
 SUPPORTED_PROVIDER_CATALOG_VERSION=1
 MAX_KUBECTL_ATTEMPTS=3
 ROLLOUT_TIMEOUT="${KWATCH_ROLLOUT_TIMEOUT:-5m}"
@@ -1536,6 +1536,13 @@ deployment_overrides_sanitize() {
           continue
         fi
         ;;
+      license)
+        # A marker, never a value: the key itself lives in a Secret.
+        if [ "$value" != 1 ]; then
+          dropped="$dropped $key"
+          continue
+        fi
+        ;;
       *)
         dropped="$dropped $key"
         continue
@@ -1637,10 +1644,13 @@ rewrite_release_lease_name() {
 # evidence and the control-plane Leases, the data claim, the ServiceAccount
 # the Pod runs as, and the container the manager looks up by name.
 # The control-plane Role's "namespace: kube-system" is left alone.
+# kwatch-license-instance keeps its name: the kwatch binary and the license
+# Role's resourceNames hardcode it.
 rewrite_release_names() {
   local manifest="$1" version="$2"
   sed -i.bak \
     -e "/^kind: Namespace$/,/^---$/ s/^  name: kwatch$/  name: __KWATCH_NAMESPACE__/" \
+    -e "s/^\( *name: \)kwatch-license-instance$/\1__KWATCH_LICENSE_INSTANCE__/" \
     -e "s/^\( *-\{0,1\} *name: \)kwatch$/\1$RELEASE/g" \
     -e "s/^\( *serviceAccountName: \)kwatch$/\1$RELEASE/" \
     -e "s/^\( *name: \)kwatch-\([a-z][a-z-]*\)$/\1${RELEASE}-\2/g" \
@@ -1650,6 +1660,7 @@ rewrite_release_names() {
     -e "s#ghcr.io/abahmed/kwatch:[^[:space:]]*#ghcr.io/abahmed/kwatch:$version#g" \
     -e "s/secretName: kwatch/secretName: $CONFIG_SECRET_NAME/g" \
     -e "s/__KWATCH_NAMESPACE__/$NAMESPACE/g" \
+    -e "s/__KWATCH_LICENSE_INSTANCE__/kwatch-license-instance/" \
     "$manifest"
   rm -f "$manifest.bak"
   rewrite_release_lease_name "$manifest"
@@ -2305,6 +2316,9 @@ apply_deployment_overrides_to_manifest() {
   local has_resources=false requested_resources=false can_write_resources=true
   [ -n "$DEPLOYMENT_OVERRIDES" ] || return 0
   grep -q '^    spec:$' "$manifest" || return 1
+  if [ "$(deployment_override_get license || true)" = 1 ]; then
+    inject_license_env_into_manifest "$manifest" || applied_all=false
+  fi
   grep -q '^        resources:$' "$manifest" && has_resources=true
   for section in limits requests; do
     for field in cpu memory; do
@@ -2915,7 +2929,7 @@ load_catalog_for_version() {
 }
 
 load_feature_catalog_file() {
-  local file="$1" entry id lifecycle description dependencies
+  local file="$1" entry id lifecycle description dependencies tier
   local catalog_version="" seen="|"
   local -a loaded=()
   while IFS= read -r entry || [ -n "$entry" ]; do
@@ -2924,17 +2938,26 @@ load_feature_catalog_file() {
       continue
     fi
     [[ -z "$entry" || "$entry" = \#* ]] && continue
-    IFS='|' read -r id lifecycle description dependencies <<<"$entry"
+    IFS='|' read -r id lifecycle description dependencies tier <<<"$entry"
     [ -n "$id" ] && \
       [ "$lifecycle" = startup -o "$lifecycle" = runtime ] && \
       [ -n "$description" ] || return 1
+    # v1 has no tier column; v2 requires community or pro.
+    case "$catalog_version" in
+      1) [ -z "$tier" ] || return 1 ;;
+      2) [ "$tier" = community -o "$tier" = pro ] || return 1 ;;
+      *) return 1 ;;
+    esac
     case "$seen" in
       *"|$id|"*) return 1 ;;
     esac
     seen="${seen}${id}|"
     loaded+=("$entry")
   done < "$file"
-  [ "$catalog_version" = "$SUPPORTED_FEATURE_CATALOG_VERSION" ] || return 1
+  case " $SUPPORTED_FEATURE_CATALOG_VERSIONS " in
+    *" $catalog_version "*) ;;
+    *) return 1 ;;
+  esac
   [ "${#loaded[@]}" -gt 0 ] || return 1
   FEATURE_CATALOG_VERSION="$catalog_version"
   FEATURE_CATALOG=("${loaded[@]}")
@@ -3066,7 +3089,8 @@ LEGACY_BACKUP_NAME=""
 LAST_BACKUP_TIMESTAMP=""
 LAST_BACKUP_SUFFIX=0""
 backup_config() {
-  local resource timestamp candidate
+  local resource timestamp candidate license_key license_backup_file backup_rc=0
+  local -a license_backup_args=()
   resource=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o json)
   timestamp=$(date -u +%Y%m%d%H%M%S)
   # The name is only accurate to the second, and two backups can land inside
@@ -3084,9 +3108,26 @@ backup_config() {
     candidate="${RELEASE}-config-$timestamp"
   fi
   BACKUP_NAME="$candidate"
+  # The license key (the ${RELEASE}-license Secret) travels with the backup so a
+  # restore does not lose it. kwatch-license-instance is deliberately NOT
+  # included: it is kwatch's record of which install it belongs to, and putting
+  # it back on a different cluster -- or into a copy of this one -- would make
+  # that cluster look like a clone of the original and trip the one-key,
+  # one-cluster check. kwatch rebuilds it on its own.
+  license_backup_args=()
+  license_backup_file=""
+  if license_key=$(license_current_key); then
+    license_backup_file=$(mktemp)
+    chmod 600 "$license_backup_file"
+    printf '%s' "$license_key" >"$license_backup_file"
+    license_backup_args=(--from-file="$LICENSE_SECRET_KEY=$license_backup_file")
+  fi
   kubectl -n "$NAMESPACE" create secret generic "$BACKUP_NAME" \
     --from-literal=resource.json="$resource" \
-    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    ${license_backup_args[@]+"${license_backup_args[@]}"} \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null || backup_rc=$?
+  [ -z "$license_backup_file" ] || rm -f "$license_backup_file"
+  [ "$backup_rc" -eq 0 ] || return "$backup_rc"
   kubectl -n "$NAMESPACE" label secret "$BACKUP_NAME" \
     app.kubernetes.io/instance="$RELEASE" \
     app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
@@ -3182,9 +3223,27 @@ restore_backup() {
     die "backup resource could not be restored"
   fi
   rm -f "$backup_file"
+  restore_license_from_backup
   deployment=$(deployment_name)
   [ -n "$deployment" ] || return 0
   restart_kwatch
+}
+
+# Puts the license Secret back from a backup when it has gone missing. An
+# existing Secret is left alone: it may hold a newer key than the backup.
+restore_license_from_backup() {
+  local encoded key deployment
+  encoded=$(secret_data_base64 "$BACKUP_NAME" "$LICENSE_SECRET_KEY")
+  [ -n "$encoded" ] || return 0
+  license_secret_exists && return 0
+  key=$(printf '%s' "$encoded" | base64 -d 2>/dev/null ||
+    printf '%s' "$encoded" | base64 --decode 2>/dev/null ||
+    printf '%s' "$encoded" | base64 -D 2>/dev/null) || return 0
+  [ -n "$key" ] || return 0
+  license_store_secret "$key" || return 0
+  deployment=$(deployment_name || true)
+  [ -n "$deployment" ] && license_wire_env "$deployment" || true
+  ui_info "🔑 Restored the license key ($(license_mask "$key"))."
 }
 
 restore_backup_after_failure() {
@@ -3652,6 +3711,18 @@ preserve_existing_providers() {
   [ "$preserved" = true ]
 }
 
+# Providers that will exist after this edit: the ones already configured plus
+# the ones chosen in this session, each counted once.
+provider_total_count() {
+  local provider display
+  {
+    existing_provider_names | while IFS='|' read -r provider display; do
+      printf '%s\n' "$provider"
+    done
+    printf '%s' "${CONFIGURED_PROVIDERS:-|}" | tr '|' '\n'
+  } | sed '/^$/d' | sort -u | wc -l | tr -d ' '
+}
+
 has_unselected_existing_provider() {
   local provider display
   while IFS='|' read -r provider display; do
@@ -3950,6 +4021,7 @@ configure_flow() {
       printf -v row '%-*s  %-*s' \
         "$path_width" "$(ui_truncate "$path" "$path_width")" \
         "$value_width" "$(ui_truncate "$display_value" "$value_width")"
+      config_path_is_pro "$path" && row="$row  $(pro_badge)"
       labels+=("$row")
       captions+=("$description")
     done
@@ -4027,6 +4099,7 @@ configure_flow() {
 
 configure_alert_flow() {
   local backup deployment had_backup=false rc
+  LICENSE_COMMUNITY_CACHE=""
   require_provider_catalog
   # No confirmation here: reaching this flow is already a deliberate choice, and
   # nothing is written until the save step. Every prompt below accepts "back".
@@ -4091,8 +4164,10 @@ configure_after_install() {
   choice=$(ask_yes_no \
     "🛠️ Configure additional kwatch settings now? This includes all catalog settings" \
     "y")
-  [ "$choice" = true ] || return 0
-  configure_flow
+  [ "$choice" = true ] && configure_flow
+  # Every install path ends here, so this is the last thing an install asks.
+  license_install_prompt
+  return 0
 }
 
 ensure_runtime_config_secret() {
@@ -4853,9 +4928,10 @@ feature_areas() {
 }
 
 show_feature_area() {
-  local area="$1" entry id lifecycle description dependencies line shown=0
+  local area="$1" entry id lifecycle description dependencies tier line
+  local shown=0 pro_shown=0
   for entry in ${FEATURE_CATALOG[@]+"${FEATURE_CATALOG[@]}"}; do
-    IFS='|' read -r id lifecycle description dependencies <<<"$entry"
+    IFS='|' read -r id lifecycle description dependencies tier <<<"$entry"
     case "$area" in
       "") ;;
       *) case "$id" in "$area".*|"$area") ;; *) continue ;; esac ;;
@@ -4866,11 +4942,18 @@ show_feature_area() {
     else
       printf -v line '%-42s %-7s %s' "$id" "$lifecycle" "$description"
     fi
+    if [ "$tier" = pro ]; then
+      line="$line  $(pro_badge)${UI_DIM}"
+      pro_shown=$((pro_shown + 1))
+    fi
     ui_detail "  $line"
     shown=$((shown + 1))
   done
   printf '\n' >&2
   ui_detail "  $shown capabilities"
+  if [ "$pro_shown" -gt 0 ]; then
+    ui_detail "  PRO features need a license — free 90-day trial: https://kwatch.dev/signup?src=installer"
+  fi
 }
 
 features_flow() {
@@ -4975,6 +5058,8 @@ remove_namespaced_workload() {
   delete_owned namespace rolebinding "${RELEASE}-leader-election"
   delete_owned namespace role "${RELEASE}-restart-evidence"
   delete_owned namespace rolebinding "${RELEASE}-restart-evidence"
+  delete_owned namespace role "${RELEASE}-license"
+  delete_owned namespace rolebinding "${RELEASE}-license"
   delete_owned ns:kube-system role "${RELEASE}-control-plane-leases"
   delete_owned ns:kube-system rolebinding "${RELEASE}-control-plane-leases"
   # Releases before the data volume shipped these.
@@ -5585,6 +5670,11 @@ write_config_secret() {
         return "$rc"
       fi
       CONFIGURED_PROVIDERS="${CONFIGURED_PROVIDERS}${PROVIDER}|"
+      # A second provider is where Community stops sending: say so now, but
+      # still let the operator save it.
+      if [ "$(provider_total_count)" -gt 1 ]; then
+        warn_community_provider_cap
+      fi
       provider_available || break
       if add_provider=$(ask_yes_no_or_back \
         "➕ Add another notification provider?" "n"); then
@@ -5863,12 +5953,17 @@ apply_manifests() {
   deployment_overrides_read
   if [ -n "$DEPLOYMENT_OVERRIDES" ]; then
     if apply_deployment_overrides_to_manifest "$tmp"; then
-      if [ "$DEPLOYMENT_OVERRIDES_SOURCE" = record ]; then
+      if [ -z "$(overrides_without_license)" ]; then
+        :
+      elif [ "$DEPLOYMENT_OVERRIDES_SOURCE" = record ]; then
         # Restoring sizing the operator set before an uninstall is helpful, but
         # only if they are told it happened.
         ui_detail "🧮 Restored the Deployment resources and placement recorded earlier."
       else
         ui_detail "🧮 Kept the configured Deployment resources and placement."
+      fi
+      if [ "$(deployment_override_get license || true)" = 1 ]; then
+        ui_detail "🔑 Kept the Pro license key reference ($(license_secret_name))."
       fi
     else
       ui_warn "⚠️ The recorded Deployment resources could not be fully applied to this"
@@ -6325,6 +6420,9 @@ upgrade_flow() {
     record_state failed "$version" "legacy configuration migration failed"
     die "upgrade migration failed"
   fi
+  # A key supplied through the environment is recorded first, so the manifest
+  # applied just below already carries it and the Pod rolls only once.
+  license_apply_from_env record
   record_state apply "$version" "applying upgraded Deployment"
   if apply_manifests "$version"; then
     if ! verify_operational_security; then
@@ -6454,7 +6552,7 @@ show_supported_menu() {
   ui_screen "ready"
   local choice
   local -a actions=() labels=()
-  actions+=(status logs upgrade providers settings resources capabilities)
+  actions+=(status logs upgrade providers settings resources capabilities license)
   labels+=(
     "📊 View status"
     "📜 View recent logs"
@@ -6463,6 +6561,7 @@ show_supported_menu() {
     "⚙️  Edit settings"
     "🧮 Edit Deployment resources and placement"
     "🧩 View capabilities"
+    "🔑 License / Pro"
   )
   # Restoring is meaningless with nothing to restore from.
   if [ -n "$(config_backups)" ]; then
@@ -6493,6 +6592,7 @@ show_supported_menu() {
       features_flow
       MENU_READ_ONLY=true
       ;;
+    license) license_flow ;;
     restore) restore_flow ;;
     uninstall) uninstall_flow ;;
     *) MENU_EXIT=true ;;
@@ -6769,6 +6869,7 @@ status_flow() {
   else
     ui_warn "⚠️ No kwatch Deployment was found."
   fi
+  license_status_section
   state=$(kubectl -n "$NAMESPACE" get configmap "$STATE_CONFIGMAP_NAME" \
     -o 'jsonpath={.data.phase}{"|"}{.data.version}{"|"}{.data.message}' \
     2>/dev/null || true)
@@ -6799,7 +6900,7 @@ show_deployment_shape() {
   fi
   ui_kv "📍" "Placement" "${selector_text:-any node}"
   deployment_overrides_read
-  if [ -n "$DEPLOYMENT_OVERRIDES" ]; then
+  if [ -n "$(overrides_without_license)" ]; then
     ui_detail "  🔒 Recorded; upgrades and reinstalls keep these values."
   else
     ui_detail "  ℹ️ Release defaults; edit them from the menu to keep them across upgrades."
@@ -7135,6 +7236,8 @@ uninstall_flow() {
   ui_busy "Checking uninstall permissions"
   preflight_uninstall_access "$purge"
   ui_busy_done
+  # The Pod is needed to release the key, so this comes before the workload goes.
+  license_release_before_uninstall
   ui_info \
     "🧹 Removing kwatch resources from namespace '$NAMESPACE'; other resources remain."
   remove_namespaced_workload
@@ -7147,6 +7250,7 @@ uninstall_flow() {
   else
     ui_info "🔐 Preserving unowned Secret '$CONFIG_SECRET_NAME'."
   fi
+  license_delete_after_uninstall
   if [ "$purge" = true ]; then
     with_loading "Removing manager data" purge_manager_data
   fi
@@ -7157,6 +7261,726 @@ uninstall_flow() {
   else
     ui_success \
       "✅ kwatch workload removed. KwatchConfig, backups, the state volume, namespace, and CRD remain."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# License / Pro
+#
+# The Community edition is free; Pro is unlocked by a license key (one key, one
+# cluster). The key lives in a Secret named after the release and reaches the
+# kwatch container as KWATCH_LICENSE_KEY through a secretKeyRef, so it is never
+# written into the Deployment itself. The wiring is recorded as a `license=1`
+# entry among the Deployment overrides, which is how an upgrade -- the manifest
+# is downloaded fresh every time -- keeps it.
+# ---------------------------------------------------------------------------
+LICENSE_TRIAL_URL="https://kwatch.dev/signup?src=installer"
+LICENSE_ACCOUNT_URL="https://kwatch.dev/account"
+LICENSE_ENV_NAME="KWATCH_LICENSE_KEY"
+LICENSE_SECRET_KEY="license-key"
+# kwatch's own per-install record. It is not named after the release because
+# kwatch, not this script, owns it. Never backed up or restored: see
+# backup_config.
+LICENSE_INSTANCE_SECRET="kwatch-license-instance"
+LICENSE_HEALTH_PORT=8060
+LICENSE_FLOW_CHANGED=false
+LICENSE_COMMUNITY_CACHE=""
+LICENSE_PAYLOAD=""
+LICENSE_PLAN=""
+LICENSE_EXP=""
+LICENSE_DAYS_LEFT=""
+
+license_secret_name() { printf '%s-license' "$RELEASE"; }
+
+# The badge features_flow draws next to Pro capabilities.
+pro_badge() { printf '%sPRO%s' "$UI_YELLOW" "$UI_RESET"; }
+
+license_now() { date +%s; }
+license_have_jq() { command -v jq >/dev/null 2>&1; }
+
+# The key is a credential: only the last six characters are ever shown.
+license_mask() {
+  local key="$1"
+  if [ "${#key}" -le 10 ]; then
+    printf 'KW1-…'
+  else
+    printf 'KW1-…%s' "${key: -6}"
+  fi
+}
+
+# base64url without padding -> bytes. Restores the alphabet and the padding
+# that the standard decoder insists on.
+base64url_decode() {
+  local text="${1//-/+}" out
+  text="${text//_//}"
+  case $((${#text} % 4)) in
+    1) return 1 ;;
+    2) text="$text==" ;;
+    3) text="$text=" ;;
+  esac
+  out=$(printf '%s' "$text" | base64 -d 2>/dev/null) ||
+    out=$(printf '%s' "$text" | base64 --decode 2>/dev/null) ||
+    out=$(printf '%s' "$text" | base64 -D 2>/dev/null) || return 1
+  printf '%s' "$out"
+}
+
+# Prints the decoded payload JSON of KW1-<payload>.<signature>. The signature is
+# only checked for being present: verifying it is kwatch's job, not this
+# script's.
+license_payload_json() {
+  local key="$1" body payload signature json
+  case "$key" in
+    KW1-*) ;;
+    *) return 1 ;;
+  esac
+  body="${key#KW1-}"
+  case "$body" in
+    *.*.*|.*|*.|*[!A-Za-z0-9_.=-]*) return 1 ;;
+    *.*) ;;
+    *) return 1 ;;
+  esac
+  payload="${body%%.*}"
+  signature="${body#*.}"
+  [ -n "$payload" ] && [ -n "$signature" ] || return 1
+  json=$(base64url_decode "$payload") || return 1
+  case "$json" in
+    \{*\}) ;;
+    *) return 1 ;;
+  esac
+  printf '%s' "$json"
+}
+
+# One field of a flat JSON object: jq when it is installed, sed otherwise.
+license_json_field() {
+  local json="$1" field="$2"
+  if license_have_jq; then
+    printf '%s' "$json" | jq -r --arg f "$field" '.[$f] // empty' 2>/dev/null
+  else
+    printf '%s' "$json" | sed -n \
+      "s/.*\"$field\"[[:space:]]*:[[:space:]]*\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p" |
+      head -1
+  fi
+}
+
+license_date() {
+  date -u -r "$1" +%Y-%m-%d 2>/dev/null ||
+    date -u -d "@$1" +%Y-%m-%d 2>/dev/null || printf '%s' "$1"
+}
+
+# Decodes the key into LICENSE_PLAN, LICENSE_EXP and LICENSE_DAYS_LEFT.
+# Returns 0 when usable, 1 when it is not a key at all, 2 when it has expired.
+license_inspect() {
+  local key="$1" now
+  LICENSE_PAYLOAD=""
+  LICENSE_PLAN=""
+  LICENSE_EXP=""
+  LICENSE_DAYS_LEFT=""
+  LICENSE_PAYLOAD=$(license_payload_json "$key") || return 1
+  LICENSE_PLAN=$(license_json_field "$LICENSE_PAYLOAD" plan || true)
+  LICENSE_EXP=$(license_json_field "$LICENSE_PAYLOAD" exp || true)
+  [[ "$LICENSE_EXP" =~ ^[0-9]+$ ]] || return 1
+  now=$(license_now)
+  LICENSE_DAYS_LEFT=$(((LICENSE_EXP - now) / 86400))
+  [ "$LICENSE_EXP" -gt "$now" ] || return 2
+  return 0
+}
+
+license_report_key() {
+  local key="$1" rc=0
+  license_inspect "$key" || rc=$?
+  case "$rc" in
+    0)
+      ui_success "✅ Key accepted: plan ${LICENSE_PLAN:-unknown}, ${LICENSE_DAYS_LEFT} days left (expires $(license_date "$LICENSE_EXP"))."
+      ;;
+    1)
+      ui_error "❌ That is not a kwatch license key (expected KW1-<payload>.<signature>)."
+      ;;
+    2)
+      ui_warn "⚠️ This license key expired on $(license_date "$LICENSE_EXP")."
+      ;;
+  esac
+  return "$rc"
+}
+
+license_secret_exists() {
+  [ -n "$(kubectl -n "$NAMESPACE" get secret "$(license_secret_name)" \
+    --ignore-not-found -o name 2>/dev/null || true)" ]
+}
+
+# Prints the stored key, or nothing and a failure when there is none.
+license_current_key() {
+  local encoded key
+  encoded=$(secret_data_base64 "$(license_secret_name)" "$LICENSE_SECRET_KEY")
+  [ -n "$encoded" ] || return 1
+  key=$(printf '%s' "$encoded" | base64 -d 2>/dev/null ||
+    printf '%s' "$encoded" | base64 --decode 2>/dev/null ||
+    printf '%s' "$encoded" | base64 -D 2>/dev/null) || return 1
+  [ -n "$key" ] || return 1
+  printf '%s' "$key"
+}
+
+# The first kwatch Pod, or nothing and a failure.
+kwatch_pod_name() {
+  local pod
+  pod=$(kubectl -n "$NAMESPACE" get pods -l "$(workload_selector)" \
+    -o 'jsonpath={.items[0].metadata.name}' 2>/dev/null || true)
+  [ -n "$pod" ] || return 1
+  printf '%s' "$pod"
+}
+
+# The text kwatch serves on /status, read through the API server's Pod proxy so
+# nothing has to be installed in the (read-only, minimal) container. kwatch
+# serves /status only with healthCheck.statusEndpoint: true (default false).
+kwatch_status_proxy() {
+  local pod
+  pod=$(kwatch_pod_name) || return 1
+  kubectl get --raw \
+    "/api/v1/namespaces/$NAMESPACE/pods/$pod:$LICENSE_HEALTH_PORT/proxy/status" \
+    --request-timeout=10s 2>/dev/null
+}
+
+# Fallback when /status is off: `kwatch license status` run in the Pod.
+kwatch_status_exec() {
+  local pod
+  pod=$(kwatch_pod_name) || return 1
+  kubectl -n "$NAMESPACE" exec "$pod" -- kwatch license status 2>/dev/null
+}
+
+# Turns the output of `kwatch license status` (internal/app/license_cli.go) into
+# the Edition and License lines of /status. The command prints "Key:", "State:",
+# "Plan:", "License:" and "Expires:" lines, or one "No license key is
+# configured: kwatch runs the Community edition." line. State is a local check
+# of the key (valid key, expired or invalid), not the activation.
+kwatch_license_cli_to_status() {
+  local text="$1" state plan
+  if grep -qi '^No license key is configured' <<<"$text"; then
+    printf 'Edition: Community\nLicense: community\n'
+    return 0
+  fi
+  state=$(printf '%s\n' "$text" | sed -n 's/^State:[[:space:]]*//p' | head -1)
+  [ -n "$state" ] || return 1
+  plan=$(printf '%s\n' "$text" | sed -n 's/^Plan:[[:space:]]*//p' | head -1)
+  case "$state" in
+    valid*) printf 'Edition: %s\n' "${plan:-unknown}" ;;
+    *) printf 'Edition: Community\n' ;;
+  esac
+  printf 'License: %s\n' "$state"
+}
+
+# The /status text, or the same lines rebuilt from `kwatch license status`
+# when /status is off. Fails when neither answers.
+kwatch_status_text() {
+  local text
+  text=$(kwatch_status_proxy || true)
+  if [ -n "$text" ]; then
+    printf '%s\n' "$text"
+    return 0
+  fi
+  text=$(kwatch_status_exec || true)
+  [ -n "$text" ] || return 1
+  kwatch_license_cli_to_status "$text"
+}
+
+LICENSE_STATUS_UNAVAILABLE="license state unavailable (enable healthCheck.statusEndpoint for full status)"
+
+# The Edition and License lines of a /status text.
+license_status_lines() {
+  printf '%s\n' "$1" | grep -iE '^[[:space:]]*(Edition|License)[^:]*:' || true
+}
+
+license_inactive_line() {
+  printf '%s\n' "$1" |
+    grep -i 'Pro features configured but inactive:' | head -1 || true
+}
+
+# community, invalid, pending, active, grace, expired, revoked or conflict.
+# The troublesome ones come first so "expired (was active)" reads as expired.
+license_state_word() {
+  local lower word
+  lower=$(printf ' %s ' "$1" | tr '[:upper:]' '[:lower:]')
+  for word in conflict revoked expired invalid grace pending active community; do
+    case "$lower" in
+      *[!a-z]"$word"[!a-z]*) printf '%s' "$word"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
+license_state_hint() {
+  case "$1" in
+    conflict) printf 'license is bound to another cluster — choose "Move license to this cluster" in License / Pro, or transfer it at %s' "$LICENSE_ACCOUNT_URL" ;;
+    grace) printf 'kwatch could not verify the license recently; Pro keeps working for now — check egress or renew at %s' "$LICENSE_ACCOUNT_URL" ;;
+    expired) printf 'the license has expired and Pro features are off — renew it at %s' "$LICENSE_ACCOUNT_URL" ;;
+    revoked) printf 'the license was revoked — manage it at %s' "$LICENSE_ACCOUNT_URL" ;;
+    invalid) printf 'kwatch rejected the key — replace it from License / Pro in the menu' ;;
+    *) return 1 ;;
+  esac
+}
+
+# Prints the edition and license lines of a /status text, and calls out the
+# states that need attention.
+license_print_status() {
+  local text="$1" lines inactive word hint line
+  lines=$(license_status_lines "$text")
+  inactive=$(license_inactive_line "$text")
+  [ -n "$lines$inactive" ] || return 1
+  word=$(license_state_word "$lines" || true)
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    line="${line#"${line%%[![:space:]]*}"}"
+    case "$word" in
+      grace|expired|conflict|revoked|invalid) ui_warn "  🎫 $line" ;;
+      *) ui_detail "  🎫 $line" ;;
+    esac
+  done <<<"$lines"
+  if hint=$(license_state_hint "$word" 2>/dev/null); then
+    ui_warn "     ↳ $hint"
+  fi
+  if [ -n "$inactive" ]; then
+    inactive="${inactive#"${inactive%%[![:space:]]*}"}"
+    ui_warn "  🔒 $inactive"
+  fi
+  return 0
+}
+
+license_status_section() {
+  local text
+  text=$(kwatch_status_text || true)
+  if [ -z "$text" ] || ! license_print_status "$text"; then
+    ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+  fi
+}
+
+# community | other | "" (unknown), from the Edition line of /status.
+license_edition() {
+  local line
+  line=$(kwatch_status_text 2>/dev/null |
+    grep -iE '^[[:space:]]*Edition[^:]*:' | head -1 || true)
+  [ -n "$line" ] || return 0
+  case "$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')" in
+    *community*) printf 'community' ;;
+    *) printf 'other' ;;
+  esac
+}
+
+# Community when /status says so; with no answer, when no key was ever added.
+license_is_community() {
+  case "$LICENSE_COMMUNITY_CACHE" in
+    yes) return 0 ;;
+    no) return 1 ;;
+  esac
+  case "$(license_edition)" in
+    community) LICENSE_COMMUNITY_CACHE=yes; return 0 ;;
+    other) LICENSE_COMMUNITY_CACHE=no; return 1 ;;
+  esac
+  if license_secret_exists; then
+    LICENSE_COMMUNITY_CACHE=no
+    return 1
+  fi
+  LICENSE_COMMUNITY_CACHE=yes
+  return 0
+}
+
+community_provider_cap_message() {
+  printf 'Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free 90-day trial: %s)' \
+    "$LICENSE_TRIAL_URL"
+}
+
+# Called when a provider is being added to a configuration that already has
+# one. Saving is still allowed: the extra providers simply stay inactive.
+warn_community_provider_cap() {
+  license_is_community || return 0
+  ui_warn "⚠️ $(community_provider_cap_message)"
+  return 0
+}
+
+# Pro-only settings, matched on the path itself or anything beneath it.
+config_path_is_pro() {
+  local top="${1%%.*}"
+  case "$top" in
+    routes|routing|templates|severityByReason|severityByOwnerKind|maintenance|\
+    runbooks|auditLog|heartbeatMonitor|activeProbeMonitor|namespaceSelector|\
+    reasons) return 0 ;;
+  esac
+  return 1
+}
+
+# DEPLOYMENT_OVERRIDES without the license marker: what the sizing screens mean
+# by "recorded".
+overrides_without_license() {
+  local entry kept=""
+  local IFS=';'
+  for entry in $DEPLOYMENT_OVERRIDES; do
+    [ -n "$entry" ] || continue
+    [ "$entry" = license=1 ] && continue
+    kept="${kept:+$kept;}$entry"
+  done
+  printf '%s' "$kept"
+}
+
+# Adds (on) or drops (off) the license marker in DEPLOYMENT_OVERRIDES.
+license_overrides_set() {
+  local state="$1" kept
+  kept=$(overrides_without_license)
+  if [ "$state" = on ]; then
+    kept="${kept:+$kept;}license=1"
+  fi
+  DEPLOYMENT_OVERRIDES="$kept"
+}
+
+# The container's env var, as the Deployment should carry it.
+license_env_patch() {
+  local container="$1" mode="${2:-set}" name
+  name=$(license_secret_name)
+  printf '{"spec":{"template":{"spec":{"containers":[{"name":"%s","env":[' "$container"
+  if [ "$mode" = remove ]; then
+    # shellcheck disable=SC2016  # "$patch" is the literal merge directive
+    printf '{"name":"%s","$patch":"delete"}' "$LICENSE_ENV_NAME"
+  else
+    printf '{"name":"%s","value":null,"valueFrom":{"secretKeyRef":{"name":"%s","key":"%s","optional":true}}}' \
+      "$LICENSE_ENV_NAME" "$name" "$LICENSE_SECRET_KEY"
+  fi
+  printf ']}]}}}}'
+}
+
+kwatch_container_name() {
+  local deployment="$1" names name
+  names=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o 'jsonpath={range .spec.template.spec.containers[*]}{.name}{"\n"}{end}' \
+    2>/dev/null || true)
+  while IFS= read -r name; do
+    if [ "$name" = "$RELEASE" ] || [ "$name" = kwatch ]; then
+      printf '%s' "$name"
+      return 0
+    fi
+  done <<<"$names"
+  return 1
+}
+
+# True when the Deployment already reads the key from this release's Secret.
+license_env_wired() {
+  local deployment="$1" current
+  current=$(kubectl -n "$NAMESPACE" get deployment "$deployment" \
+    -o "jsonpath={.spec.template.spec.containers[*].env[?(@.name==\"$LICENSE_ENV_NAME\")].valueFrom.secretKeyRef.name}" \
+    2>/dev/null || true)
+  [ "$current" = "$(license_secret_name)" ]
+}
+
+# Puts KWATCH_LICENSE_KEY (from the Secret, optional) into the manifest. The
+# Secret is optional so a Pod still starts, as Community, if the key is gone.
+inject_license_env_into_manifest() {
+  local manifest="$1" rewritten header=false
+  grep -q "name: $LICENSE_ENV_NAME\$" "$manifest" && return 0
+  grep -q '^        env:$' "$manifest" || header=true
+  rewritten=$(mktemp) || return 1
+  if ! KWATCH_LICENSE_SECRET="$(license_secret_name)" \
+    KWATCH_LICENSE_ENV="$LICENSE_ENV_NAME" \
+    KWATCH_LICENSE_KEYNAME="$LICENSE_SECRET_KEY" \
+    KWATCH_ENV_HEADER="$header" awk '
+    function emit() {
+      printf "          - name: %s\n", ENVIRON["KWATCH_LICENSE_ENV"]
+      print "            valueFrom:"
+      print "              secretKeyRef:"
+      printf "                name: %s\n", ENVIRON["KWATCH_LICENSE_SECRET"]
+      printf "                key: %s\n", ENVIRON["KWATCH_LICENSE_KEYNAME"]
+      print "                optional: true"
+    }
+    ENVIRON["KWATCH_ENV_HEADER"] == "false" && /^        env:$/ && done == 0 {
+      print; emit(); done = 1; next
+    }
+    ENVIRON["KWATCH_ENV_HEADER"] == "true" && /^        image:/ && done == 0 {
+      print; print "        env:"; emit(); done = 1; next
+    }
+    { print }
+  ' "$manifest" >"$rewritten" ||
+    ! grep -q "name: $LICENSE_ENV_NAME\$" "$rewritten"; then
+    rm -f "$rewritten"
+    return 1
+  fi
+  mv "$rewritten" "$manifest" || { rm -f "$rewritten"; return 1; }
+}
+
+# Create or update the license Secret.
+license_store_secret() {
+  local key="$1" name tmp
+  name=$(license_secret_name)
+  tmp=$(mktemp) || return 1
+  chmod 600 "$tmp"
+  printf '%s' "$key" >"$tmp"
+  if ! kubectl -n "$NAMESPACE" create secret generic "$name" \
+    --from-file="$LICENSE_SECRET_KEY=$tmp" --dry-run=client -o yaml |
+    kubectl apply -f - >/dev/null; then
+    rm -f "$tmp"
+    return 1
+  fi
+  rm -f "$tmp"
+  kubectl -n "$NAMESPACE" label secret "$name" \
+    app.kubernetes.io/instance="$RELEASE" \
+    app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
+}
+
+license_wire_env() {
+  local deployment="$1" container
+  license_env_wired "$deployment" && return 0
+  container=$(kwatch_container_name "$deployment") || container=kwatch
+  kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=strategic \
+    -p "$(license_env_patch "$container")" >/dev/null
+}
+
+# Stores the key and wires it into kwatch. Mode "record" stops short of touching
+# the running workload: the next apply_manifests picks the marker up (used when
+# an upgrade is about to apply the manifest anyway).
+license_apply_key() {
+  local key="$1" mode="${2:-full}" deployment already=false
+  with_loading "Saving the license key" license_store_secret "$key" || {
+    ui_error "❌ Could not save the license Secret." \
+      "$(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
+    return 1
+  }
+  deployment=$(deployment_name || true)
+  deployment_overrides_read
+  license_overrides_set on
+  if [ -z "$deployment" ] || [ "$mode" = record ]; then
+    deployment_overrides_write "${deployment:-$RELEASE}" "$DEPLOYMENT_OVERRIDES" \
+      >/dev/null 2>&1 || true
+    LICENSE_FLOW_CHANGED=true
+    ui_detail "  The key is stored; it is applied with the next install or upgrade."
+    return 0
+  fi
+  license_env_wired "$deployment" && already=true
+  with_loading "Pointing kwatch at the license Secret" \
+    license_wire_env "$deployment" || {
+    ui_error "❌ Could not add $LICENSE_ENV_NAME to the Deployment." \
+      "$(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
+    return 1
+  }
+  with_loading "Recording the license for future upgrades" \
+    deployment_overrides_write "$deployment" "$DEPLOYMENT_OVERRIDES" || {
+    ui_warn "⚠️ The key is active, but it could not be recorded;"
+    ui_warn "   an upgrade might drop it. Add it again after upgrading."
+  }
+  LICENSE_FLOW_CHANGED=true
+  invalidate_deployment_name
+  LICENSE_COMMUNITY_CACHE=""
+  if [ "$already" = true ]; then
+    restart_kwatch || return 1
+  else
+    with_loading "Waiting for kwatch rollout" \
+      wait_for_kwatch_rollout "$deployment" || return 1
+  fi
+  ui_success "✅ License key applied: $(license_mask "$key")"
+}
+
+# The same key supplied through the environment: no prompts. An unusable key is
+# reported and skipped rather than failing an install that otherwise worked.
+license_apply_from_env() {
+  local mode="${1:-full}" key="${KWATCH_LICENSE_KEY:-}" rc=0
+  key="${key//[[:space:]]/}"
+  [ -n "$key" ] || return 0
+  ui_info "🔑 Applying $LICENSE_ENV_NAME ($(license_mask "$key"))"
+  license_report_key "$key" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    ui_warn "⚠️ Skipping the license key from $LICENSE_ENV_NAME."
+    return 0
+  fi
+  license_apply_key "$key" "$mode" ||
+    ui_warn "⚠️ The license key could not be applied; add it from License / Pro."
+}
+
+# The last step of an install.
+license_install_prompt() {
+  local key rc=0
+  if [ -n "${KWATCH_LICENSE_KEY:-}" ]; then
+    license_apply_from_env full
+    return 0
+  fi
+  license_secret_exists && return 0
+  key=$(ask_secret "🔑 Have a Pro license key? (Enter to skip)") ||
+    exit_expected
+  key="${key//[[:space:]]/}"
+  if [ -z "$key" ]; then
+    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+    return 0
+  fi
+  license_report_key "$key" || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ui_detail "  Add it later from License / Pro in the menu."
+    return 0
+  fi
+  if [ "$rc" -eq 2 ]; then
+    confirm_action "Use the expired key anyway" "n" || return 0
+  fi
+  license_apply_key "$key" full ||
+    ui_warn "⚠️ The license key could not be applied; add it from License / Pro."
+}
+
+license_show_status() {
+  local key text
+  ui_screen "license"
+  if key=$(license_current_key); then
+    ui_kv "🔑" "Key" "$(license_mask "$key")"
+    local rc=0
+    license_inspect "$key" || rc=$?
+    if [ "$rc" -eq 1 ]; then
+      ui_warn "⚠️ The stored key does not decode as a kwatch license key."
+    else
+      ui_kv "🎟️" "Plan" "${LICENSE_PLAN:-unknown}"
+      if [ "$rc" -eq 2 ]; then
+        ui_warn "  ⌛ Expired on $(license_date "$LICENSE_EXP")"
+      else
+        ui_kv "⏳" "Days left" "$LICENSE_DAYS_LEFT (expires $(license_date "$LICENSE_EXP"))"
+      fi
+    fi
+  else
+    ui_detail "  No license key is configured: this is the Community edition."
+    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+  fi
+  printf '\n' >&2
+  text=$(kwatch_status_text || true)
+  if [ -z "$text" ] || ! license_print_status "$text"; then
+    ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+  fi
+}
+
+license_add_flow() {
+  local key rc=0
+  ui_heading "🔑  Add or replace the license key"
+  license_secret_exists || ui_detail "  No key yet? Free 90-day trial: $LICENSE_TRIAL_URL"
+  key=$(ask_secret_or_back "Pro license key") || {
+    ui_info "↩️ Nothing was changed."
+    return 0
+  }
+  key="${key//[[:space:]]/}"
+  [ -n "$key" ] || { ui_info "↩️ Nothing was changed."; return 0; }
+  license_report_key "$key" || rc=$?
+  [ "$rc" -ne 1 ] || return 0
+  if [ "$rc" -eq 2 ]; then
+    confirm_action "Save the expired key anyway" "n" || {
+      ui_info "↩️ Nothing was changed."
+      return 0
+    }
+  fi
+  check_access patch deployments namespace
+  license_apply_key "$key" full ||
+    ui_error "❌ The license key was not fully applied."
+}
+
+license_remove_flow() {
+  local deployment container name
+  ui_heading "🗑️  Remove the license key"
+  name=$(license_secret_name)
+  if ! license_secret_exists; then
+    ui_detail "  No license key is configured."
+    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+    return 0
+  fi
+  confirm_change "🗑️ Remove the license key and return to Community." \
+    "The Secret $name and the $LICENSE_ENV_NAME setting are deleted and kwatch restarts. To use the key on another cluster, release it first (uninstall offers this)." ||
+    { ui_info "↩️ Nothing was changed."; return 0; }
+  deployment=$(deployment_name || true)
+  deployment_overrides_read
+  license_overrides_set off
+  if [ -n "$deployment" ]; then
+    container=$(kwatch_container_name "$deployment") || container=kwatch
+    with_loading "Removing $LICENSE_ENV_NAME from the Deployment" \
+      kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=strategic \
+      -p "$(license_env_patch "$container" remove)" >/dev/null || {
+      ui_error "❌ Could not update the Deployment." \
+        "$(compact_reason "${LAST_COMMAND_ERROR:-no diagnostic was returned}")"
+      return 1
+    }
+    deployment_overrides_write "$deployment" "$DEPLOYMENT_OVERRIDES" \
+      >/dev/null 2>&1 || true
+  fi
+  kubectl -n "$NAMESPACE" delete secret "$name" --ignore-not-found >/dev/null ||
+    ui_warn "⚠️ The Secret $name could not be deleted."
+  LICENSE_FLOW_CHANGED=true
+  LICENSE_COMMUNITY_CACHE=""
+  invalidate_deployment_name
+  if [ -n "$deployment" ]; then
+    with_loading "Waiting for kwatch rollout" \
+      wait_for_kwatch_rollout "$deployment" || return 1
+  fi
+  ui_success "✅ License key removed; kwatch is running as Community."
+}
+
+# Takes the license over from the cluster that holds it. `kwatch license move`
+# runs in the Pod: it asks the leader to move and prints the outcome (moved,
+# already here, transfer limit reached, invalid key). It can wait up to about
+# two minutes for the leader, so its output is shown as it comes.
+license_move_flow() {
+  local pod
+  ui_heading "🚚  Move the license to this cluster"
+  if ! license_secret_exists; then
+    ui_detail "  No license key is configured here. Add it first with Add or replace key."
+    return 0
+  fi
+  confirm_change "🚚 Move the license to this cluster." \
+    "The cluster that holds it now drops to Community at its next daily check. A license can move 3 times in 30 days." ||
+    { ui_info "↩️ Nothing was changed."; return 0; }
+  pod=$(kwatch_pod_name) || {
+    ui_error "❌ No kwatch Pod was found in $NAMESPACE; wait for kwatch to start and try again."
+    return 1
+  }
+  ui_info "⏳ Asking kwatch to move the license (this can take up to 2 minutes)"
+  LICENSE_COMMUNITY_CACHE=""
+  if ! kubectl -n "$NAMESPACE" exec "$pod" -- kwatch license move; then
+    ui_warn "⚠️ The license was not moved. You can also transfer it at $LICENSE_ACCOUNT_URL"
+    return 1
+  fi
+}
+
+license_flow() {
+  local choice
+  LICENSE_FLOW_CHANGED=false
+  LICENSE_COMMUNITY_CACHE=""
+  while true; do
+    ui_screen "license / pro"
+    choice=$(ui_select 0 \
+      "📋 Show license status" \
+      "🔑 Add or replace key" \
+      "🚚 Move license to this cluster" \
+      "🗑️  Remove key" \
+      "↩️  Back") || break
+    case "$choice" in
+      0) license_show_status; ui_pause ;;
+      1) license_add_flow; ui_pause ;;
+      2) license_move_flow || true; ui_pause ;;
+      3) license_remove_flow; ui_pause ;;
+      *) break ;;
+    esac
+  done
+  [ "$LICENSE_FLOW_CHANGED" = true ] || MENU_READ_ONLY=true
+  return 0
+}
+
+# Uninstall: free the key so another cluster can use it.
+license_release_before_uninstall() {
+  local pod
+  license_secret_exists || return 0
+  confirm_action "Release the license so it can be used on another cluster?" "y" ||
+    return 0
+  pod=$(kubectl -n "$NAMESPACE" get pods -l "$(workload_selector)" \
+    -o 'jsonpath={.items[0].metadata.name}' 2>/dev/null || true)
+  if [ -n "$pod" ] &&
+    kubectl -n "$NAMESPACE" exec "$pod" -- kwatch license deactivate; then
+    ui_success "✅ License released."
+  else
+    ui_warn "⚠️ Could not release the license from the Pod; you can release it from $LICENSE_ACCOUNT_URL"
+  fi
+}
+
+license_delete_after_uninstall() {
+  local name
+  name=$(license_secret_name)
+  if license_secret_exists || [ -n "$(kubectl -n "$NAMESPACE" get secret \
+    "$LICENSE_INSTANCE_SECRET" --ignore-not-found -o name 2>/dev/null || true)" ]; then
+    if confirm_action "Delete the license Secrets ($name and $LICENSE_INSTANCE_SECRET)?" "n"; then
+      kubectl -n "$NAMESPACE" delete secret "$name" "$LICENSE_INSTANCE_SECRET" \
+        --ignore-not-found >/dev/null 2>&1 || true
+    else
+      ui_info "🔐 Keeping the license Secrets."
+    fi
   fi
 }
 
@@ -7193,6 +8017,10 @@ Environment:
                                    emptyDir that is lost when the Pod moves
   KWATCH_STORAGE_CLASS             StorageClass for the state claim
   KWATCH_STORAGE_SIZE              Size of the state volume (default: 2Gi)
+  KWATCH_LICENSE_KEY               Pro license key (KW1-...). When set, install
+                                   and upgrade store it in the ${RELEASE}-license
+                                   Secret and apply it without prompting. Manage
+                                   it later from License / Pro in the menu
 USAGE
 }
 
@@ -7248,7 +8076,7 @@ configure_deployment_resources_flow() {
   while true; do
     ui_screen_clear
     ui_heading "🧮 Deployment resources and placement"
-    if [ -n "$DEPLOYMENT_OVERRIDES" ]; then
+    if [ -n "$(overrides_without_license)" ]; then
       ui_detail "  Recorded; upgrades and reinstalls keep these values."
     else
       ui_detail "  Release defaults; applying here makes upgrades keep them."
@@ -7368,7 +8196,7 @@ edit_placement_field() {
 
 apply_deployment_shape() {
   local deployment="$1" index="$2" requests_cpu="$3" requests_memory="$4"
-  local limits_cpu="$5" limits_memory="$6" node_spec="$7" details patch
+  local limits_cpu="$5" limits_memory="$6" node_spec="$7" details patch had_license
   # A Deployment that carries no resources at all leaves these empty, and an
   # empty quantity is not something to send: the API server rejects it, and
   # cpu_to_milli reads it as 0, so the request-vs-limit check below would not
@@ -7391,10 +8219,13 @@ apply_deployment_shape() {
     ui_error "❌ The memory request ($requests_memory) is above the memory limit ($limits_memory)."
     return 1
   fi
+  had_license=$(deployment_override_get license || true)
   DEPLOYMENT_OVERRIDES="requests.cpu=$requests_cpu;requests.memory=$requests_memory"
   DEPLOYMENT_OVERRIDES="$DEPLOYMENT_OVERRIDES;limits.cpu=$limits_cpu;limits.memory=$limits_memory"
   [ -n "$node_spec" ] &&
     DEPLOYMENT_OVERRIDES="$DEPLOYMENT_OVERRIDES;nodeSelector=$node_spec"
+  # The license marker shares this record; rewriting the sizing must not drop it.
+  [ "$had_license" = 1 ] && DEPLOYMENT_OVERRIDES="$DEPLOYMENT_OVERRIDES;license=1"
 
   details="This replaces the kwatch container's resources with requests"
   details="$details $requests_cpu/$requests_memory and limits"

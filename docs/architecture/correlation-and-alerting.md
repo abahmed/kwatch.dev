@@ -1,356 +1,142 @@
 ---
 sidebar_position: 3
 title: Incident lifecycle & delivery
-description: kwatch incident engine, delivery manager, and insight engine — incident lifecycle, dedup, escalation, smart grouping, delivery, and cause/impact analysis
-keywords: [kwatch, kubernetes, architecture, incident, delivery, insight, incident lifecycle, dedup, escalation]
+description: How kwatch settles findings into incidents, explains them by root cause, and delivers one message per cause with at-least-once delivery.
+keywords: [kwatch, kubernetes, architecture, incident, delivery, root cause, incident lifecycle, dedup]
 pagination_prev: architecture/packages-overview
 pagination_next: architecture/infrastructure-packages
 ---
 
-# 🔔 Incident lifecycle and delivery
+# 🧠 Incident lifecycle and delivery
 
-This page explains how kwatch turns many raw signals into one useful incident,
-then delivers it reliably to your configured provider.
+## The incident states
 
-The page keeps the historical filename and the external `correlation.*`
-configuration vocabulary for compatibility. The implementation boundary is
-`internal/incident`; no internal package named `correlation` is required.
-
-## 9. `internal/incident/` — Incident Engine
-
-**Domain path:** `internal/incident/`
-
-The implementation lives in this package. There is one runtime engine and one
-discoverable owner for incident lifecycle decisions.
-
-### Role
-
-The brain of kwatch. It runs every observed event through a fixed five-stage
-decision pipeline — baseline, attribution, cooldown, identity, announcement —
-and manages the incident lifecycle (CREATE / UPDATE / RESOLVE / SKIP).
-It is also the **only** emitter of notifications: every decision — a live
-event, a resolve, a group flush, a re-notification, a mass failure — leaves
-through `emit.go` and the `LifecycleHook`, so audit, diagnosis and delivery
-cannot diverge between paths.
-
-### Key types
-
-```go
-type Engine struct {
-    state              map[model.IncidentKey]*model.Incident
-    namespaceIndex     map[string]map[model.IncidentKey]*model.Incident
-    config             Config
-    baseline           map[string]map[string]int64 // startup baseline
-    activeNodeIncidents map[string]bool
-    groupBuffers       map[string]*pendingGroup
-    groupResolveTrackers map[string]*groupResolveTracker
-    massFailures       map[model.IncidentKey]*model.Incident
-    ...
-}
-
-type Config struct {
-    Window                     time.Duration
-    LifecycleInterval          time.Duration
-    Enricher                   enricher.Enricher
-    LifecycleHook              func(*model.Incident, model.IncidentAction)
-    MassFailureHook            func()
-    BaselineTTL                time.Duration
-    Baseline                   map[string]map[string]int64
-    EscalationEnabled          bool
-    EscalationTiers            []int
-    InhibitNodeSuppressesPods  bool
-    MaxBaseline                int
-    RenotifyIntervalBySeverity map[string]time.Duration
-    RenotifyMaxPerIncident     int
-    ResolveHoldDown            time.Duration
-    Runbooks                   map[string]string
-    SmartGroupingWindow        time.Duration
-    NamespaceFanOutThreshold   int
-    DependenciesOf             func(*model.Incident) []string
-}
+```text
+ Settling -> Open -> Recovering -> Resolved
+                \        |            |
+                 \--> Flapping        +-- reopens (same incident) within
+                                           the repage window
 ```
 
-### The five decision stages
+The incident manager is ticked by the pipeline loop. Each tick it moves every
+live incident one step and returns the decisions that deserve a message:
+`Announce`, `Update` or `Resolve`. The pipeline gathers the facts for the
+decision and `notification/compose` writes the text from the decision alone.
 
-Every event — a crashing container, a node condition, a stuck rollout — walks
-the same stages in `processLocked`, in this order. Each stage can end the
-story:
+- **Settling.** Findings join an incident for a short window so late failures
+  are folded in (15 seconds for page-tier incidents, 75 for lower tiers).
+- **Announce, update, resolve.** An incident is updated only when something new
+  is true, and resolved once, after its pods stay healthy for a hold time
+  (three minutes), so flapping does not produce resolve and re-open noise.
+- **Noise control.** Basic dedup, settling, merging of symptoms under one root
+  cause, and the low-priority digest (one message every 30 minutes) are in
+  every edition. Flapping and routine-recurrence recognition, the startup
+  summary and downtime changes are <span className="kw-pro">Pro</span>.
+- **Reminders.** An incident that stays open gets one "still open" update per
+  week; acknowledged incidents stop reminding.
 
-| # | Stage | Question | If yes |
-|:--|:--|:--|:--|
-| 1 | **Baseline** | Was this already broken when kwatch started? | Stay quiet; it is not news. |
-| 2 | **Attribution** | Is this a *symptom* of something already known? | Record it against the cause — count it, list it — and let the cause's alert speak for it. |
-| 3 | **Cooldown** | Did this exact problem resolve a few minutes ago? | Revive silently; no "resolved → crash → resolved" ping-pong. |
-| 4 | **Identity** | Which incident is this? | Update the existing one (or fold a crash loop into its canonical key) instead of opening a new one. |
-| 5 | **Announcement** | Should it speak now? | Buffer it for its group, or send on the edge — only when something observable changed. |
+Severity decides how loudly an incident is delivered. Without an override,
+kwatch derives the tier itself; overriding it by reason or owner kind
+(`severityByReason`, `severityByOwnerKind`) is <span className="kw-pro">Pro</span>. See
+[General configuration](/docs/general-configuration#-severity).
 
-Attribution runs *before* the cooldown check on purpose, and recognises three
-kinds of cause, broadest first: a **node condition** (the pod's node is
-NotReady or under pressure), a **shared dependency** (a mass failure already
-covers the ConfigMap/Secret/node this resource depends on), and the **owning
-workload** (the pod's own Deployment or Job already has an incident).
+## Where root cause comes from
 
-### Dedup keys
+How failure spreads is data, not code. `internal/rootcause/explain/table*.go`
+holds the propagation table. Each row says that a cause in some modes, through
+one link, explains effects in some modes, with a prior belief:
 
-Incidents are keyed by `namespace:owner:reason:container`, normalized so a
-crash-looping container reports one canonical key regardless of its momentary
-state (`Error`, `OOMKilled` and `CrashLoopBackOff` all fold into the loop's
-key once the restart count passes the threshold). Image-pull failures caused
-by rate limits, registry timeouts, DNS or TLS use a *global* key so the same
-underlying issue maps to a single incident even across namespaces.
-
-### Edge-triggered notification
-
-`notifSig` renders `firing|<severity>` or `resolved|<severity>`. A
-notification is only sent when that signature changes, which prevents
-duplicate alerts on every poll while an incident is active.
-
-### Incident lifecycle
-
-- **CREATE** — first sighting of a problem; kwatch notifies.
-- **UPDATE** — the same problem recurs; the incident's evidence is refreshed
-  and, in most cases, kwatch stays quiet.
-- **RESOLVE** — the problem stops; kwatch waits the resolve hold-down
-  (`correlation.resolveHoldDown`, default 5 minutes) for brief blips to clear
-  themselves, then sends "resolved".
-- **SKIP** — anything not yet worth announcing (already reported, cooling
-  down, silenced, buffered in a group).
-
-Two behaviors keep this honest:
-
-- **Cooldown after resolve.** When an incident resolves, kwatch arms a
-  cooldown (`cooldownMinutes`, default 10). If the identical problem
-  reappears inside it, it is revived silently.
-- **Escalation.** Repeated restarts climb tiers (default `[3, 10]`); each
-  crossing re-notifies with a higher severity.
-- **Re-notify.** Long-lived incidents can be nudged again on a timer
-  (`renotify.intervalBySeverity`), up to `maxPerIncident` times (default 3).
-- **Node inhibition.** When `inhibition.nodeSuppressesPods` is true (default),
-  pod incidents on a node with an active node incident are suppressed and
-  counted against the node alert; suppression lifts the moment the node
-  recovers.
-
-### Mass-failure detection
-
-On every lifecycle tick, `MassFailureHook` calls
-`insight.ScanMassFailures`: it scans all active incidents for a shared
-dependency (node, ConfigMap, Secret, PVC) and fires a mass-failure alert when
-**30% or more** of the dependents that share it are failing (with a minimum of
-3). Mass failures are treated like any incident — root cause explained,
-auto-resolved when the underlying incidents clear — and symptoms covered by
-them stay silent via attribution.
-
-### Smart grouping
-
-Some failures are one failure wearing many masks. Events that arrive inside
-the grouping window (`smartGrouping.windowSeconds`, default 60) and share a
-root dimension are buffered and flushed as a **single notification**. When
-more than a namespace fan-out threshold of owners fail the same way in one
-namespace, their groups collapse into one namespace-level notification.
-Groups re-notify on a stable key after a cooldown of `4×` the grouping window
-(clamped 5–30 minutes), batch-resolve when every member recovers, and fold
-more than ~1,000 members into an overflow counter.
-
-### Key functions
-
-| Function | Purpose |
-|----------|---------|
-| `NewEngine(cfg)` | Creates the engine |
-| `Process(ev, owner, cs)` | Runs one observed event through the five stages and announces whatever it decides |
-| `RestoreIncidents(map)` | Rehydrates persisted incidents from the `kwatch-incidents` ConfigMap |
-| `Snapshot()` / `SnapshotAll()` | Incident views for `/incidents` |
-| `ActiveCount()` | Number of currently active incidents |
-| `AddMassFailure` / `RemoveMassFailure` | Track synthetic shared-dependency incidents |
-
-Every decision is written to the audit log once per incident (not once per
-poll) — the skip reasons `baseline`, `node_inhibition`, `mass_failure`,
-`cascading_suppression`, and `cooldown` are stable strings people grep for.
-
----
-
-## 10. `internal/delivery/` — Delivery Manager
-
-**Domain path:** `internal/delivery/`
-
-The delivery manager and shared transport live in this package. Provider
-adapters remain in one subpackage each under `internal/alert/` because their
-provider paths are part of the existing configuration and contributor
-surface. New composition code depends on `internal/delivery`.
-
-### Role
-
-Dispatches incidents to configured providers. One `Manager`
-(`manager.go`) owns per-provider entries — each with its own routes, retry
-config, fallback, templates, byte limit, and buffered channel — plus the
-silence index and the dead-letter queue. Delivery plumbing lives in
-`delivery.go` (`deliverOne`, `fanOut`, `sendWithRetry`), routing in
-`routing.go`, and the reject-classification that every HTTP provider shares
-in `delivery/transport`.
-
-```go
-type Manager struct {
-    generation  *providerGeneration // immutable active generation
-    dlqRing     [100]DeadLetterEntry // bounded dead letters
-    ...
-}
-
-type Provider interface {
-    Name() string
-    SendEvent(context.Context, *event.Event) error
-    SendMessage(context.Context, string) error
-}
+```text
+node-not-ready      node: NotReady  runs-on  pod: NotReady, Evicted ...  0.8
+rollout             changed spec    owns     pod: CrashLoop, NotReady    0.7
+certificate-expired secret: Cert.Expired uses pod that shows TLS errors  0.8
 ```
 
-Provider generations own stable name lookup, deterministic order, fallback
-names, routes, retry settings, compiled templates, worker channels, and
-completion state. A queued job retains the generation that accepted it, so a
-reconfiguration cannot silently change its fallback route. New generations
-are published atomically and old generations drain or cancel before their
-channels are reclaimed.
+Scorers then add or subtract evidence: temporal order, coverage, healthy
+siblings elsewhere, an error that names the candidate, recent change, shared
+node or zone, baseline deviation. Every weight is in `weights.go` with the
+reason for its value. Each contribution carries a code and its numbers
+(`rootcause.ProofCode`), and the incident keeps the cause as a
+`rootcause.CauseRecord` with its row and mode: messages are written from
+those fields, never from the solver's trace text. Below the confidence floor the cause is stated as
+unknown. The solver is a pure function of a snapshot: no clock, no I/O.
 
-Generation state is explicit: `accepting`, `draining`, `stopped`, or `failed`.
-Reconfiguration constructs and validates the complete replacement first, then
-stops accepting jobs for the old generation and waits for its completion. A
-successful replacement is reported separately from manager shutdown. If the
-old generation cannot drain before its deadline, delivery reports a required
-failure and does not publish a replacement while old workers are still alive.
+When nothing upstream shows a fault, the engine still has four things to
+say, in this order of strength:
 
-### Delivery architecture
+1. **A probed dependency.** Pods relate to the endpoints outside the cluster
+   that their environment names (`postgres://db.example.com:5432/...` becomes
+   the `external-endpoint` `db.example.com:5432`; only host and port are
+   kept). With `autoDependencies` on, kwatch dials them, and a dependency
+   that refuses connections is the cause of the pods that call it.
+2. **The same error.** Three or more workloads that began failing within
+   thirty minutes with the same normalised error line (times, IDs, addresses
+   and numbers replaced; see `docs/incident-lifecycle/examples.md`) share a
+   virtual `failure-signature` cause (`shared-failure-signature` row, prior
+   0.55). It is the weakest named row, so a probed dependency or any better
+   cause wins, and one message says the shared error is the cause.
+3. **What the failures share.** Three or more workloads failing within ten
+   minutes on one healthy node, where most pods on that node fail, make the
+   node a suspect (`shared-node` row, pseudo mode `SharedFactor`). It is
+   capped below "likely": nothing is known to be wrong with it. An
+   unchanged shared image, ConfigMap, Secret or ServiceAccount is weak
+   evidence and is not suspected.
+4. **What was checked.** The solver records the upstream objects it reached
+   that showed nothing wrong (`Trace.Checked`), and the message says "Its
+   node, image and configuration are healthy and unchanged, so nothing
+   outside it explains this", followed by the quoted crash output.
 
-```
-LifecycleHook fires (incident + action)
-        │
-        ▼
-Manager.NotifyIncident(inc, action, insight)
-        │
-        ▼
-Silence check ──── match? → DROP (not even logged as a delivery)
-        │ no match
-        ▼
-fanOut: clone incident → one deliverJob per provider channel (cap 256)
-        │ non-blocking
-        ▼
-Channel saturated? ──→ drop the arriving job + record dead-letter
-        │ delivered
-        ▼
-Provider worker: deliverOne
-        │
-        ├── routes match? ── no match → SKIP this provider
-        ├── build message (ReportBuilder + per-provider renderer) → truncate
-        ├── sendWithRetry:
-        │     • 2xx        → success
-        │     • 429        → ratelimit.Error, honour Retry-After (header or body)
-        │     • other 4xx  → permanent, dead-letter immediately
-        │     • 5xx / transport → retried with backoff
-        └── all attempts failed?
-            ├── fallback configured? → try the fallback provider
-            └── else → add to the dead-letter queue /deadletters
-```
+Two kinds of finding are not failures. A *symptom* (a Deployment below its
+replicas) restates its pods' failures and never leads a message. An
+*advisory* finding (`Finding.Advisory`: no readiness probe, no memory
+limit, a `latest` tag, a single replica) is configuration advice: it never
+opens an incident, is never announced on its own, joins the incident of a real failure of the same
+workload, and adds one sentence when the failure shows what the risk cost.
 
-### Provider interface variants
+A failure can also travel. Once a cause is chosen, `explain/chain.go`
+extends it down the failure chain: postgres OOM-killed, then the API that
+calls it not ready, then the Service in front of the API with no endpoints.
+A step joins two failing workloads or Services and needs evidence: a pod that
+is not ready (or whose error names the Service) and calls a Service with no
+ready endpoint, the failing pods behind a Service with no ready endpoint, or a
+route that sends traffic to such a Service. The effect must begin after its
+cause (strictly for a call), within the causal window, and a healthy step ends
+the chain, as does a workload with a change or a failure of its own. A chain
+runs at most `ChainMaxHops` (3) steps from what the cause explains directly
+and trusts each step `ChainDecay` (0.9) times the one before. It adds derived
+coverage (like the summary of a pod), so the failures of every step are one
+incident rooted at the first one. The chain is `Cause.Hops` (and
+`Trace.Chain`), and the message ends with "Chain: postgres (10:00) → api
+(10:01) → service api (10:01)."
 
-| Interface | Description |
-|-----------|-------------|
-| `Provider` | Context-aware base interface (Name, SendEvent, SendMessage) |
-| `ThreadProvider` | Sends a full `*model.Incident` + action (threaded conversations) |
-| `InsightThreadProvider` | Like `ThreadProvider` but also receives the `*insight.Insight` diagnosis |
-| `EventDeliveryProvider` | Marker for providers that use `SendEvent` |
-| `VerifiableProvider` | Supports credential verification (`kwatch lint --check`) |
+A cause can also arrive too late. Once an incident has been announced, a
+cause that began more than ten minutes afterwards (`Cause.Began`) does not
+take it over: people were told about something that cause cannot have
+caused, so the incident keeps its root and the new cause explains only the
+new failures.
 
-### All 56 providers
+The root-cause headline is part of the Community edition. Full proof, shared-factor
+suspects, who changed what, impact and log excerpts are <span className="kw-pro">Pro</span>.
 
-Each lives in its own subpackage under `internal/alert/` and sends through the
-shared `delivery/transport` helper. The linter forbids raw `net/http` in
-providers, so status handling stays uniform.
+## Delivery
 
-`slack`, `discord`, `teams`, `telegram`, `email`, `pagerduty`, `opsgenie`,
-`matrix`, `dingtalk`, `feishu`, `googlechat`, `rocketchat`, `mattermost`,
-`zenduty`, `webhook`, `gotify`, `ntfy`, `pushover`, `webex`, `github`,
-`gitlab`, `gitea`, `zapier`, `n8n`, `ifttt`, `teamsworkflow`, `zulip`,
-`homeassistant`, `splunk`, `datadog`, `newrelic`, `clickup`, `ilert`,
-`incidentio`, `squadcast`, `signl4`, `twilio`, `vonage`, `plivo`,
-`messagebird`, `signal`, `sendgrid`, `ses`, `sns`, `jira`, `wecom`,
-`splunkoncall`, `mailgun`, `resend`, `goalert`, `alerta`, `threema`, `flock`,
-`pushbullet`, `sensugo`, `line`.
+The delivery manager queues each message per provider, retries only failures
+that can succeed (timeouts, 5xx, rate limits), honours `Retry-After`, paces
+sends against an hourly budget per provider, and uses a fallback provider when
+configured. A provider that panics counts as a failed attempt rather than
+taking kwatch down.
 
-### Routing
+- **One provider on Community.** Community sends to one provider, chosen with
+  `app.communityProvider`; Pro sends to all configured providers and adds
+  routing by namespace, severity, reason and owner, threads that update one
+  message per incident where the provider supports it, and text templates.
+- **At least once.** A queued delivery is written to a persisted outbox
+  and removed when the provider (or its fallback) accepted it or it was
+  dead-lettered. After a restart the next session re-queues what is left. A
+  send interrupted mid-request may repeat. If the state lock is lost, nothing
+  more is sent.
+- **Pages are never folded** into the overflow digest, and resolves and pages
+  go ahead of routine messages in a provider's queue.
 
-Each provider can have `routes` filtering on `namespaces`, `severities`, and
-`reasons` (config `AlertRoute`). If no route matches, that provider is skipped
-for the incident — evaluated before message building so filtered incidents
-never pay for rendering.
-
-Message-size policy is explicit per provider. Protocol-bounded providers
-truncate deterministically while preserving the headline, reason, resource
-identity, and newest evidence. Providers whose renderer owns the final limit
-are marked `provider_owned`; delivery does not impose an arbitrary universal
-limit on them.
-
-### Retry classification
-
-The single shared classification (in `delivery/transport` and `internal/event`):
-
-- **2xx** → success.
-- **429** → a `ratelimit.Error`; the retry loop honours `Retry-After` from the
-  header (or from the response body, for APIs like Telegram that put it
-  there).
-- **Other 4xx** → a `PermanentError`: a bad payload will not get better on
-  retry, so it dead-letters immediately instead of delaying the alerts queued
-  behind it.
-- **5xx / transport errors** → retried with backoff.
-
-### Dead-letter queue and saturation
-
-`dlqRing` is a ring buffer of the last 100 failed deliveries, readable over
-the health endpoint `/deadletters` (requires `healthCheck.diagnostics: true`).
-When a provider's channel is saturated, kwatch replaces queued updates for
-the same incident with the latest state. Create and recovery notifications
-can replace an unrelated queued update. If no update can be replaced, the
-arriving job is recorded as a dead letter with `notifications_dropped`, and
-the provider receives an overflow digest. Route filters run before queueing.
-
----
-
-## 11. `internal/insight/` — Cause/Impact/What-Changed
-
-**Path:** `internal/insight/`
-
-### Role
-
-kwatch has no external analysis dependency — no sidecar, no LLM. The
-"detective" work is done in-process by the insight engine over the dependency
-graph built by the controller. For each announced incident it answers three
-questions and the answers travel with the notification as the 🧠 Diagnosis
-block:
-
-```go
-type Insight struct {
-    Cause         string            // likely cause
-    Impact        string            // blast radius
-    Pattern       string            // recognised failure pattern
-    AffectedCount int
-    RecentChanges []context.Change // what changed just before
-}
-
-func (e *Engine) Analyze(inc *model.Incident) *Insight
-```
-
-- **`cause.go`** — walks the incident's tree first: is the node unhealthy, is
-  the owning workload failing, did a referenced ConfigMap/Secret/PVC change?
-  If nothing obvious, walk the dependency chain *backward* to the deepest root
-  (node, PV, storage class, ConfigMap, Secret, service account) and blame
-  that.
-- **`impact.go`** — walks *downstream* and counts what else would break:
-  pods on the node, services and ingresses pointing at the failing workload,
-  pods referencing the same PVC.
-- **`changes.go`** — checks the `graphcontext.ChangeTracker` for updates to the
-  same resource in the recent window ("Deployment updated 3m before this
-  incident — likely a rollout").
-- **`patterns.go`** — recognises repeated failure signatures (repeating OOM /
-  memory leak, probe failures, image-pull scopes) and implements mass-failure
-  detection: `ScanMassFailures` fires a shared-dependency alert when 30%+ of
-  its dependents (min 3) are failing, with the threshold recomputed from the
-  live graph.
-
-The diagnosis is requested for CREATE/UPDATE paths only — a resolve carries
-nothing left to explain, and a mass failure *is* the diagnosis.
+See the [provider reference](/docs/channels/providers) and
+[General configuration](/docs/general-configuration#-delivery-behaviour).

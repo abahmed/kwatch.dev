@@ -36,7 +36,7 @@ alert:
     port: "587"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

@@ -25,37 +25,8 @@ kubectl() {
 }
 check_access get pods namespace
 
-manifest_fixture="$CAPTURE_DIR/deploy.yaml"
-printf '%s\n' \
-  'kind: ClusterRole' \
-  'rules:' \
-  '- apiGroups: [""]' \
-  '  resources: ["configmaps"]' \
-  '  resourceNames: ["ignore-this-cluster-role-name"]' \
-  '---' \
-  'kind: Role' \
-  'rules:' \
-  '- apiGroups: [""]' \
-  '  resources: ["configmaps"]' \
-  '  resourceNames:' \
-  '  - "custom-state"' \
-  '  - "custom-telemetry"' \
-  '  verbs: ["get", "update", "patch"]' \
-  >"$manifest_fixture"
-load_runtime_configmap_names_from_manifest "$manifest_fixture"
-[ "${#RUNTIME_CONFIGMAP_NAMES[@]}" -eq 2 ] || {
-  echo "manifest parser returned the wrong number of ConfigMaps" >&2
-  exit 1
-}
-[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
-  echo "manifest parser returned the wrong first ConfigMap" >&2
-  exit 1
-}
-[ "${RUNTIME_CONFIGMAP_NAMES[1]}" = custom-telemetry ] || {
-  echo "manifest parser returned the wrong second ConfigMap" >&2
-  exit 1
-}
-RUNTIME_CONFIGMAP_NAMES=()
+# load_runtime_configmap_names_from_manifest was removed when runtime state moved
+# to the data volume (commit 67c625d), so its parser test went with it.
 INSTALL_VERSION=v9.9.9
 
 lease_fixture="$CAPTURE_DIR/lease.yaml"
@@ -64,6 +35,36 @@ RELEASE=payments-monitor
 rewrite_release_lease_name "$lease_fixture"
 grep -Fxq 'value: "payments-monitor-leader"' "$lease_fixture"
 RELEASE=kwatch
+
+# The license instance Secret keeps its fixed name; the Role and RoleBinding follow the release.
+license_fixture="$CAPTURE_DIR/license-rename.yaml"
+cat >"$license_fixture" <<'YAML'
+kind: Role
+metadata:
+  name: kwatch-license
+rules:
+- resourceNames:
+    - kwatch-license-instance
+---
+kind: Secret
+metadata:
+  name: kwatch-license-instance
+  namespace: kwatch
+---
+kind: RoleBinding
+metadata:
+  name: kwatch-license
+roleRef:
+  kind: Role
+  name: kwatch-license
+YAML
+RELEASE=prod
+rewrite_release_names "$license_fixture" v9.9.9
+RELEASE=kwatch
+grep -Fxq '  name: kwatch-license-instance' "$license_fixture"
+grep -Fxq '    - kwatch-license-instance' "$license_fixture"
+grep -Fxq '  name: prod-license' "$license_fixture"
+! grep -q 'prod-license-instance' "$license_fixture"
 
 (
   NAMESPACE=kwatch
@@ -82,60 +83,11 @@ RELEASE=kwatch
   wait_for_kwatch_rollout payments
 )
 
-curl() {
-  local output=""
-  while [ "$#" -gt 0 ]; do
-    if [ "$1" = -o ]; then
-      output="$2"
-      shift 2
-    else
-      shift
-    fi
-  done
-  cp "$manifest_fixture" "$output"
-}
-ensure_runtime_configmap_names
-[ "${RUNTIME_CONFIGMAP_NAMES[0]}" = custom-state ] || {
-  echo "lazy manifest loading did not populate ConfigMaps" >&2
-  exit 1
-}
-
-rbac_check_log="$CAPTURE_DIR/rbac-check.log"
-kubectl() {
-  printf '%s\n' "$*" >>"$rbac_check_log"
-  printf '%s\n' yes
-}
-if self_check_rbac_missing; then
-  echo "named RBAC check reported a granted Role as missing" >&2
-  exit 1
-fi
-[ "$(wc -l <"$rbac_check_log" | tr -d ' ')" -eq 4 ] || {
-  echo "named RBAC check did not inspect every verb and ConfigMap" >&2
-  exit 1
-}
-grep -Fq -- '--resource-name=custom-telemetry' "$rbac_check_log"
-if grep -Fq 'auth can-i update configmaps -n' "$rbac_check_log" ||
-  grep -Fq 'auth can-i patch configmaps -n' "$rbac_check_log"; then
-  echo "RBAC check used an unnamed ConfigMap permission" >&2
-  exit 1
-fi
-
-rbac_repair_log="$CAPTURE_DIR/rbac-repair.log"
-kubectl() {
-  printf '%s\n' "$*" >>"$rbac_repair_log"
-  return 0
-}
+# The named-ConfigMap RBAC checks lived here; runtime state no longer uses
+# ConfigMaps (commit 67c625d), so the Lease check is the only RBAC probe left.
 check_access() { :; }
 confirm_repair() { return 0; }
 restart_kwatch() { :; }
-repair_self_check_rbac >/dev/null
-grep -Fq '"resourceNames":["custom-state"' "$rbac_repair_log"
-grep -Fq 'custom-telemetry' "$rbac_repair_log"
-if grep -Fq '"resources":["configmaps"],"verbs"' \
-  "$rbac_repair_log"; then
-  echo "RBAC repair generated a broad ConfigMap rule" >&2
-  exit 1
-fi
 
 ask() { printf '%s' y; }
 
@@ -252,6 +204,45 @@ load_feature_catalog_file "$feature_file"
   echo "feature catalog format was rejected" >&2
   exit 1
 }
+
+printf '%s\n' \
+  '# kwatch feature catalog v2' \
+  'core.detection.pods|runtime|Detect pod failures||community' \
+  'ai.rootcause|runtime|AI root cause|core.detection.pods|pro' >"$feature_file"
+load_feature_catalog_file "$feature_file"
+[ "${#FEATURE_CATALOG[@]}" -eq 2 ] && [ "$FEATURE_CATALOG_VERSION" = 2 ] || {
+  echo "v2 feature catalog was rejected" >&2
+  exit 1
+}
+pro_output=$(show_feature_area "" 2>&1)
+grep -Fq 'PRO features need a license' <<<"$pro_output"
+[ "$(grep -c 'PRO' <<<"$pro_output")" -eq 2 ]
+if show_feature_area "core" 2>&1 | grep -Fq 'PRO'; then
+  echo "community-only screen showed a PRO hint" >&2
+  exit 1
+fi
+for bad in \
+  'core.x|runtime|Desc||enterprise' \
+  'core.x|runtime|Desc|' ; do
+  printf '%s\n' '# kwatch feature catalog v2' "$bad" >"$feature_file"
+  if load_feature_catalog_file "$feature_file"; then
+    echo "v2 feature catalog with bad tier was accepted: $bad" >&2
+    exit 1
+  fi
+done
+printf '%s\n' '# kwatch feature catalog v3' \
+  'core.x|runtime|Desc||community' >"$feature_file"
+if load_feature_catalog_file "$feature_file"; then
+  echo "unsupported feature catalog version was accepted" >&2
+  exit 1
+fi
+printf '%s\n' '# kwatch feature catalog v1' \
+  'core.detection.pods|runtime|Detect pod failures|' >"$feature_file"
+load_feature_catalog_file "$feature_file"
+if show_feature_area "" 2>&1 | grep -Fq 'PRO'; then
+  echo "v1 catalog showed PRO badge" >&2
+  exit 1
+fi
 
 config_file="$CAPTURE_DIR/config.tsv"
 printf '%s\n' \
@@ -575,5 +566,7 @@ fi
 if [ -n "${KWATCH_BIN:-}" ]; then
   CONFIG_FILE="$CAPTURE_DIR/config.yaml" "$KWATCH_BIN" lint --strict
 fi
+
+bash "$ROOT/tests/kwatch-license-test.sh"
 
 echo "kwatch manager secret test passed"

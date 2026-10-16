@@ -20,6 +20,11 @@ const steps = [
     title: 'Verify the install',
     detail: 'It checks the deployment before you start monitoring.',
   },
+  {
+    number: '04',
+    title: 'Add Pro (optional)',
+    detail: 'Choose License / Pro and paste your free early-access key.',
+  },
 ];
 
 export default function Installation(): ReactElement {
@@ -77,11 +82,12 @@ export default function Installation(): ReactElement {
         <div className={styles.reliability}>
           <span>Built for production</span>
           <p>
-            Two replicas by default: one active leader and one standby.
-            A single-replica option is available without kwatch self-failover.
+            One small pod with read-only access and its state on a volume.
+            If it or its node fails, Kubernetes restarts it and kwatch resumes.
+            Standby replicas for high availability are part of Pro.
           </p>
           <Link to="/docs/operations/replication-and-failover">
-            How failover works <span aria-hidden="true">→</span>
+            How recovery works <span aria-hidden="true">→</span>
           </Link>
         </div>
       </div>

@@ -4,6 +4,11 @@ import Layout from '@theme/Layout';
 import Header from '@site/src/theme/Header';
 import Installation from '@site/src/theme/Installation';
 import Features from '@site/src/theme/Features';
+import AlertShowcase from '@site/src/theme/AlertShowcase';
+import EditionsTeaser from '@site/src/theme/EditionsTeaser';
+import TrustPoints from '@site/src/theme/TrustPoints';
+import HomeFaq from '@site/src/theme/HomeFaq';
+import FinalCta from '@site/src/theme/FinalCta';
 
 import styles from './index.module.css';
 
@@ -47,10 +52,43 @@ export default function Home(): ReactElement {
   return (
     <Layout
       title="Kubernetes incidents, explained"
-      description="See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting."
+      description="See what broke. Understand why. Know what to do next. Source-available Kubernetes incident monitoring with root-cause alerts. Community is free, and Pro is free during early access."
     >
       <main>
         <Header />
+        <Features />
+
+        <AlertShowcase />
+
+        <EditionsTeaser />
+
+        <Installation />
+
+        <section className={styles.channelsSection}>
+          <div className="container">
+            <div className={styles.channelLayout}>
+              <div className={styles.sectionHeading}>
+                <p className={styles.eyebrow}>Notifications</p>
+                <h2>Send alerts where your team works.</h2>
+                <p>
+                  Connect a familiar destination first. Choose from 50+
+                  integrations when your team needs more routes.
+                </p>
+                <Link className={styles.allChannels} to="/docs/channels">
+                  See all channels <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+              <div className={styles.channelGrid}>
+                {channels.map((channel) => (
+                  <Link key={channel.name} to={channel.href}>
+                    {channel.name} <span aria-hidden="true">↗</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <nav className={styles.pathSection} aria-label="Explore kwatch">
           <div className="container">
             <div className={styles.sectionHeading}>
@@ -72,34 +110,11 @@ export default function Home(): ReactElement {
           </div>
         </nav>
 
-        <Features />
+        <TrustPoints />
 
-        <Installation />
+        <HomeFaq />
 
-        <section className={styles.channelsSection}>
-          <div className="container">
-            <div className={styles.channelLayout}>
-              <div className={styles.sectionHeading}>
-                <p className={styles.eyebrow}>Notifications</p>
-                <h2>Send alerts where your team works.</h2>
-                <p>
-                  Connect a familiar destination first. Choose from 56
-                  integrations when your team needs more routes.
-                </p>
-                <Link className={styles.allChannels} to="/docs/channels">
-                  See all channels <span aria-hidden="true">→</span>
-                </Link>
-              </div>
-              <div className={styles.channelGrid}>
-                {channels.map((channel) => (
-                  <Link key={channel.name} to={channel.href}>
-                    {channel.name} <span aria-hidden="true">↗</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        <FinalCta />
       </main>
     </Layout>
   );

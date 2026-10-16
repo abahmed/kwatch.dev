@@ -85,13 +85,29 @@ only actions that match the detected state:
   or exit.
 - A healthy running version `v1.0.0` or newer: upgrade, edit notification
   providers, edit settings, edit Deployment resources and placement, view
-  capabilities, restore a previous configuration, view status, or uninstall.
+  capabilities, manage the license (**License / Pro**), view logs, restore a
+  previous configuration, view status, or uninstall.
 - An unhealthy or unidentified Deployment: repair by upgrading, view status,
   or uninstall.
 
 Configuration resources without a running Deployment do not count as an
 installation. They are preserved and the manager explains that a fresh
 installation is available.
+
+## 🔑 License / Pro
+
+Community needs no key. For [Pro](/docs/editions) open **License / Pro**:
+
+- **Show license status** prints the license state.
+- **Add or replace key** stores your key in a Kubernetes Secret and wires it
+  to kwatch as `KWATCH_LICENSE_KEY`. A fresh install also offers this step.
+- **Move license to this cluster** runs `kwatch license move` in the pod; it
+  counts toward the 3 moves per 30 days.
+- **Remove key** releases the license so another cluster can use it, and can
+  delete the license Secrets.
+
+The key is kept across upgrades and travels with configuration backups. See
+[License](/docs/license) for how to get a key.
 
 ## 🔐 What the manager protects
 
@@ -152,6 +168,9 @@ repeatable:
 | `KWATCH_CONTEXT` | Select a kubeconfig context without opening the picker. |
 | `KWATCH_NAMESPACE` | Installation namespace; defaults to `kwatch`. |
 | `KWATCH_RELEASE` | Managed release name; defaults to `kwatch`. |
+| `KWATCH_LICENSE_KEY` | Pro license key (`KW1-...`). Install and upgrade store it and apply it without prompting. |
+| `KWATCH_STORAGE` | `pvc` (default) or `emptydir`. Where kwatch keeps state; an `emptyDir` is lost when the pod moves. |
+| `KWATCH_STORAGE_CLASS`, `KWATCH_STORAGE_SIZE` | StorageClass and size (default `2Gi`) of the state volume. |
 | `KWATCH_PLAIN_UI=true` | Disable colour, cursor control, and spinners. |
 | `KWATCH_ALLOW_NAMESPACE_LABELS=true` | Permit labels on an existing shared namespace after review. |
 | `KWATCH_SKIP_ADMISSION_PREFLIGHT=true` | Skip the injector dry-run only when the cluster requires it. |
@@ -175,6 +194,6 @@ kubectl get pods -n kwatch
 kubectl logs -n kwatch deployment/kwatch
 ```
 
-Run the manager again and choose **Show status**. The
+Run the manager again and choose **View status**. The
 [installation guide](/docs/installation) explains the supported managed
 lifecycle and health checks.

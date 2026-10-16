@@ -20,6 +20,7 @@ For the normal lifecycle, use the manager:
 | --- | --- |
 | Try kwatch with the fewest decisions | 🧭 [Interactive manager](#-interactive-manager-recommended) |
 | Need to inspect the generated resources | 🔍 [Release artifacts](https://github.com/abahmed/kwatch/tree/main/deploy) |
+| Prefer Helm (advanced) | See the chart in the [kwatch repository](https://github.com/abahmed/kwatch/tree/main/deploy/chart) |
 
 ## ✅ Before you begin
 
@@ -35,10 +36,11 @@ Check access before installing:
 kubectl cluster-info
 ```
 
-The default installation runs two small Pods with one active leader and one
-standby. Each Pod reads cluster resources through Kubernetes RBAC. The official
-manifests include the required permissions. TLS
-monitoring needs additional Secret access and is off by default.
+The default installation runs one small Pod with its state on a 2Gi volume
+(set `KWATCH_STORAGE=emptydir` to skip the volume). The Pod reads cluster
+resources through Kubernetes RBAC, and the manager applies the required
+permissions. TLS monitoring needs additional Secret access and is off by
+default. Pro adds high availability with more than one replica.
 
 ## 🧭 Interactive manager (recommended)
 
@@ -57,7 +59,8 @@ The manager will:
 5. 🧱 Install the CRD and kwatch workload.
 6. ✅ Wait for kwatch to become ready.
 
-Run the same command later to configure, upgrade, check status, or uninstall.
+Run the same command later to configure, upgrade, manage your license,
+check status, or uninstall.
 The manager is fully interactive: select the cluster first, then it detects
 the running kwatch version and shows only the actions valid for that state.
 Read the [kwatch.sh manager guide](/docs/kwatch-manager) for every menu option,
@@ -65,6 +68,13 @@ legacy migration, recovery behavior, and advanced usage.
 
 The release artifacts below are for inspection only. The supported lifecycle is
 through `kwatch.sh`; do not apply or delete the files directly.
+
+## 🔑 Add a Pro license (optional)
+
+Community needs no key. To use Pro, which is free during early access, get a
+key on your [account page](/account) and choose **License / Pro** then **Add or
+replace key** in the manager. A fresh install also offers it at the end. For a
+scripted run, set `KWATCH_LICENSE_KEY`. See [License](/docs/license).
 
 ## 📦 Release artifacts (inspection only)
 

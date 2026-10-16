@@ -7,7 +7,7 @@
     "start": "docusaurus start",
     "build": "docusaurus build && node scripts/build-search-index.mjs",
     "test:manager": "bash tests/kwatch-kubectl-wrapper-test.sh && bash tests/kwatch-manager-test.sh && bash tests/kwatch-provider-flow-test.sh",
-    "docs:generate": "node scripts/generate-kwatch-reference.mjs --source ../kwatch/deploy",
+    "docs:generate": "node scripts/generate-kwatch-reference.mjs --source ../kwatch/deploy && node scripts/build-feature-tiers.mjs --source ../kwatch/deploy",
     "docs:verify": "node scripts/verify-kwatch-reference.mjs && node scripts/verify-provider-guides.mjs",
     "seo:verify": "node scripts/verify-seo.mjs && node scripts/verify-performance.mjs",
     "swizzle": "docusaurus swizzle",
@@ -28,8 +28,8 @@
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
     "prism-react-renderer": "^2.4.1",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.10.2",

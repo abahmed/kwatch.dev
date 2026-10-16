@@ -1,75 +1,56 @@
 ---
 title: Replication and failover
-description: How Kwatch replicas share leadership and recover from a failed leader.
+description: How kwatch runs as one replica with a state lock, what happens when its Pod or node fails, and how extra replicas wait as standbys.
 sidebar_position: 2
 ---
 
 # Replication and failover
 
-Kwatch uses a Kubernetes Lease as a single-writer lock. It is not an
-active-active controller and replicas do not form an application quorum.
+:::info Pro
+Running more than one replica (high availability) is part of kwatch Pro, which is free during early access. The Community edition runs one replica. See [Community vs Pro](/docs/editions).
+:::
 
-Election timing is fixed at a 30-second Lease duration, a 20-second renew
-deadline, and a 5-second retry period. The Lease name is installation-specific
-and namespaced; separate releases in the same namespace must not share it.
+By default kwatch runs **one replica** with the `Recreate` strategy. Its state lives in a file on a PersistentVolumeClaim mounted at `/var/lib/kwatch`. A Kubernetes Lease is used only as a **lock**: it stops two processes from writing the volume at once. There is no second Pod by default and no kwatch self-failover. If the Pod or its node fails, Kubernetes restarts the Pod and kwatch resumes from the volume.
+
+Some names still say "leader" (`KWATCH_LEADER_ELECTION_NAME`, the `<id>-leader` Lease, the `kwatch_leadership_*` metrics). They are kept so existing installs and dashboards keep working, and they all refer to this state lock.
+
+## Why a lock with one replica
+
+Two kwatch processes can overlap for a short time: a node cut off from the network keeps its old Pod running while Kubernetes starts a new one elsewhere, and a Pod stuck in `Terminating` or a manual restart can overlap the next one. The process that loses the Lease stops sending and stops writing, so alerts are not sent twice and the state file has one writer. Only the Lease holder claims the state file, with an epoch counter kept in the file itself, so a superseded process cannot overwrite newer state.
 
 ## Replica behavior
 
-| Replicas | Active leaders | Standbys | Limitation |
-| --- | --- | --- | --- |
-| 1 | 1 | 0 | No Kwatch self-failover |
-| `N > 1` | 1 | `N-1` | More takeover capacity, not more throughput |
+| Replicas | Edition | Behavior |
+| --- | --- | --- |
+| 1 | Community and Pro | One process holds the lock. No kwatch self-failover; Kubernetes restarts the Pod. |
+| More than 1 | Pro | One replica holds the lock; the others wait as standbys and take over if the holder loses the Lease. |
 
-The leader owns informer watches and queues, monitor workers, incident
-processing, provider delivery, and mutable persistence. A standby runs health
-serving and Lease election only: it does not restore mutable monitoring state,
-start informers, send notifications, or write persistence before acquiring the
-Lease. Scale-up does not interrupt the leader.
-Scale-down is safe when a standby is removed; removing the leader causes a
-remaining standby to acquire the Lease after the normal election delay.
+On Community, extra replicas still wait as standbys, and kwatch logs that the edition supports one replica and that high availability needs kwatch Pro. A standby does not watch resources, send notifications or write state until it holds the Lease.
 
-Use preferred anti-affinity or topology spread when replicas must survive a
-node failure. More replicas cannot protect against loss of the Kubernetes API,
-the entire cluster, or the network path to a provider.
+## Node failure: the real monitoring gap
 
-## Leadership-loss sequence
+A crashed or unreachable node is the slowest case, because Kubernetes decides when the Pod may start elsewhere. Plan for up to about 7 to 8 minutes without monitoring after a hard node failure: about 70 to 80 seconds for node detection and eviction (the chart shortens the default toleration to 30 seconds), then up to about 6 minutes more for a `ReadWriteOnce` volume to detach. The heartbeat monitor (Pro) is the only signal during that window.
 
-The active generation is fenced before leadership is released:
+If you know the node is really down (powered off, not just partitioned), you can shorten the gap by tainting it out of service:
 
-1. Readiness becomes false.
-2. Monitoring, watcher, delivery, retry, and persistence contexts are canceled.
-3. Completion handles are awaited within bounded shutdown deadlines.
-4. A final persistence write is attempted only while leadership is still valid.
-5. The old process exits; it cannot send or write after loss.
+```sh
+kubectl taint nodes <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+```
 
-The replacement leader restores compatible state, reports the startup migration
-cycle, waits for required caches, and reconciles current objects. Incident
-identity, grouping, cooldown, and baseline state are restored when the persisted
-snapshot is available. Expired Kubernetes Events are not reconstructed.
+Remove the taint after the node is repaired or deleted. Never apply it to a node that might still be running. See the [source operations guide](https://github.com/abahmed/kwatch/blob/main/docs/production-operations.md#node-failure-the-real-monitoring-gap) for details.
 
-The replacement becomes monitoring-ready only after restore, required source
-configuration, required persistence writers, the incident engine, and configured
-delivery are active for its current leadership epoch. A failed required restore
-or writer keeps the Pod live but not ready and prevents unsafe active processing.
+## Volume requirements
 
-During a rolling update, `/availabilityz` is used by the Kubernetes Deployment
-so elected standby Pods count as replaceable and the update can progress.
-`/readyz` remains the monitoring contract: only the active leader should pass
-it. The manager waits for updated running Pods, a Lease holder, and the
-holder's availability before completing an install or upgrade.
+The state volume must be `ReadWriteOnce` block storage (for example EBS, Persistent Disk, Azure Disk, or a local volume). Do not use NFS, EFS, CephFS, Azure Files or any `ReadWriteMany` class: file locks are not reliable over network file systems and the state file can be corrupted.
 
-## What to verify
+## When the lock is lost
 
-In CI or an operational cluster, verify replicas 1 through 5, leader deletion,
-leader process termination, standby deletion, scale-up, scale-down, rolling
-upgrade, rollback, and a hung leader. Assert that:
+The process that loses the Lease stops sending and stops writing: readiness drops, queued alerts are dead-lettered (their outbox records stay for the next session), and the process exits so Kubernetes can restart it. The next session restores open incidents from the state file, so they are not announced again, and records changes made while kwatch was down. Kubernetes Events that expired in the gap cannot be reconstructed.
 
-- the Lease has at most one holder;
-- exactly one leader becomes ready;
-- standbys create no monitoring or delivery side effects;
-- persisted incident identity survives takeover;
-- old watcher generations stop before replacement starts;
-- readiness and safe diagnostics identify the role and epoch.
+Delivery is at least once, not exactly once. A send interrupted mid-request may repeat after a restart.
 
-Local unit tests cannot prove node placement or Kubernetes Lease behavior. Keep
-those checks in the Kind workflow or a production-like operational environment.
+During a rolling update, `/availabilityz` lets a Pod waiting for the lock count as available so the update can progress; `/readyz` remains the monitoring contract.
+
+## Community and in-memory state
+
+Persistence on disk is part of kwatch Pro. Without a license kwatch keeps state in memory: after a restart it quietly takes a fresh baseline, so existing failures are not re-sent and only new ones, or ones that get worse, alert. See [Persistence and recovery](/docs/operations/persistence-recovery).

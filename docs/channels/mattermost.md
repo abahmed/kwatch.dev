@@ -17,8 +17,6 @@ they are not separate installation steps.
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.mattermost.webhook` | 🔗 Webhook URL | Yes |
-| `alert.mattermost.title` | ✏️ Custom title | No |
-| `alert.mattermost.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -26,11 +24,9 @@ they are not separate installation steps.
 alert:
   mattermost:
     webhook: "${file:/config/mattermost-webhook}"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

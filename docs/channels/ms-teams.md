@@ -18,7 +18,6 @@ settings; they are not separate installation steps.
 |:----------|:------------|:---------|
 | `alert.teams.webhook` | 🔗 Webhook URL | Yes |
 | `alert.teams.title` | ✏️ Custom title | No |
-| `alert.teams.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -27,10 +26,9 @@ alert:
   teams:
     webhook: "${file:/config/teams-webhook}"
     title: "optional customized title"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

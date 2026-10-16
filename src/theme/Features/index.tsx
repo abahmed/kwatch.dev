@@ -6,40 +6,46 @@ import styles from './styles.module.css';
 const steps = [
   {
     number: '01',
-    title: 'Detect the problem',
+    title: 'Watch',
     description:
-      'Watch for crashes, stuck workloads, unhealthy nodes, and other cluster signals.',
+      'kwatch keeps a live map of your cluster: every object, how they connect, and what changed.',
   },
   {
     number: '02',
-    title: 'Connect the clues',
+    title: 'Detect',
     description:
-      'Bring together status, recent logs, Kubernetes events, and affected resources.',
+      'It spots crash loops, unready nodes, stuck workloads and other unhealthy signals.',
   },
   {
     number: '03',
-    title: 'Send a useful alert',
+    title: 'Explain',
     description:
-      'Give responders a likely cause and a next step in the channel they already use.',
+      'It follows each failure upstream to the one cause that explains the rest.',
+  },
+  {
+    number: '04',
+    title: 'Tell',
+    description:
+      'One message per cause, in the channel you already use. Updated only on news, closed once fixed.',
   },
 ];
 
 const coverage = [
   {
     title: 'Pods and scheduling',
-    description: 'Crashes, OOM kills, restarts, readiness, and pending Pods.',
+    description: 'Crashes, OOM kills, restarts and pending Pods in Community. Readiness checks in Pro.',
   },
   {
     title: 'Workloads',
-    description: 'Rollouts, Jobs, CronJobs, autoscaling, and availability.',
+    description: 'Rollouts, Jobs, CronJobs, autoscaling and availability. Part of Pro.',
   },
   {
     title: 'Infrastructure and storage',
-    description: 'Node pressure, persistent storage, and platform health.',
+    description: 'Node NotReady in Community. Node pressure, persistent storage and the control plane in Pro.',
   },
   {
     title: 'Networking and security',
-    description: 'Services, Ingress, webhooks, TLS, RBAC, and policy findings.',
+    description: 'RBAC findings in Community. Services, Ingress, webhooks, TLS and quota in Pro.',
   },
 ];
 
@@ -49,7 +55,7 @@ export default function Features(): ReactElement {
       <section className={styles.section} id="how-it-works">
         <div className="container">
           <div className={styles.heading}>
-            <p className={styles.eyebrow}>From signal to action</p>
+            <p className={styles.eyebrow}>How it works</p>
             <h2>Understand the incident without piecing it together yourself</h2>
             <p>
               Kubernetes shows symptoms. kwatch connects the story so your
@@ -74,9 +80,8 @@ export default function Features(): ReactElement {
             <p className={styles.eyebrow}>Coverage</p>
             <h2>Start with common failures. Add checks as you grow.</h2>
             <p>
-              Safe defaults cover everyday incidents. Heartbeat, Metrics
-              Server usage, TLS checks, and active probes are available when
-              you need them.
+              Community covers the everyday incidents. Pro adds the wider
+              detectors, and opt-in heartbeat, TLS checks and active probes.
             </p>
           </div>
           <div className={styles.coverageGrid}>

@@ -159,22 +159,26 @@ offers only actions valid for the detected running state:
 
 | Choice | Use it when you want to... |
 | --- | --- |
-| 🔔 Configure notification | Add, remove, or change supported providers and their credentials |
-| ⚙️ Configure settings | Change monitors, thresholds, or filters |
-| ⬆️ Upgrade | Choose the latest stable or available release candidate |
-| 🔎 Show status | Check the deployment and manager state |
+| 📊 View status | Check the deployment and manager state |
+| 📜 View recent logs | Read the latest kwatch logs |
+| ⬆️ Upgrade kwatch | Choose the latest stable or available release candidate |
+| 🔌 Edit notification providers | Add, remove, or change supported providers and their credentials |
+| ⚙️ Edit settings | Change monitors, thresholds, or filters |
 | 🧮 Edit Deployment resources and placement | Keep CPU/memory and node-selector choices across upgrades |
-| 🧰 Show capabilities | See features supported by the installed release |
+| 🧩 View capabilities | See what the installed release supports, marked Community or Pro |
+| 🔑 License / Pro | Show status, add or replace a key, move the license to this cluster, or remove the key. See [License](/docs/license) |
 | ♻️ Restore a previous configuration | Replace the current KwatchConfig from a retained backup |
-| 🧹 Uninstall | Remove the kwatch workload and notification Secret |
+| 🧹 Uninstall kwatch | Remove the kwatch workload and notification Secret |
 
 The manager tracks the installation with labels on its resources and also
 recognizes legacy app-labelled Deployments. A missing Deployment is treated as
 no running installation, even when an old configuration resource remains; the
 manager explains that and offers a fresh installation.
 
-If you installed kwatch with Helm or your own manifests, keep using that method
-to change its configuration. The manager is designed for installations it manages.
+The manager is designed for installations it manages. Advanced users who
+prefer Helm can start from the chart in the
+[kwatch repository](https://github.com/abahmed/kwatch/tree/main/deploy/chart),
+but then manage that installation the same way.
 
 The manager is intentionally interactive and accepts no lifecycle action
 arguments. Run it without arguments each time.
@@ -199,11 +203,11 @@ arguments. Run it without arguments each time.
 
 ## 🧪 Optional monitors
 
-TLS certificate monitoring is off by default because it needs read access to
+TLS certificate monitoring (Pro) is off by default because it needs read access to
 TLS Secrets. The manager asks before enabling it and checks the ServiceAccount
 permission.
 
-Heartbeat is also off by default. Enable it only after adding an external
+Heartbeat (Pro) is also off by default. Enable it only after adding an external
 dead-man's-switch URL; see [Heartbeat Monitor](./heartbeat-monitor-configuration).
 
 ## 🆘 If something goes wrong
@@ -215,5 +219,5 @@ kubectl get pods -n kwatch
 kubectl logs -n kwatch deployment/kwatch
 ```
 
-Run the manager again and choose **Show status** or **Configure settings**.
+Run the manager again and choose **View status** or **Edit settings**.
 For a fully scripted install, use the [installation guide](./installation).

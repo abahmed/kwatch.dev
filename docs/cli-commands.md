@@ -1,129 +1,172 @@
 ---
 sidebar_position: 20
 title: CLI Commands
-description: command-line interface commands, flags, environment variables, and exit codes for kwatch
-keywords: [kwatch, cli, commands, lint, replay, version, flags]
+description: kwatch command-line reference covering lint, version, license status, move and deactivate, replay-export, environment variables and exit codes.
+keywords: [kwatch, cli, commands, lint, version, license, replay-export, flags]
 pagination_next: null
 pagination_prev: null
 ---
 
 # 💻 CLI commands
 
-Use the CLI when you want to run kwatch, validate a configuration, or replay a
-saved event. Most users can start with `kwatch lint`.
+The `kwatch` binary runs the monitor and ships a few commands for validating a
+configuration, checking your license and exporting a recording. Most users only
+need `kwatch lint`. The commands run inside the kwatch pod, for example:
 
-kwatch's binary accepts several commands and flags for runtime, validation, and
-diagnostics.
+```bash
+kubectl -n kwatch exec deploy/kwatch -- kwatch lint
+```
+
+| Command | What it does | Edition |
+| --- | --- | --- |
+| `kwatch` | Run the monitor | Community and Pro |
+| `kwatch version` | Print the version, commit and build date | Community and Pro |
+| `kwatch lint` | Validate the configuration | Community and Pro |
+| `kwatch license status` | Show the local license state | Community and Pro |
+| `kwatch license move` | Move the license to this cluster | Pro |
+| `kwatch license deactivate` | Release the license from this cluster | Pro |
+| `kwatch replay-export` | Export the flight recording | Pro |
+
+An unknown command exits with code 2 and does not start the monitor.
 
 ## `kwatch` — run the monitor
 
-Starts the full informer-based controller. Reads config from `CONFIG_FILE`
-environment variable (default `/config/config.yaml`).
+Starts the monitor. It reads the config from the `CONFIG_FILE` environment
+variable (default `/config/config.yaml`).
+
+## `kwatch version` — print the version
 
 ```shell
-kwatch
+kwatch version
+# version v1.0.0 (commit abc1234, built 2026-01-01T00:00:00Z)
+
+kwatch version --json
 ```
 
-## `kwatch --version` — print version
-
-```shell
-kwatch --version
-# vX.Y.Z
-```
+`--json` prints the same data plus the active edition. The older `--version`
+flag still prints only the short version.
 
 ## `kwatch lint` — validate configuration
 
-Validates your config file for common mistakes without running the monitor.
+Checks your config file without running the monitor.
 
 ```shell
 kwatch lint
 # config OK
 ```
-
-### Flags
 
 | Flag | Description |
-|------|-------------|
-| `--strict` | Catches unknown/typo'd config fields (strict unmarshal) |
-| `--check` | Validate config and verify credentials for providers that support checks |
+| --- | --- |
+| `--strict` | Reject unknown or misspelled config fields instead of warning |
+| `--check` | Also contact each provider that supports checks and verify its credentials |
 
 ```shell
-# Validate config
-kwatch lint
-
-# Strict mode — catches typos in field names
-kwatch lint --strict
-
-# Full validation + supported provider credential checks
 kwatch lint --check
 #   slack: OK
-#   pagerduty: OK
 #   email: FAIL — could not connect to SMTP server
-# config OK
 ```
 
-### What `lint` checks
+Lint exits `1` on an error and prints warnings, which are not fatal, for
+settings that work but may mislead. It also prints an `info:` line for each
+<span className="kw-pro">Pro</span> setting your configuration contains while
+the edition is Community. Those settings are ignored, and the file stays valid
+for an upgrade. A real configuration check includes provider names and
+settings, ports, thresholds and silences. Lint requires at least one alert
+provider, although the monitor itself can run without one.
 
-- At least one alert provider is configured
-- `healthCheck.port` is valid when enabled
-- `maxRecentLogLines` is non-negative
-- PVC monitor thresholds are consistent (0 < threshold ≤ criticalThreshold ≤ 100)
-- `correlation.window` and `lifecycleInterval` are positive
-- `pendingPodMonitor.threshold` is positive when enabled
-- `workers` is at least 1
-- `escalation.tiers` are strictly ascending and positive
-- `resolveHoldDown` ≤ `correlation.window * 60`
-- `maxBaseline` doesn't exceed ConfigMap size limits
-- No unknown provider names
+## `kwatch license` — manage the Pro license
 
-The runtime can intentionally run in monitor-only mode with no alert providers;
-the `lint` command keeps the stricter requirement because it validates an
-alerting configuration.
+Community needs no key, and these commands only matter for
+[Pro](/docs/editions). They read the key from `license.key` or the
+`KWATCH_LICENSE_KEY` variable (the variable wins). The installer's
+**License / Pro** menu runs them for you; see [License](/docs/license).
 
-## `kwatch replay` — replay saved events
+### `kwatch license status`
 
-Reads JSONL-formatted events from stdin and sends them through the configured
-providers. This is useful for testing event formatting and delivery. Because
-the normal command sends real notifications, use `--dry-run` when you only
-want to preview the result.
+Prints the local state of the configured key without using the network. The
+key is shown masked.
 
 ```shell
-kwatch replay < events.jsonl
-
-# Preview without sending notifications
-kwatch replay --dry-run < events.jsonl
+kubectl -n kwatch exec deploy/kwatch -- kwatch license status
+# Key:     KW1-…ab12
+# State:   valid key (activation is not checked here)
+# Plan:    trial
+# License: lic_…9f3c
+# Expires: 2027-01-15 (88 days left)
 ```
 
-### Input format
+With no key it prints that kwatch runs the Community edition. The live state
+(`active`, `grace`, `conflict` and so on) is in the `/status` output; see
+[the license states](/docs/license#troubleshooting-status).
 
-```jsonl
-# events.jsonl
-{"resource":"pod","podName":"nginx-abc123","namespace":"default","reason":"OOMKilled","containerName":"nginx","logs":"...","events":"..."}
-{"resource":"node","nodeName":"ip-10-0-0-1","reason":"NodeNotReady"}
-```
+### `kwatch license move`
 
-Lines starting with `#` are ignored. Empty lines are skipped.
-
-### Output
+Takes the license over for the cluster you run it in. Use it when the key is
+bound to another cluster.
 
 ```shell
-$ kwatch replay --dry-run < events.jsonl
-would replay to [slack pagerduty]: [replay] default/nginx-abc123 OOMKilled: ...
-would replay to [slack pagerduty]: [replay] / NodeNotReady: ...
+kubectl -n kwatch exec deploy/kwatch -- kwatch license move
 ```
 
-> **Safety note:** `kwatch replay` sends real notifications unless
-> `--dry-run` is set. Use `lint --check` to test provider connectivity without
-> sending an event.
+It asks the running kwatch, which holds the cluster identity, to do the move,
+and prints one of:
 
----
+| Outcome | Exit code |
+| --- | --- |
+| Moved: the license is now active here and the previous cluster drops to Community at its next daily check | `0` |
+| Already active on this cluster, nothing to move | `0` |
+| Transfer limit reached: 3 moves per 30 days, with the days until a slot frees | `1` |
+| The license server does not accept the key | `1` |
+| The request waited too long for the running kwatch (it stays queued for 10 minutes) | `1` |
+
+Install the key on the new cluster first, and make sure kwatch is running
+there. A move counts toward the same 3 per 30 days as a website transfer.
+
+### `kwatch license deactivate`
+
+Releases this cluster's binding on the license server so the key can be used
+elsewhere. The installer runs it for you during uninstall.
+
+```shell
+kubectl -n kwatch exec deploy/kwatch -- kwatch license deactivate
+```
+
+It counts as one of the 3 moves per 30 days. With no key configured it does
+nothing.
+
+## `kwatch replay-export` — export the flight recording <span className="kw-pro">Pro</span>
+
+kwatch keeps a sanitized flight recording of what its sources observed (48
+hours, capped at 64 MiB). `replay-export` writes a window of it as a log the
+scenario library can replay. Names are hashed pseudonyms, and log and event
+text is dropped, so the file is safe to share.
+
+```shell
+kubectl exec -n kwatch deploy/kwatch -- \
+  kwatch replay-export --since 2h --out /var/lib/kwatch/incident.jsonl
+kubectl cp kwatch/<pod>:/var/lib/kwatch/incident.jsonl ./incident.jsonl
+```
+
+| Flag | Description |
+| --- | --- |
+| `--since` | Start of the window: a duration back (`2h`) or an RFC 3339 time. Required in practice |
+| `--until` | End of the window, same format; default is now |
+| `--state` | State file to read; default is the kwatch state file |
+| `--out` | File to write. Required |
+
+The state file is locked while kwatch runs, so the command works on a copy next
+to the output file and needs free space for it. In Community the command exits
+with `replay-export is a kwatch Pro feature`.
 
 ## Environment variables
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| --- | --- | --- |
 | `CONFIG_FILE` | `/config/config.yaml` | Path to the YAML config file |
-| `POD_NAMESPACE` | (auto-detected) | Namespace kwatch runs in (for ConfigMap state) |
+| `POD_NAMESPACE` | detected from the pod | Namespace kwatch runs in |
+| `KWATCH_LICENSE_KEY` | empty | Pro license key; wins over `license.key` |
+| `KWATCH_DATA_DIR` | `/var/lib/kwatch` | Directory of the state file |
+| `GOMEMLIMIT` | based on the resource limit | Soft Go memory limit |
 
 The config file supports `${VAR}` for non-sensitive strings. Credentials must
 use an absolute file reference backed by a mounted Secret:
@@ -134,19 +177,14 @@ alert:
     webhook: "${file:/config/slack-webhook}"
 ```
 
----
-
 ## Exit codes
 
 | Code | Meaning |
-|------|---------|
+| --- | --- |
 | `0` | Success |
-| `1` | Config error, lint failure, or runtime error |
+| `1` | Config error, lint failure, runtime error, or a Pro-only command in Community |
+| `2` | Unknown command or wrong arguments |
 
-When `kwatch` receives SIGTERM/SIGINT, it shuts down gracefully:
-1. Marks readiness false and stops accepting new work.
-2. Cancels active monitoring and stops informer workers and watcher generations.
-3. Stops delivery intake and drains or cancels provider workers.
-4. Waits for persistence writers and performs one bounded final snapshot when
-   leadership fencing still permits it.
-5. Exits with code `0`.
+When `kwatch` receives SIGTERM or SIGINT it shuts down gracefully: it marks
+readiness false, stops monitoring and delivery, waits for persistence writers,
+and exits with code `0`.

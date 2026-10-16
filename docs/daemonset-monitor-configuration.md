@@ -7,6 +7,10 @@ keywords: [kwatch, Kubernetes DaemonSet monitoring, unavailable Pods, node alert
 
 # DaemonSet availability alerts
 
+:::info Pro
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+:::
+
 A DaemonSet runs a Pod on each matching node. When a Pod is unavailable, a
 node, scheduling, image, or application problem may be preventing the
 DaemonSet from doing its job. kwatch alerts after the condition has lasted
@@ -14,13 +18,10 @@ long enough to avoid brief rollout noise.
 
 ## What kwatch detects
 
-| Setting | Default | Purpose |
-| --- | --- | --- |
-| `daemonSetMonitor.enabled` | `true` | Watch unavailable DaemonSet Pods. |
-| `daemonSetMonitor.sustainedMinutes` | `5` | Wait before alerting on an unavailable Pod. |
+kwatch reports a DaemonSet Pod that stays unavailable. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/docs/general-configuration)).
 
-The sustained window helps avoid notifications for short rolling updates or
-temporary node changes. Increasing it delays real alerts too.
+The sustained window avoids notifications for short rolling updates or
+temporary node changes.
 
 ## Investigate the missing Pod
 
@@ -34,16 +35,6 @@ Compare desired and available Pods, then inspect the affected node and Pod
 Events. If a node is NotReady, investigate the node first. If only one
 DaemonSet Pod fails, check its image, scheduling constraints, and logs.
 
-## Configure the monitor
+## Related
 
-Use the [interactive manager](/docs/installation) to change settings. The
-equivalent configuration fragment is:
-
-```yaml
-daemonSetMonitor:
-  enabled: true
-  sustainedMinutes: 5
-```
-
-Run `kwatch lint` after a change. See [node and workload coverage](/docs/kubernetes-coverage)
-for related signals.
+See [node and workload coverage](/docs/kubernetes-coverage) for related signals.

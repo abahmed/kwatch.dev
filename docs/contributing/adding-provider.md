@@ -6,21 +6,21 @@ sidebar_position: 3
 
 # Add a provider
 
-Provider adapters live under `internal/alert/<provider>`. The directory name
-is retained for provider ownership; the delivery manager and transport live in
-`internal/delivery`.
+Provider adapters live under `internal/alert/<provider>`. The delivery manager
+and transport live in `internal/delivery`. Every provider receives the same
+message and renders it itself.
 
 ## Provider boundary
 
 A provider does four things:
 
 1. Validate its configuration.
-2. Render provider-specific payloads from the shared event or incident model.
+2. Render provider-specific payloads from the shared notification message.
 3. Call `internal/delivery/transport` with the configured HTTP client.
 4. Return provider errors without deciding retry or rate-limit policy.
 
-The provider must not import `internal/controller`, `internal/handler`,
-`internal/incident`, `internal/persistence`, or Kubernetes clients. It must not
+The provider must not import a domain package (`internal/incident`,
+`internal/inventory`, ...), `internal/app`, or Kubernetes clients. It must not
 create a process-wide HTTP client or log credentials, webhook URLs, or complete
 payloads.
 
@@ -33,8 +33,8 @@ payloads.
 3. Use the configured outbound `http.Client` from the provider factory.
 4. Use the shared transport sender for HTTP requests. Do not duplicate retry or
    status classification.
-5. Add the provider factory to the static application catalog.
-6. Add all configurable fields to the provider catalog source.
+5. Add the provider factory to the static catalog (`internal/alert/catalog`).
+6. Add all configurable fields to `deploy/provider-catalog.tsv`; mark every credential field Secret-backed.
 7. Add validation, secret-reference handling, and generated catalog tests.
 8. Add success, network-error, retryable-status, permanent-status, malformed
    response, and payload tests.

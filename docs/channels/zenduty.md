@@ -28,7 +28,7 @@ alert:
     alertType: critical
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

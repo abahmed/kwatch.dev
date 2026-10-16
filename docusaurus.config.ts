@@ -8,7 +8,7 @@ const logo = {
 };
 
 const siteDescription =
-  'See what broke. Understand why. Know what to do next. Open-source Kubernetes incident monitoring and alerting.';
+  'See what broke. Understand why. Know what to do next. Source-available Kubernetes incident monitoring and alerting.';
 
 const config: Config = {
   title: 'kwatch',
@@ -32,6 +32,10 @@ const config: Config = {
 
   customFields: {
     description: siteDescription,
+    // License API used by the pricing, signup and account pages.
+    apiUrl: process.env.KWATCH_API_URL || 'https://api.kwatch.dev',
+    // Cloudflare Turnstile site key. Empty renders a TODO placeholder.
+    turnstileSiteKey: process.env.KWATCH_TURNSTILE_SITEKEY || '0x4AAAAAAFXDDMTb_URieNVZ',
   },
   trailingSlash: false,
 
@@ -72,6 +76,9 @@ const config: Config = {
             '/blog/authors',
             '/blog/tags/**',
             '/search',
+            '/signup',
+            '/signin',
+            '/account',
           ],
           lastmod: 'date',
           filename: 'sitemap.xml',
@@ -123,6 +130,8 @@ const config: Config = {
         {to: '/docs/channels', label: 'Channels', position: 'left'},
         {to: '/search', label: 'Search', position: 'left'},
         {to: '/blog', label: 'Blog', position: 'left'},
+        {to: '/pricing', label: 'Pro', position: 'left'},
+        {to: '/signup', label: 'Sign in', position: 'right'},
         {to: '/community', label: 'Community', position: 'right'},
         {
           href: 'https://github.com/abahmed/kwatch/releases/latest',
@@ -176,6 +185,14 @@ const config: Config = {
             {label: 'GitHub', href: 'https://github.com/abahmed/kwatch'},
             {label: 'Contributing', to: '/docs/contributing'},
             {label: 'Blog', to: '/blog'},
+          ],
+        },
+        {
+          title: 'Legal',
+          items: [
+            {label: 'Pro', to: '/pricing'},
+            {label: 'Privacy', to: '/privacy'},
+            {label: 'Terms', to: '/terms'},
           ],
         },
       ],

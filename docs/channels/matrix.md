@@ -19,8 +19,6 @@ they are not separate installation steps.
 | `alert.matrix.homeServer` | 🖥️ HomeServer URL | Yes |
 | `alert.matrix.accessToken` | 🔑 Access token | Yes |
 | `alert.matrix.internalRoomID` | 🆔 Room ID | Yes |
-| `alert.matrix.title` | ✏️ Custom title | No |
-| `alert.matrix.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -30,11 +28,9 @@ alert:
     homeServer: "https://matrix.example.com"
     accessToken: "${file:/config/matrix-access-token}"
     internalRoomID: "!roomid:example.com"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

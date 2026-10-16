@@ -21,15 +21,17 @@ a deployment can get stuck, or a service can lose its healthy backends.
 
 ## What is kwatch?
 
-kwatch is an open-source Kubernetes incident monitor. It turns failures into
+kwatch is a source-available Kubernetes incident monitor. It turns failures into
 clear alerts that explain what broke, why it happened, and what to do next:
 
 1. 👀 **Watch** — kwatch reads Kubernetes status, events, and recent logs.
 2. 🧠 **Explain** — it connects the clues and finds the likely cause.
 3. 📣 **Alert** — it sends the reason, impact, and next step to your team.
 
-kwatch runs in your own cluster, with no hosted account required. Pair it with
-Prometheus, Grafana, or Loki for long-term metrics and logs.
+kwatch runs in your own cluster. The Community edition is free and needs no
+account. [Pro](/docs/editions) adds deeper detectors and analysis and is free
+during early access. Pair kwatch with Prometheus, Grafana, or Loki for
+long-term metrics and logs.
 
 ## 🚨 What an alert looks like
 
@@ -48,27 +50,29 @@ Instead of only seeing `CrashLoopBackOff`, you get a message like:
 
 ## 🎯 What does kwatch watch?
 
-Most monitors are enabled by default:
+Community covers the failures that page you most. Pro, marked below, adds
+the rest.
 
-| Signal | What kwatch explains |
-| --- | --- |
-| 🟥 Pod crashes | Crash reason, logs, events, and a next step |
-| ⏳ Pending pods | Why the scheduler cannot place a pod |
-| 🖥️ Nodes | Readiness and disk or memory pressure |
-| 🚀 Deployments | Stuck rollouts and unavailable replicas |
-| 🧩 StatefulSets and DaemonSets | Unavailable or stuck workloads |
-| 🧑‍💼 Jobs and CronJobs | Failed, suspended, or missed work |
-| 📈 HPA | An autoscaler stuck at its replica limit |
-| 📣 Cluster autoscaler | Evidence that scaling could not happen |
-| 💾 PVCs | Storage pressure and volume failures |
-| 🌐 Services and Ingress | Missing or unhealthy backends |
-| 🏛️ Control plane | API server and platform health signals |
+| Signal | What kwatch explains | Edition |
+| --- | --- | --- |
+| 🟥 Pod crashes and OOM kills | Crash reason, restarts, root-cause headline and a next step | Community |
+| ⏳ Pending pods | Why the scheduler cannot place a pod | Community |
+| 🖥️ Nodes | NotReady nodes | Community |
+| 🖥️ Node pressure, draining and usage | Disk or memory pressure and draining | <span className="kw-pro">Pro</span> |
+| 🚀 Rollouts, readiness | Stuck rollouts and unavailable replicas | <span className="kw-pro">Pro</span> |
+| 🧑‍💼 Jobs and CronJobs, HPAs, PDBs | Failed, suspended or missed work, stuck autoscalers, blocked disruption | <span className="kw-pro">Pro</span> |
+| 💾 Storage | Claim, volume and attachment failures, volumes nearly full | <span className="kw-pro">Pro</span> |
+| 🌐 Services, Ingress, network policy | Missing or unhealthy backends | <span className="kw-pro">Pro</span> |
+| 🔐 Certificates, admission, quota | Expiring certificates, webhook failures, exhausted quota | <span className="kw-pro">Pro</span> |
+| 🏛️ Control plane | API server, etcd, DNS, scheduler and controller-manager | <span className="kw-pro">Pro</span> |
 
-TLS certificate monitoring and heartbeat notifications are **opt-in**. See the
-[configuration guide](/docs/general-configuration) or the [complete configuration
-reference](/docs/configuration-reference) for every available key.
+Pro also adds full root-cause proof, who changed what, impact, log excerpts,
+routing and threads. Active probes and the heartbeat monitor are opt-in. See
+[Community vs Pro](/docs/editions), the [configuration
+guide](/docs/general-configuration), or the [complete configuration
+reference](/docs/configuration-reference).
 
-## 🚀 Install in three steps
+## 🚀 Install in minutes
 
 ### 1. Check your tools
 
@@ -94,10 +98,16 @@ installs kwatch, and verifies the installation.
 kubectl get pods -n kwatch
 ```
 
-By default you should see two kwatch pods with `STATUS Running`: one active
-leader and one standby. Both pods should show their container as `READY 1/1`;
-only the leader is ready for monitoring. A one-replica installation is also
-supported, but it has no kwatch self-failover. 🎉
+You should see one kwatch pod with `STATUS Running` and `READY 1/1`. kwatch
+runs as a single replica with its state on a small volume. If the pod or its
+node fails, Kubernetes restarts it. Running more than one replica for high
+availability is a [Pro](/docs/editions) feature. 🎉
+
+### 4. Optional: add Pro
+
+[Sign up](/signup) for a free Pro license (early access), then run the same
+command again and choose **License / Pro**, then **Add or replace key**.
+See [License](/docs/license).
 
 ## 🛠️ What next?
 
@@ -105,6 +115,7 @@ supported, but it has no kwatch self-failover. 🎉
 - Want Slack, Discord, email, or PagerDuty? Open [Channels](/docs/channels).
 - Want to change thresholds or silence known noise? Read [Configuration](/docs/general-configuration).
 - Want to understand the manager? Read [kwatch.sh manager](/docs/kwatch-manager).
+- Want the Pro features? Read [Community vs Pro](/docs/editions) and [License](/docs/license).
 - Want to contribute code? Start with [Contributing](/docs/contributing).
 
 If you are unsure where to begin, install with the manager first. You can run

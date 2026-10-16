@@ -22,8 +22,6 @@ If you want to enable Slack, provide either a webhook URL or a bot token with ch
 |:----------|:------------|:---------|
 | `alert.slack.webhook` | Slack webhook URL | Yes |
 | `alert.slack.channel` | 📢 Override channel | No |
-| `alert.slack.title` | ✏️ Custom title | No |
-| `alert.slack.text` | ✏️ Custom text | No |
 | `alert.slack.compact` | 📏 Single-line mode | No |
 
 **Bot Token mode:**
@@ -32,11 +30,9 @@ If you want to enable Slack, provide either a webhook URL or a bot token with ch
 |:----------|:------------|:---------|
 | `alert.slack.token` | Slack bot token (`xoxb-...`) | Yes |
 | `alert.slack.channel` | 📢 Channel to post to | Yes |
-| `alert.slack.title` | ✏️ Custom title | No |
-| `alert.slack.text` | ✏️ Custom text | No |
 | `alert.slack.compact` | 📏 Single-line mode | No |
 
-> 💡 **Pro tip:** When using bot token mode, alerts become threaded conversations — root message on first alert, updates as replies. Clean and organized! 🧹
+> 💡 **Threads (Pro):** With Pro and bot token mode, alerts become threaded conversations: root message on first alert, updates as replies.
 
 ## Compact mode
 
@@ -47,7 +43,7 @@ alert:
     compact: true
 ```
 
-## Routing & Retry
+## Routing (Pro) & Retry
 
 ```yaml
 alert:
@@ -78,8 +74,6 @@ alert:
 alert:
   slack:
     webhook: "${file:/config/slack-webhook}"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
 ## Configuration example (Bot Token)
@@ -89,8 +83,6 @@ alert:
   slack:
     token: "${file:/config/slack-token}"
     channel: "#alerts"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
 ## Screenshot

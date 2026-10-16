@@ -17,8 +17,6 @@ they are not separate installation steps.
 | Parameter | Description | Required |
 |:----------|:------------|:---------|
 | `alert.opsgenie.apiKey` | 🔑 API Key | Yes |
-| `alert.opsgenie.title` | ✏️ Custom title | No |
-| `alert.opsgenie.text` | ✏️ Custom text | No |
 
 ## Configuration example
 
@@ -26,11 +24,9 @@ they are not separate installation steps.
 alert:
   opsgenie:
     apiKey: "${file:/config/opsgenie-api-key}"
-    title: "optional customized title"
-    text: "optional customized text"
 ```
 
-## Routing
+## Routing <span className="kw-pro">Pro</span>
 
 ```yaml
 alert:

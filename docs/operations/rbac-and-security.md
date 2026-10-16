@@ -6,40 +6,21 @@ sidebar_position: 4
 
 # RBAC and deployment security
 
-Kwatch's service account needs permissions for the enabled monitor families,
-the Lease election object, and restart-state ConfigMaps. Use the generated
-feature-permission reference as the starting point rather than granting a
-cluster-admin role.
+kwatch never needs write access to monitored workloads. Its ClusterRole is read-only for observed resources. The chart value `rbac.mode` selects `full` (the default: `list` and `watch` on every resource, so custom kinds can be watched) or `least-privilege` (an explicit set of kinds kwatch understands). Use the [General configuration](/docs/general-configuration#-kubernetes-permissions-and-graceful-degradation) permission section as the starting point rather than granting a cluster-admin role.
 
 ## Review checklist
 
-- Confirm the Lease Role and RoleBinding are namespaced to the installation.
-- Confirm ConfigMap read/write access is limited to Kwatch state resources.
-- Enable only the monitor permissions required by the installation.
-- Review Secret access when TLS or dependency evidence is enabled; document
-  why the feature needs metadata or content.
-- Verify disabled optional monitors do not require unexplained permissions.
-- Run `kubectl auth can-i` for every enabled feature in CI or the target
-  cluster.
-- Run as non-root with a read-only root filesystem, dropped capabilities, and
-  seccomp enabled.
-- Keep diagnostics and pprof disabled unless an authenticated operational
-  workflow requires them.
-- Use image digests for deployment and verify release signatures, checksums,
-  SBOM, and provenance.
+- Confirm the namespaced Role for the state lock Lease is limited to kwatch's own Lease name (`get`/`update`); `create` on Leases in kwatch's namespace cannot be limited by name.
+- `get` is granted only where a single object is read: namespaces, nodes, `nodes/stats`, `nodes/metrics` and `pods/log`. `nodes/proxy` and `pods/exec` are never granted.
+- **Secrets.** By default kwatch's ServiceAccount can read every Secret in the cluster; kwatch keeps only hashes, never values. Set `watch.secrets: false` to remove every Secret permission. Checks that need Secrets (missing references, certificate expiry) then report that they cannot verify. `rbac.mode: least-privilege` alone does not remove it.
+- Run `kubectl auth can-i` for the permissions you rely on in the target cluster.
+- Run as non-root with a read-only root filesystem, dropped capabilities and seccomp enabled (the shipped manifests do).
+- Use image digests and verify release signatures, checksums, SBOM and provenance (see [Release integrity](/docs/release-integrity)).
 
-## Diagnostic exposure
+## Endpoint exposure
 
-`/healthz`, `/readyz`, `/health`, and `/metrics` are operational endpoints.
-Incident, persistence, informer, provider, security, control-plane, test-alert,
-dead-letter, and pprof endpoints are protected and should remain disabled by
-default. Production-oriented configuration must provide a token when they are
-enabled. Responses use safe reason codes and bounded fields; credentials,
-tokens, payloads, secret-bearing URLs, and raw Kubernetes objects are excluded.
+kwatch serves only `/healthz`, `/readyz`, `/availabilityz`, `/health` and `/metrics`, plus the opt-in `/status` (`healthCheck.statusEndpoint`, Pro for JSON). There are no diagnostic, profiling or test-alert endpoints. None has authentication, so keep the health port inside the cluster. `/status` shows object names; read it with `kubectl port-forward`. Responses use safe reason codes; credentials, tokens, payloads and raw Kubernetes objects are excluded.
 
-## Network and disruption controls
+## Network controls
 
-Review an optional NetworkPolicy for the API server, DNS, configured providers,
-and any heartbeat endpoint. For two or more replicas, use a PodDisruptionBudget
-with `minAvailable: 1`, a termination grace period longer than bounded shutdown,
-and topology spread or preferred anti-affinity when node failure matters.
+The chart includes an opt-in NetworkPolicy (off by default). With it on, the health port is reachable only from the release namespace, the node ranges in `networkPolicy.kubeletCIDRs` and the peers in `networkPolicy.healthIngressFrom`. Egress allows DNS, the API server and HTTPS providers, and the kubelet port (10250). Anything else kwatch dials, such as active probe targets, `app.proxyURL` or providers on a non-443 port, must be opened with `networkPolicy.extraEgressPorts` or `networkPolicy.egress`.

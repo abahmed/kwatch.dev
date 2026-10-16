@@ -4952,7 +4952,7 @@ show_feature_area() {
   printf '\n' >&2
   ui_detail "  $shown capabilities"
   if [ "$pro_shown" -gt 0 ]; then
-    ui_detail "  PRO features need a license — free 90-day trial: https://kwatch.dev/signup?src=installer"
+    ui_detail "  PRO features need a license — kwatch Pro is free during early access: https://kwatch.dev/signup?src=installer"
   fi
 }
 
@@ -7582,7 +7582,7 @@ license_is_community() {
 }
 
 community_provider_cap_message() {
-  printf 'Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free 90-day trial: %s)' \
+  printf 'Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free during early access: %s)' \
     "$LICENSE_TRIAL_URL"
 }
 
@@ -7879,7 +7879,7 @@ license_install_prompt() {
     exit_expected
   key="${key//[[:space:]]/}"
   if [ -z "$key" ]; then
-    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
     return 0
   fi
   license_report_key "$key" || rc=$?
@@ -7913,7 +7913,7 @@ license_show_status() {
     fi
   else
     ui_detail "  No license key is configured: this is the Community edition."
-    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
   fi
   printf '\n' >&2
   text=$(kwatch_status_text || true)
@@ -7925,7 +7925,7 @@ license_show_status() {
 license_add_flow() {
   local key rc=0
   ui_heading "🔑  Add or replace the license key"
-  license_secret_exists || ui_detail "  No key yet? Free 90-day trial: $LICENSE_TRIAL_URL"
+  license_secret_exists || ui_detail "  No key yet? Get a free Pro license: $LICENSE_TRIAL_URL"
   key=$(ask_secret_or_back "Pro license key") || {
     ui_info "↩️ Nothing was changed."
     return 0
@@ -7951,7 +7951,7 @@ license_remove_flow() {
   name=$(license_secret_name)
   if ! license_secret_exists; then
     ui_detail "  No license key is configured."
-    ui_detail "  Free 90-day Pro trial: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
     return 0
   fi
   confirm_change "🗑️ Remove the license key and return to Community." \

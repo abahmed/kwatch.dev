@@ -299,7 +299,7 @@ out=$(license_status_section 2>&1)
 assert_contains "$out" "license state unavailable (enable healthCheck.statusEndpoint for full status)" "unavailable message"
 
 # --- Community provider cap -------------------------------------------------
-expected='Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free 90-day trial: https://kwatch.dev/signup?src=installer)'
+expected='Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free during early access: https://kwatch.dev/signup?src=installer)'
 assert_eq "$(community_provider_cap_message)" "$expected" "cap message"
 STATUS_TEXT=$'Edition: Community\nLicense: community'
 kwatch_status_text() { printf '%s\n' "$STATUS_TEXT"; }

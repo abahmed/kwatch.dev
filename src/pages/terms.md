@@ -1,13 +1,13 @@
 ---
 title: Terms of service
-description: Terms for kwatch accounts, Pro licenses, trials and the kwatch license service.
+description: Terms for kwatch accounts, Pro licenses and the kwatch license service.
 ---
 
 # Terms of service
 
 _Last updated: October 16, 2026_
 
-These terms apply to your kwatch account, kwatch Pro licenses and trials, and
+These terms apply to your kwatch account, kwatch Pro licenses, and
 the license service at `api.kwatch.dev`. kwatch is operated by Abdelrahman
 Ahmed ("we"). By creating an account or using a license key you agree to
 these terms.
@@ -69,7 +69,7 @@ You can delete your account at any time.
 ## Suspension and termination
 
 We may suspend or revoke a license or account that breaches these terms or
-the ELv2, for example key sharing or trial abuse. Where practical we will
+the ELv2, for example key sharing or abuse of free licenses. Where practical we will
 contact you first. Suspension affects Pro features only; kwatch keeps running
 as the Community edition.
 

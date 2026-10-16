@@ -568,5 +568,5 @@ if [ -n "${KWATCH_BIN:-}" ]; then
 fi
 
 bash "$ROOT/tests/kwatch-license-test.sh"
-
+bash "$ROOT/tests/kwatch-license-apply-test.sh"
 echo "kwatch manager secret test passed"

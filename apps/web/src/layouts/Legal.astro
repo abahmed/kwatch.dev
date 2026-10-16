@@ -1,0 +1,52 @@
+---
+import Base from './Base.astro';
+
+interface Props {
+  frontmatter: { title: string; description: string; updated: string; lead?: string; page: 'privacy' | 'terms' };
+}
+const { frontmatter: f } = Astro.props;
+const links = [
+  { id: 'privacy', href: '/privacy', label: 'Privacy policy' },
+  { id: 'terms', href: '/terms', label: 'Terms of service' },
+];
+---
+<Base title={`${f.title} — kwatch`} description={f.description} minimalHeader>
+  <div class="wrap legal">
+    <nav aria-label="Legal">
+      {links.map((l) => <a href={l.href} aria-current={l.id === f.page ? 'page' : undefined}>{l.label}</a>)}
+      <p class="updated">Updated {f.updated}</p>
+    </nav>
+    <article>
+      <h1>{f.title}</h1>
+      {f.lead && <p class="lead">{f.lead}</p>}
+      <div class="prose"><slot /></div>
+    </article>
+  </div>
+</Base>
+
+<style>
+  .legal { display: grid; grid-template-columns: 3fr 9fr; gap: 64px; padding-block: 64px 96px; line-height: 1.6; }
+  nav { font-size: 15px; display: flex; flex-direction: column; gap: 10px; align-self: start; }
+  nav a { color: var(--text-muted); text-decoration: none; }
+  nav a:hover { color: var(--text); text-decoration: underline; }
+  nav a[aria-current='page'] { color: var(--text); font-weight: 600; }
+  .updated { margin-top: 18px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+  article { max-width: 720px; min-width: 0; }
+  h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 2.4vw + 28px, 56px); letter-spacing: -0.04em; line-height: 1; }
+  .lead { margin-top: 20px; font-size: 20px; color: var(--text-soft); }
+  .prose { margin-top: 8px; color: var(--text-soft); overflow-wrap: anywhere; }
+  .prose :global(h2) { margin: 40px 0 10px; font-family: var(--font-display); font-size: 26px; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); }
+  .prose :global(h3) { margin: 28px 0 8px; font-family: var(--font-display); font-size: 20px; color: var(--text); }
+  .prose :global(p), .prose :global(ul), .prose :global(ol) { margin: 0 0 14px; }
+  .prose :global(ul), .prose :global(ol) { padding-left: 22px; }
+  .prose :global(li) { margin-bottom: 6px; }
+  .prose :global(a) { color: var(--text); }
+  .prose :global(code) { font-size: .9em; background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+  .prose :global(table) { border-collapse: collapse; display: block; overflow-x: auto; }
+  .prose :global(th), .prose :global(td) { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
+  @media (max-width: 800px) {
+    .legal { grid-template-columns: 1fr; gap: 32px; padding-block: 40px 64px; }
+    nav { flex-direction: row; flex-wrap: wrap; gap: 8px 20px; }
+    .updated { margin-top: 0; flex-basis: 100%; }
+  }
+</style>

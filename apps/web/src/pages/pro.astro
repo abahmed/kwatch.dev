@@ -1,0 +1,158 @@
+---
+import Base from '../layouts/Base.astro';
+
+type Row = [string, string, string, boolean?]; // label, community, pro, community is a dash
+const groups: { name: string; rows: Row[] }[] = [
+  {
+    name: 'DETECTION',
+    rows: [
+      ['Crash loops, OOM kills, Pending pods', 'Yes', 'Yes'],
+      ['Node NotReady', 'Yes', 'Yes, plus pressure and draining'],
+      ['Readiness, stuck rollouts, failed Jobs and CronJobs', '—', 'Yes'],
+      ['Storage, network, certificates, quota, admission', '—', 'Yes'],
+      ['Control plane, custom resources, unusual events', '—', 'Yes'],
+    ],
+  },
+  {
+    name: 'ANALYSIS',
+    rows: [
+      ['Root cause', 'One-line headline', 'Full proof and confidence'],
+      ['Recent changes and who made them', '—', 'Yes'],
+      ['Affected services and log excerpts', '—', 'Yes'],
+    ],
+  },
+  {
+    name: 'ALERTS',
+    rows: [
+      ['Channels', '1', 'Unlimited'],
+      ['Routing by namespace and severity, threads, templates', '—', 'Yes'],
+      ['Noise control and silences', 'Yes', 'Yes, plus flapping and maintenance windows'],
+    ],
+  },
+  {
+    name: 'OPERATIONS',
+    rows: [
+      ['Incident history across restarts', '—', 'Yes'],
+      ['Audit log, runbooks, heartbeat monitor', '—', 'Yes'],
+      ['Account needed', 'No', 'Yes, email only'],
+    ],
+  },
+];
+
+const license: [string, string][] = [
+  ['Getting one', 'Sign in with your email and press “Get a free Pro license”. Your key appears right away.'],
+  ['Adding it', 'Run the kwatch installer and choose License / Pro, then Add or replace key.'],
+  ['One cluster', 'A key runs one cluster. Move it to another up to 3 times in 30 days, from the installer or your account.'],
+  ['Offline', 'kwatch checks in once a day and keeps Pro for up to 7 days without a connection.'],
+  ['When it ends', 'kwatch falls back to Community. Alerts never stop.'],
+  ["What's sent", 'A hashed cluster ID, the kwatch version and the node count. Nothing from your workloads.'],
+];
+---
+<Base
+  current="pro"
+  title="kwatch Pro — free during early access"
+  description="Community tells you that a pod or node broke. Pro shows the full chain of cause, the change and who made it, what else is hit, and the logs that prove it. Free during early access."
+>
+  <section class="hero wrap">
+    <div>
+      <p class="badge">Free during early access</p>
+      <h1>Pro shows you<br />the whole story.</h1>
+      <p class="lede">Community tells you that a pod or node broke. Pro tells you everything else: the full chain of cause, the change and who made it, what else is hit, and the logs that prove it.</p>
+    </div>
+    <aside class="how-early" aria-labelledby="early-title">
+      <p id="early-title" class="strong">How early access works</p>
+      <ul>
+        <li>Each Pro license is free for 3 months, and we may renew it.</li>
+        <li>One license runs one cluster. Up to 2 per account, or per company domain for work emails.</li>
+        <li>No payment details. If we ever charge, you'll hear well in advance.</li>
+      </ul>
+      <a class="btn btn-primary" href="https://app.kwatch.dev">Get a free Pro license</a>
+    </aside>
+  </section>
+
+  <section class="wrap compare">
+    <h2 class="display">Community and Pro, side by side</h2>
+    <div class="scroll" role="region" aria-label="Community and Pro comparison table" tabindex="0">
+      <table>
+        <thead>
+          <tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col">Community</th><th scope="col" class="pro-col">Pro</th></tr>
+        </thead>
+        {groups.map((g) => (
+          <tbody>
+            <tr class="group"><th scope="colgroup" colspan="3">{g.name}</th></tr>
+            {g.rows.map(([label, c, p]) => (
+              <tr>
+                <th scope="row">{label}</th>
+                <td class:list={{ none: c === '—' }}>{c}</td>
+                <td class="pro-col">{p}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+      </table>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap license">
+      <h2 class="display">How the license works</h2>
+      <dl>
+        {license.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+      </dl>
+    </div>
+  </section>
+
+  <section class="cta on-signal">
+    <div class="wrap cta-inner">
+      <h2 class="display">Try the whole thing.<br />It's free.</h2>
+      <a class="btn btn-solid big" href="https://app.kwatch.dev">Get a free Pro license</a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 56px; align-items: end; padding-block: 64px 72px; }
+  .badge { display: inline-block; background: var(--signal); color: var(--on-signal); padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+  h1 { margin-top: 20px; font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 3.4vw + 28px, 84px); line-height: .95; letter-spacing: -0.045em; }
+  .lede { margin-top: 22px; font-size: clamp(18px, .6vw + 15px, 20px); color: var(--text-soft); max-width: 560px; }
+  .how-early { background: var(--surface); border-radius: 10px; padding: 28px; }
+  .strong { font-weight: 600; }
+  .how-early ul { margin: 12px 0 0; padding-left: 20px; color: var(--text-soft); font-size: 15px; }
+  .how-early .btn { margin-top: 20px; }
+
+  .compare { padding-block: 24px 100px; }
+  .compare h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); }
+  .scroll { margin-top: 32px; overflow-x: auto; border-radius: 6px; }
+  table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 16px; }
+  thead th { text-align: left; padding: 14px 0; border-bottom: 2px solid var(--text); }
+  thead th:first-child { width: 52%; }
+  th.pro-col, td.pro-col { padding-inline: 12px; }
+  thead th.pro-col { background: var(--signal); color: var(--on-signal); }
+  .group th { text-align: left; padding: 22px 0 8px; font-family: var(--font-mono); font-weight: 400; font-size: 13px; color: var(--text-muted); }
+  tbody th[scope='row'] { text-align: left; font-weight: 400; padding: 12px 12px 12px 0; }
+  tbody tr:not(.group) > * { border-bottom: 1px solid var(--line); }
+  td { padding-right: 12px; }
+  td.none { color: var(--text-muted); }
+
+  .license { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; padding-block: 90px; }
+  .license h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); }
+  dl { display: grid; grid-template-columns: 200px 1fr; gap: 18px 24px; }
+  dt { font-weight: 600; }
+  dd { margin: 0; color: var(--text-soft); }
+
+  .cta { background: var(--signal); color: var(--on-signal); }
+  .cta-inner { padding-block: 96px; display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between; }
+  .cta h2 { font-size: clamp(44px, 4.4vw + 24px, 80px); line-height: .95; letter-spacing: -0.05em; }
+  .btn.big { padding: 18px 32px; font-size: 18px; }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; gap: 36px; padding-block: 40px 48px; }
+    .license { grid-template-columns: 1fr; gap: 28px; padding-block: 64px; }
+    .compare { padding-bottom: 64px; }
+    .cta-inner { padding-block: 64px; }
+  }
+  @media (max-width: 560px) {
+    dl { grid-template-columns: 1fr; gap: 4px; }
+    dd { margin-bottom: 14px; }
+  }
+</style>

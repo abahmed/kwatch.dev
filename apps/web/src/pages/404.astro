@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Page not found — kwatch" description="This page isn't scheduled anywhere. Start from the kwatch home page." noindex>
+  <section class="nf">
+    <div class="wrap inner">
+      <div>
+        <p class="eyebrow">404 · page</p>
+        <h1>This page isn't scheduled anywhere.</h1>
+        <div class="actions">
+          <a class="btn btn-primary" href="/">Go home</a>
+          <a class="link" href="https://docs.kwatch.dev/search">Search the docs</a>
+        </div>
+      </div>
+      <div class="card on-ink" role="group" aria-label="Why this happened">
+        <p class="top">ROOT CAUSE FOUND</p>
+        <dl>
+          <dt>Why</dt><dd>An old or mistyped link</dd>
+          <dt>Next</dt><dd>Start from the home page</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .nf { border-top: 8px solid var(--text); background: var(--surface); }
+  .inner { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 56px; align-items: center; padding-block: 110px; }
+  h1 { margin-top: 16px; font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 4vw + 24px, 76px); line-height: .95; letter-spacing: -0.045em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; align-items: center; }
+  .actions .btn { padding: 14px 24px; }
+  .link { font-weight: 600; padding: 14px 10px; }
+  .card { background: var(--ink); color: var(--ink-text); border-radius: 14px; padding: 24px; font-size: 15px; }
+  .top { font-family: var(--font-mono); font-size: 12px; color: var(--signal); }
+  dl { margin-top: 12px; display: grid; grid-template-columns: 70px 1fr; gap: 6px 12px; }
+  dt { color: var(--ink-muted); }
+  dd { margin: 0; }
+  @media (max-width: 800px) {
+    .inner { grid-template-columns: 1fr; gap: 36px; padding-block: 56px; }
+  }
+</style>

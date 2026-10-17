@@ -7,7 +7,7 @@ sidebar_position: 2
 # Replication and failover
 
 :::info Pro
-Running more than one replica (high availability) is part of kwatch Pro, which is free during early access. The Community edition runs one replica. See [Community vs Pro](/docs/editions).
+Running more than one replica (high availability) is part of kwatch Pro, which is free during early access. The Community edition runs one replica. See [Community vs Pro](/editions).
 :::
 
 By default kwatch runs **one replica** with the `Recreate` strategy. Its state lives in a file on a PersistentVolumeClaim mounted at `/var/lib/kwatch`. A Kubernetes Lease is used only as a **lock**: it stops two processes from writing the volume at once. There is no second Pod by default and no kwatch self-failover. If the Pod or its node fails, Kubernetes restarts the Pod and kwatch resumes from the volume.
@@ -53,4 +53,4 @@ During a rolling update, `/availabilityz` lets a Pod waiting for the lock count 
 
 ## Community and in-memory state
 
-Persistence on disk is part of kwatch Pro. Without a license kwatch keeps state in memory: after a restart it quietly takes a fresh baseline, so existing failures are not re-sent and only new ones, or ones that get worse, alert. See [Persistence and recovery](/docs/operations/persistence-recovery).
+Persistence on disk is part of kwatch Pro. Without a license kwatch keeps state in memory: after a restart it quietly takes a fresh baseline, so existing failures are not re-sent and only new ones, or ones that get worse, alert. See [Persistence and recovery](/operations/persistence-recovery).

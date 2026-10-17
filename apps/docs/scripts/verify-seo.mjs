@@ -6,18 +6,11 @@ const sitemapPath = path.join(buildRoot, 'sitemap.xml');
 const robotsPath = path.join(buildRoot, 'robots.txt');
 const noIndexRoutes = new Set([
   '/404',
-  '/blog/archive',
-  '/blog/authors',
-  '/blog/tags',
   '/charts',
-  '/search',
-  '/signup',
-  '/signin',
-  '/account',
 ]);
 
 function isExcluded(route) {
-  return noIndexRoutes.has(route) || route.startsWith('/blog/tags/');
+  return noIndexRoutes.has(route);
 }
 
 function fail(message) {
@@ -77,14 +70,14 @@ const descriptions = new Map();
 const searchIndex = JSON.parse(read(path.join(buildRoot, 'search-index.json')));
 const searchURLs = new Set(searchIndex.map((entry) => entry.url));
 
-if (!robots.includes('Sitemap: https://kwatch.dev/sitemap.xml')) {
+if (!robots.includes('Sitemap: https://docs.kwatch.dev/sitemap.xml')) {
   fail('robots.txt does not declare the production sitemap');
 }
 
 for (const file of indexablePages) {
   const route = routeFor(file);
   const html = read(file);
-  const canonical = `https://kwatch.dev${route === '/' ? '/' : route}`;
+  const canonical = `https://docs.kwatch.dev${route === '/' ? '/' : route}`;
   const title = html.match(/<title\b[^>]*>([^<]+)<\/title>/i)?.[1];
   const description = htmlTags(html, 'meta')
     .find((tag) => /\bname="description"/i.test(tag))
@@ -127,22 +120,20 @@ for (const file of excludedPages) {
   if (!html.includes('content="noindex')) {
     fail(`${route} is excluded but does not declare noindex`);
   }
-  const canonical = `https://kwatch.dev${route}`;
+  const canonical = `https://docs.kwatch.dev${route}`;
   if (sitemapURLs.has(canonical)) {
     fail(`${route} is excluded but appears in sitemap.xml`);
   }
 }
 
 for (const url of sitemapURLs) {
-  if (!url.startsWith('https://kwatch.dev/')) {
+  if (!url.startsWith('https://docs.kwatch.dev/')) {
     fail(`sitemap contains a non-production URL: ${url}`);
   }
 }
 
-const searchableRoutes = indexablePages.map(routeFor).filter((route) =>
-  route === '/docs' || route.startsWith('/docs/') ||
-  (route.startsWith('/blog/') && !route.startsWith('/blog/tags/')),
-);
+// Every indexable page on the docs host is searchable.
+const searchableRoutes = indexablePages.map(routeFor);
 for (const route of searchableRoutes) {
   if (!searchURLs.has(route)) fail(`${route} is absent from search index`);
 }
@@ -151,6 +142,23 @@ if (searchURLs.size !== searchIndex.length) {
 }
 if (searchURLs.size !== searchableRoutes.length) {
   fail('search index includes unexpected pages');
+}
+
+// Docs are served from the root of docs.kwatch.dev; /docs/* is a redirect.
+if (!pages.some((file) => routeFor(file) === '/')) fail('home page / is missing');
+const legacy = pages.filter((file) => routeFor(file).startsWith('/docs'));
+if (legacy.length) fail(`${legacy.length} pages are still built under /docs`);
+if (!pages.some((file) => routeFor(file) === '/404')) fail('404 page is missing');
+for (const name of ['_headers', '_redirects']) {
+  if (!fs.existsSync(path.join(buildRoot, name))) fail(`build is missing ${name}`);
+}
+if (!read(path.join(buildRoot, '_redirects')).includes('/docs/* /:splat 301')) {
+  fail('_redirects does not map /docs/* to /:splat');
+}
+for (const file of pages) {
+  if (/href="\/docs[\/"]/.test(read(file))) {
+    fail(`${routeFor(file)} still links to /docs/...`);
+  }
 }
 
 if (process.exitCode) process.exit(1);

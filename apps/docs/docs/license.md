@@ -11,8 +11,8 @@ Community needs no license. Pro features need a license key, one per cluster.
 
 ## Get a key
 
-[Sign up](/signup) with your email, open the sign-in link and choose
-**Get 3 months of Pro free** on your [account page](/account). Your key is
+[Sign up](https://app.kwatch.dev) with your email, open the sign-in link and choose
+**Get 3 months of Pro free** on your [account page](https://app.kwatch.dev). Your key is
 shown there.
 
 During early access Pro is free and covers up to 2 clusters (one license key
@@ -25,7 +25,7 @@ account does not reset it. Need more? [Contact us](mailto:hello@kwatch.dev).
 
 ## Install the key
 
-The [kwatch.sh installer](/docs/kwatch-sh) is the way to set up a license.
+The [kwatch.sh installer](/kwatch-sh) is the way to set up a license.
 Run it:
 
 ```bash
@@ -62,7 +62,7 @@ A key is bound to one cluster at a time. There are two ways to move it, and
 both count toward the same limit of 3 moves per 30 days.
 
 **From the new cluster.** Point `kubectl` at the new cluster and run the
-[kwatch.sh installer](/docs/kwatch-sh):
+[kwatch.sh installer](/kwatch-sh):
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
@@ -75,7 +75,7 @@ Install the key on the new cluster first with **Add or replace key** if it is
 not there yet.
 
 **From the website.** Use **Transfer to another cluster** on your
-[account page](/account). This releases the license; the new cluster picks it
+[account page](https://app.kwatch.dev). This releases the license; the new cluster picks it
 up on its own within about 5 minutes. A cluster that finds its license bound
 elsewhere asks again every 5 minutes for the first hour, then hourly.
 
@@ -115,4 +115,4 @@ The license state appears in the `/status` output:
 ## What is sent
 
 A hashed cluster id, kwatch version and node count. See the
-[privacy policy](/privacy).
+[privacy policy](https://kwatch.dev/privacy).

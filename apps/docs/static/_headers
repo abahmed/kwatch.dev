@@ -1,4 +1,13 @@
-# Response headers for Cloudflare Pages.
+# Response headers for Cloudflare Pages (docs.kwatch.dev).
+#
+# Content-Security-Policy: Docusaurus emits inline <script> tags (the theme
+# and color-mode bootstrap that runs before first paint, and the route
+# manifest) and inline style attributes, and Pages gives us no per-request
+# nonce. 'unsafe-inline' is therefore required for script-src and style-src.
+# Everything else is locked to 'self': fonts are self-hosted, there are no
+# third-party scripts, and no connect-src other than same-origin (the search
+# index is a same-origin JSON file). img-src allows https: because some doc
+# pages embed external badges and screenshots.
 /*
   Strict-Transport-Security: max-age=15552000; includeSubDomains
   X-Content-Type-Options: nosniff
@@ -6,15 +15,13 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://api.kwatch.dev https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
-# Account pages are personal: never cache them.
-/account*
-  Cache-Control: no-store
-/signin*
-  Cache-Control: no-store
+# Hashed build assets never change.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
 
-# The installer is read by curl and by people reviewing it.
+# Legacy copy of the installer (kwatch.dev/kwatch.sh is canonical).
 /kwatch.sh
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300

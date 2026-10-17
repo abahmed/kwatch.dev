@@ -7,7 +7,7 @@ keywords: [kwatch, Kubernetes alerts, Email, notification channel]
 # Email alerts
 
 Send kwatch incident alerts to **Email**. Use the
-[interactive manager](/docs/installation) for installation and
+[interactive manager](/installation) for installation and
 credential setup. This page explains the provider fields and shows
 a minimal configuration fragment.
 
@@ -19,7 +19,7 @@ a minimal configuration fragment.
 - `port` — SMTP port.
 - `to` — Receiver email.
 
-For a guided setup, use the [Email channel guide](/docs/channels/email).
+For a guided setup, use the [Email channel guide](/channels/email).
 
 Credentials, tokens, keys, passwords, and webhook URLs must be mounted
 from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
@@ -51,5 +51,5 @@ alert:
     to: <to>
 ```
 
-Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.
+Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
 

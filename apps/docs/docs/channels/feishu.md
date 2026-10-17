@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 🐦 FeiShu (Lark)
 
-Use the [interactive kwatch manager](/docs/installation) to configure FeiShu
+Use the [interactive kwatch manager](/installation) to configure FeiShu
 (Lark) alerts. It stores credentials in Kubernetes Secrets and verifies the
 installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

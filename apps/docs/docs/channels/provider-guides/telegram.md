@@ -7,7 +7,7 @@ keywords: [kwatch, Kubernetes alerts, Telegram, notification channel]
 # Telegram alerts
 
 Send kwatch incident alerts to **Telegram**. Use the
-[interactive manager](/docs/installation) for installation and
+[interactive manager](/installation) for installation and
 credential setup. This page explains the provider fields and shows
 a minimal configuration fragment.
 
@@ -16,7 +16,7 @@ a minimal configuration fragment.
 - `token` — Bot token.
 - `chatId` — Chat ID.
 
-For a guided setup, use the [Telegram channel guide](/docs/channels/telegram).
+For a guided setup, use the [Telegram channel guide](/channels/telegram).
 
 Credentials, tokens, keys, passwords, and webhook URLs must be mounted
 from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
@@ -42,4 +42,4 @@ alert:
     chatId: <chatId>
 ```
 
-Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.
+Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.

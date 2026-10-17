@@ -10,7 +10,7 @@ pagination_prev: null
 # 🔒 TLS certificate monitor
 
 :::info Pro
-This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/editions).
 :::
 
 TLS certificates protect HTTPS connections. This detector warns before
@@ -33,7 +33,7 @@ There are no TLS settings: certificate detection is part of kwatch Pro and alway
 
 ## Required RBAC
 
-Certificate detection needs read access to `secrets`. The installer and the Helm chart grant it by default; `watch.secrets: false` removes it. See [Kubernetes permissions](/docs/general-configuration#-kubernetes-permissions-and-graceful-degradation).
+Certificate detection needs read access to `secrets`. The installer and the Helm chart grant it by default; `watch.secrets: false` removes it. See [Kubernetes permissions](/general-configuration#-kubernetes-permissions-and-graceful-degradation).
 
 ## Multiple certificates in one Secret
 

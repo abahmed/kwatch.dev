@@ -122,7 +122,7 @@ with each kwatch release. Version 1 covers every supported notification
 provider and its documented fields; credentials are automatically stored as
 Secret-backed files. Choice groups, conditional fields, and at-least-one
 destination groups are interpreted from the catalog, not hard-coded per
-provider. See the website's [complete provider reference](/docs/channels/providers)
+provider. See the website's [complete provider reference](/channels/providers)
 for the same catalog rendered as a field reference.
 
 Authentication is asked before optional presentation settings, so a provider
@@ -166,7 +166,7 @@ offers only actions valid for the detected running state:
 | ⚙️ Edit settings | Change monitors, thresholds, or filters |
 | 🧮 Edit Deployment resources and placement | Keep CPU/memory and node-selector choices across upgrades |
 | 🧩 View capabilities | See what the installed release supports, marked Community or Pro |
-| 🔑 License / Pro | Show license status, add or replace a key, move the license to this cluster, or remove the key. See [License](/docs/license) |
+| 🔑 License / Pro | Show license status, add or replace a key, move the license to this cluster, or remove the key. See [License](/license) |
 | ♻️ Restore a previous configuration | Replace the current KwatchConfig from a retained backup |
 | 🧹 Uninstall kwatch | Remove the kwatch workload and notification Secret |
 

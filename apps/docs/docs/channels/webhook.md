@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 🔗 Custom Webhook
 
-Use the [interactive kwatch manager](/docs/installation) to configure Custom
+Use the [interactive kwatch manager](/installation) to configure Custom
 Webhook alerts. It stores credentials in Kubernetes Secrets and verifies the
 installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

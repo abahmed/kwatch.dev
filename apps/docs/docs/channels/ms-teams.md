@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 💼 Microsoft Teams
 
-Use the [interactive kwatch manager](/docs/installation) to configure
+Use the [interactive kwatch manager](/installation) to configure
 Microsoft Teams alerts. It stores credentials in Kubernetes Secrets and
 verifies the installation. The configuration fragments below explain provider
 settings; they are not separate installation steps.

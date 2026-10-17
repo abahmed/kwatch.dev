@@ -27,8 +27,8 @@ work emails. There are no prices and no payment details.
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
 | Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export`, standby replicas |
 
-The per-capability list is on the [pricing page](/pricing) and in the
-[generated feature reference](/docs/reference/generated/features). Every
+The per-capability list is on the [pricing page](https://kwatch.dev/pro) and in the
+[generated feature reference](/reference/generated/features). Every
 capability there carries its tier.
 
 ## Community
@@ -79,14 +79,14 @@ the file stays valid when you upgrade.
 
 ## Get Pro
 
-1. [Sign up](/signup) and open the sign-in link.
-2. Choose **Get 3 months of Pro free** on your [account](/account) page.
-3. Run the [installer](/docs/kwatch-sh), open **License / Pro** and choose
+1. [Sign up](https://app.kwatch.dev) and open the sign-in link.
+2. Choose **Get 3 months of Pro free** on your [account](https://app.kwatch.dev) page.
+3. Run the [installer](/kwatch-sh), open **License / Pro** and choose
    **Add or replace key**.
 
 Details, moving a license and troubleshooting are on the
-[License](/docs/license) page, and the commands are in the
-[CLI reference](/docs/cli-commands).
+[License](/license) page, and the commands are in the
+[CLI reference](/cli-commands).
 
 ## Source available
 
@@ -94,4 +94,4 @@ kwatch is source available under the Elastic License 2.0 (ELv2). You may run
 it for free in your own clusters, read and change the code, and share it. You
 may not offer it as a hosted service or remove its license-key checks.
 Releases up to and including `v1.0.0-rc.10` stay under the MIT License. See
-[licensing](/docs/licensing).
+[licensing](/licensing).

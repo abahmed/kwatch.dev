@@ -8,7 +8,7 @@ keywords: [kwatch, Kubernetes DaemonSet monitoring, unavailable Pods, node alert
 # DaemonSet availability alerts
 
 :::info Pro
-This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/editions).
 :::
 
 A DaemonSet runs a Pod on each matching node. When a Pod is unavailable, a
@@ -18,7 +18,7 @@ long enough to avoid brief rollout noise.
 
 ## What kwatch detects
 
-kwatch reports a DaemonSet Pod that stays unavailable. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/docs/general-configuration)).
+kwatch reports a DaemonSet Pod that stays unavailable. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/general-configuration)).
 
 The sustained window avoids notifications for short rolling updates or
 temporary node changes.
@@ -37,4 +37,4 @@ DaemonSet Pod fails, check its image, scheduling constraints, and logs.
 
 ## Related
 
-See [node and workload coverage](/docs/kubernetes-coverage) for related signals.
+See [node and workload coverage](/kubernetes-coverage) for related signals.

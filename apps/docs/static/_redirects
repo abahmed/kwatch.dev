@@ -1,0 +1,3 @@
+# Docs used to live under /docs on kwatch.dev. Keep old docs.kwatch.dev/docs links working.
+/docs / 301
+/docs/* /:splat 301

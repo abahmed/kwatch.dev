@@ -93,7 +93,7 @@ restarts. There is no second replica and no self-failover: if the pod or its
 node fails, Kubernetes restarts it and kwatch resumes from the volume. The
 lock is still needed with one replica, because an old pod on a node cut off
 from the network can run beside its replacement for a while; see
-[Production operations](/docs/operations/production-readiness).
+[Production operations](/operations/production-readiness).
 
 ## Delivery guarantee
 
@@ -114,8 +114,8 @@ sent. Drops are counted by `kwatch_delivery_outbox_dropped_total` and
 
 - **Adoption telemetry** sends a two-field pseudonymous heartbeat to
   `https://api.kwatch.dev` at most every 7 days. Disable it with
-  `telemetry.enabled: false`. See [General configuration](/docs/general-configuration#-minimal-adoption-telemetry).
+  `telemetry.enabled: false`. See [General configuration](/general-configuration#-minimal-adoption-telemetry).
 - **License client** (Pro) activates a key against `https://api.kwatch.dev`,
   renews daily, and tolerates up to 7 days offline.
 - **Heartbeat monitor** (Pro) pings an external URL while monitoring is ready;
-  see the [heartbeat guide](/docs/heartbeat-monitor-configuration).
+  see the [heartbeat guide](/heartbeat-monitor-configuration).

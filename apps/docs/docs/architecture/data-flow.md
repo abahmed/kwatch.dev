@@ -10,7 +10,7 @@ pagination_next: architecture/design-decisions
 # 🔀 Data flow
 
 This page follows one failure through the pipeline described in the
-[overview](/docs/architecture/overview). Some steps use Pro capabilities
+[overview](/architecture/overview). Some steps use Pro capabilities
 (who changed what, log excerpts, impact); the Community edition sends the
 root-cause headline without them.
 
@@ -72,4 +72,4 @@ undo deployment/api -n shop --to-revision=13
 ```
 
 For the stages after the decision, see
-[Incident lifecycle and delivery](/docs/architecture/correlation-and-alerting).
+[Incident lifecycle and delivery](/architecture/correlation-and-alerting).

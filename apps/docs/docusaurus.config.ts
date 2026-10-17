@@ -3,8 +3,9 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const logo = {
-  alt: 'kwatch Kubernetes incident monitoring and alerting',
-  src: 'img/kwatch-logo.svg',
+  alt: 'kwatch',
+  src: 'img/junction.svg',
+  srcDark: 'img/junction-dark.svg',
 };
 
 const siteDescription =
@@ -13,11 +14,10 @@ const siteDescription =
 const config: Config = {
   title: 'kwatch',
   tagline: 'See what broke. Understand why. Know what to do next. 👀🧠⚡',
-  favicon: 'img/kwatch-logo.svg',
+  favicon: 'img/favicon.svg',
 
-  // Set the production url of your site here
-  url: 'https://kwatch.dev',
-  // Render serves the site from the domain root.
+  // Docs live on their own host. kwatch.dev/docs/* redirects here.
+  url: 'https://docs.kwatch.dev',
   baseUrl: '/',
 
   organizationName: 'abahmed', // GitHub owner of the documentation site.
@@ -32,10 +32,6 @@ const config: Config = {
 
   customFields: {
     description: siteDescription,
-    // License API used by the pricing, signup and account pages.
-    apiUrl: process.env.KWATCH_API_URL || 'https://api.kwatch.dev',
-    // Cloudflare Turnstile site key. Empty renders a TODO placeholder.
-    turnstileSiteKey: process.env.KWATCH_TURNSTILE_SITEKEY || '0x4AAAAAAFXDDMTb_URieNVZ',
   },
   trailingSlash: false,
 
@@ -53,33 +49,15 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
+          // Docs only: /installation, not /docs/installation.
+          routeBasePath: '/',
+          editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/apps/docs/',
         },
-        blog: {
-          showReadingTime: true,
-          blogSidebarCount: 0,
-          blogTitle: 'Kubernetes incident response guides',
-          blogDescription:
-            'Practical guides for troubleshooting Kubernetes failures, reducing alert noise, and routing incidents with kwatch.',
-          feedOptions: {
-            type: 'all',
-            title: 'kwatch Blog',
-            description: 'Kubernetes incident response guides and kwatch project history',
-            copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
-          },
-        },
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
         sitemap: {
-          ignorePatterns: [
-            '/blog/archive',
-            '/blog/authors',
-            '/blog/tags/**',
-            '/search',
-            '/signup',
-            '/signin',
-            '/account',
-          ],
           lastmod: 'date',
           filename: 'sitemap.xml',
         },
@@ -88,7 +66,7 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/kwatch-logo-full.png',
+    image: 'img/og.png',
     metadata: [
       {
         name: 'author',
@@ -112,38 +90,27 @@ const config: Config = {
       },
     ],
     colorMode: {
+      // Light or dark follows the OS setting; the design has no toggle.
       defaultMode: 'light',
-      disableSwitch: false,
+      disableSwitch: true,
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'kwatch',
+      title: 'kwatch docs',
       logo: logo,
       items: [
-        {to: '/docs', label: 'Start here', position: 'left'},
-        {
-          to: '/docs/installation',
-          label: 'Install kwatch',
-          position: 'left',
-          className: 'navbar-install-link',
-        },
-        {to: '/docs/channels', label: 'Channels', position: 'left'},
-        {to: '/search', label: 'Search', position: 'left'},
-        {to: '/blog', label: 'Blog', position: 'left'},
-        {to: '/pricing', label: 'Pro', position: 'left'},
-        {to: '/signup', label: 'Sign in', position: 'right'},
-        {to: '/community', label: 'Community', position: 'right'},
-        {
-          href: 'https://github.com/abahmed/kwatch/releases/latest',
-          position: 'right',
-          className: 'header-download-link',
-          'aria-label': 'Download',
-        },
+        {type: 'search', position: 'left'},
+        {href: 'https://kwatch.dev', label: 'kwatch.dev', position: 'right'},
         {
           href: 'https://github.com/abahmed/kwatch',
+          label: 'GitHub',
           position: 'right',
-          className: 'header-github-link',
-          'aria-label': 'GitHub repository',
+        },
+        {
+          href: 'https://app.kwatch.dev',
+          label: 'Sign in',
+          position: 'right',
+          className: 'navbar-signin-link',
         },
       ],
     },
@@ -156,43 +123,33 @@ const config: Config = {
       content: '⭐️ We\'re working on SAAS version of kwatch that provides User interface, optimized notifications, more details about crashes, and more. you can join <a href="https://join.kwatch.dev">the waitlist</a>! ⭐️',
     },*/
     footer: {
-      style: 'dark',
+      style: 'light',
       links: [
         {
-          title: 'Getting Started',
+          title: 'Get started',
           items: [
-            {label: 'Installation', to: '/docs/installation'},
-            {label: 'Configuration', to: '/docs/general-configuration'},
-            {label: 'Channels', to: '/docs/channels'},
-            {label: 'CLI Commands', to: '/docs/cli-commands'},
+            {label: 'Installation', to: '/installation'},
+            {label: 'Configuration', to: '/general-configuration'},
+            {label: 'Channels', to: '/channels'},
+            {label: 'CLI commands', to: '/cli-commands'},
           ],
         },
         {
-          title: 'Monitors',
+          title: 'Project',
           items: [
-            {label: 'Pod Crashes', to: '/docs/general-configuration'},
-            {label: 'PVC Disk Usage', to: '/docs/general-configuration'},
-            {label: 'Node Health', to: '/docs/general-configuration'},
-            {label: 'Rollouts & DaemonSets', to: '/docs/rollout-monitor-configuration'},
-            {label: 'Jobs & CronJobs', to: '/docs/job-monitor-configuration'},
-            {label: 'HPA & TLS', to: '/docs/hpa-monitor-configuration'},
-          ],
-        },
-        {
-          title: 'Community',
-          items: [
-            {label: 'Discord', href: 'https://discord.gg/kzJszdKmJ7'},
+            {label: 'kwatch.dev', href: 'https://kwatch.dev'},
             {label: 'GitHub', href: 'https://github.com/abahmed/kwatch'},
-            {label: 'Contributing', to: '/docs/contributing'},
-            {label: 'Blog', to: '/blog'},
+            {label: 'Discord', href: 'https://discord.gg/kzJszdKmJ7'},
+            {label: 'Contributing', to: '/contributing'},
           ],
         },
         {
-          title: 'Legal',
+          title: 'Account and legal',
           items: [
-            {label: 'Pro', to: '/pricing'},
-            {label: 'Privacy', to: '/privacy'},
-            {label: 'Terms', to: '/terms'},
+            {label: 'Pro', href: 'https://kwatch.dev/pro'},
+            {label: 'Sign in', href: 'https://app.kwatch.dev'},
+            {label: 'Privacy', href: 'https://kwatch.dev/privacy'},
+            {label: 'Terms', href: 'https://kwatch.dev/terms'},
           ],
         },
       ],

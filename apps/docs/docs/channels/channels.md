@@ -27,23 +27,23 @@ The most common providers have a step-by-step page:
 
 | Channel | Config key | What you need |
 | --- | --- | --- |
-| [Slack](/docs/channels/slack) | `slack` | Webhook URL or bot token |
-| [Discord](/docs/channels/discord) | `discord` | Webhook URL |
-| [Microsoft Teams](/docs/channels/ms-teams) | `teams` | Webhook URL |
-| [Google Chat](/docs/channels/googlechat) | `googlechat` | Webhook URL |
-| [Telegram](/docs/channels/telegram) | `telegram` | Bot token and chat ID |
-| [Email](/docs/channels/email) | `email` | SMTP server and password |
-| [PagerDuty](/docs/channels/pagerduty) | `pagerduty` | Integration key |
-| [Opsgenie](/docs/channels/opsgenie) | `opsgenie` | API key |
-| [Zenduty](/docs/channels/zenduty) | `zenduty` | Integration key |
-| [Mattermost](/docs/channels/mattermost) | `mattermost` | Webhook URL |
-| [Rocket.Chat](/docs/channels/rocketchat) | `rocketchat` | Webhook URL |
-| [Matrix](/docs/channels/matrix) | `matrix` | Homeserver, token, and room ID |
-| [DingTalk](/docs/channels/dingtalk) | `dingtalk` | Access token |
-| [FeiShu](/docs/channels/feishu) | `feishu` | Webhook URL |
-| [Custom Webhook](/docs/channels/webhook) | `webhook` | Endpoint URL |
+| [Slack](/channels/slack) | `slack` | Webhook URL or bot token |
+| [Discord](/channels/discord) | `discord` | Webhook URL |
+| [Microsoft Teams](/channels/ms-teams) | `teams` | Webhook URL |
+| [Google Chat](/channels/googlechat) | `googlechat` | Webhook URL |
+| [Telegram](/channels/telegram) | `telegram` | Bot token and chat ID |
+| [Email](/channels/email) | `email` | SMTP server and password |
+| [PagerDuty](/channels/pagerduty) | `pagerduty` | Integration key |
+| [Opsgenie](/channels/opsgenie) | `opsgenie` | API key |
+| [Zenduty](/channels/zenduty) | `zenduty` | Integration key |
+| [Mattermost](/channels/mattermost) | `mattermost` | Webhook URL |
+| [Rocket.Chat](/channels/rocketchat) | `rocketchat` | Webhook URL |
+| [Matrix](/channels/matrix) | `matrix` | Homeserver, token, and room ID |
+| [DingTalk](/channels/dingtalk) | `dingtalk` | Access token |
+| [FeiShu](/channels/feishu) | `feishu` | Webhook URL |
+| [Custom Webhook](/channels/webhook) | `webhook` | Endpoint URL |
 
-The [complete provider reference](/docs/channels/providers) lists every supported
+The [complete provider reference](/channels/providers) lists every supported
 provider, every catalog field, its type, whether it is required, and whether it
 must come from a Secret. It is generated from the same provider catalog used by
 `kwatch.sh`.
@@ -110,7 +110,7 @@ The `kwatch.sh` installer stores credentials in a Kubernetes Secret and mounts
 them at `/config`. Use exact `${file:/absolute/path}` references in the config.
 Plain credentials and environment substitutions in sensitive fields are
 rejected at startup. Read the
-[configuration reference](/docs/general-configuration) for details.
+[configuration reference](/general-configuration) for details.
 
 ## ✅ Test your channel
 
@@ -119,4 +119,4 @@ rejected at startup. Read the
 3. Start kwatch and check the startup message in the channel. There is no
    test-alert endpoint; `kwatch lint --check` is the supported credential check.
 
-For installation help, start with [Getting Started](/docs) or [Installation](/docs/installation).
+For installation help, start with [Getting Started](/) or [Installation](/installation).

@@ -34,8 +34,8 @@ helps us agree on the approach and avoids duplicated work.
 5. Run the verification command locally.
 6. Open a pull request against `main` and explain what changed.
 
-Read [Cloning and building](/docs/contributing/cloning-and-building) for local
-setup and the [GitHub workflow](/docs/contributing/github-workflow) for the Git
+Read [Cloning and building](/contributing/cloning-and-building) for local
+setup and the [GitHub workflow](/contributing/github-workflow) for the Git
 commands.
 
 ## ✅ Before opening a pull request

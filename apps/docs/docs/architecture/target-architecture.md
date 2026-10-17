@@ -49,4 +49,4 @@ detection ─► rootcause ─► incident ─► notification/compose
 Adding a detector or a propagation rule should not require understanding every
 provider. Detectors live in `detection/detectors`, a new way for failure to
 spread is a row in the propagation table, and a new watched kind is a schema in
-`inventory/kube`. See the [contributing guides](/docs/contributing/architecture-tour).
+`inventory/kube`. See the [contributing guides](/contributing/architecture-tour).

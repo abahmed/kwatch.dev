@@ -26,11 +26,10 @@ Open the local URL printed by Docusaurus, usually `http://localhost:3000/`.
 | Location | Contains |
 | --- | --- |
 | `apps/docs/docs/` | Public documentation pages |
-| `apps/docs/src/pages/index.tsx` | Landing page layout |
-| `apps/docs/src/theme/` | Homepage components and shared docs UI |
+| `apps/docs/src/theme/` | Docs UI overrides (search bar, 404) |
 | `apps/docs/src/css/` | Site-wide styles |
 | `apps/docs/static/kwatch.sh` | Interactive installer and manager |
-| `apps/docs/src/data/releases.json` | Stable and preview versions shown on the site |
+| `apps/docs/src/data/releases.json` | Stable and preview versions written by the release workflow |
 | `apps/docs/sidebars.ts` | Documentation navigation |
 
 Write for someone who may be seeing Kubernetes for the first time: start with
@@ -54,7 +53,7 @@ Do not commit the generated `build/` directory.
 
 `yarn seo:verify` checks the production build for non-empty page titles and
 descriptions, canonical URLs, sitemap coverage, and the production robots
-directive. It intentionally excludes 404 pages and thin blog taxonomy pages
+directive. It intentionally excludes the 404 page
 from indexing.
 
 ## 📦 Release updates
@@ -71,10 +70,42 @@ handled by the interactive `kwatch.sh` manager.
 
 ### 🌐 Deployment
 
-The website is hosted on Render. Pushes to `main` trigger the repository
-workflow, which calls the `RENDER_DEPLOY_HOOK_URL` secret when it is configured.
-If the secret is not present, enable Render's native auto-deploy for the `main`
-branch or add the deploy-hook secret in the repository settings.
+`.github/workflows/deploy.yml` deploys three Cloudflare Pages projects on push
+to `main`. A job runs only when its app or `packages/brand` changed. Run the
+workflow manually (`workflow_dispatch`) and pick `web`, `docs`, `app` or `all`
+to force a deploy.
+
+| Job | Builds | Pages project | Host |
+| --- | --- | --- | --- |
+| `web` | `apps/web` (`dist`) | `kwatch-site` | kwatch.dev |
+| `docs` | `apps/docs` (`build`) | `kwatch-docs` | docs.kwatch.dev |
+| `app` | `apps/app` (`dist`) | `kwatch-app` | app.kwatch.dev |
+
+Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+#### Switching kwatch.dev to the new landing site
+
+`kwatch-site` still serves the old site. Until you switch, nothing deploys to
+it: the `web` job is skipped, `docs` deploys only to `kwatch-docs` and `app`
+only to `kwatch-app`.
+
+1. Create the `kwatch-docs` Pages project, attach `docs.kwatch.dev`, and run
+   the `docs` job (push to `main` or run the workflow with `docs`). Check
+   `https://docs.kwatch.dev/`.
+2. Set the repository variable `DEPLOY_WEB_TO_KWATCH_SITE` to `true`
+   (Settings, Secrets and variables, Actions, Variables).
+3. Run the workflow with `web`. `kwatch-site` now serves `apps/web`, and later
+   pushes that touch `apps/web` or `packages/brand` redeploy it.
+4. Check `https://kwatch.dev/kwatch.sh`, `https://kwatch.dev/charts/index.yaml`
+   and a sample `https://kwatch.dev/docs/installation` (301 to docs).
+
+To stop web deploys, delete the variable (or set it to anything else). That
+does not restore the old site; redeploy the previous `kwatch-site` build from
+the Cloudflare dashboard if you need to roll back.
+
+Until the release workflow writes to `apps/web/public`, `kwatch.sh` and
+`charts/` live in both `apps/docs/static` and `apps/web/public`, and the `web`
+job overlays the `apps/docs/static` copies onto the build.
 
 ## 🤝 Contribute
 

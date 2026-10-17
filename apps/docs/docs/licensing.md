@@ -20,11 +20,11 @@ limitations:
    functionality.
 3. You may not remove or obscure licensing, copyright or other notices.
 
-The [Community edition](/docs/editions) is free with no account or license
-key. [Pro](/docs/editions) features are enabled with a license key, one per cluster.
+The [Community edition](/editions) is free with no account or license
+key. [Pro](/editions) features are enabled with a license key, one per cluster.
 Pro is free during early access. A license is checked against
 `https://api.kwatch.dev` and keeps working for up to 7 days offline. See
-[Community vs Pro](/docs/editions) and the [license guide](/docs/license).
+[Community vs Pro](/editions) and the [license guide](/license).
 
 ## Earlier releases
 
@@ -62,4 +62,4 @@ project's current license, and that the maintainer may relicense it as part
 of kwatch.
 
 Third-party dependencies keep their own licenses and are listed in
-[third-party notices](/docs/third-party-notices).
+[third-party notices](/third-party-notices).

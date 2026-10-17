@@ -29,7 +29,7 @@ clear alerts that explain what broke, why it happened, and what to do next:
 3. 📣 **Alert** — it sends the reason, impact, and next step to your team.
 
 kwatch runs in your own cluster. The Community edition is free and needs no
-account. [Pro](/docs/editions) adds deeper detectors and analysis and is free
+account. [Pro](/editions) adds deeper detectors and analysis and is free
 during early access. Pair kwatch with Prometheus, Grafana, or Loki for
 long-term metrics and logs.
 
@@ -68,9 +68,9 @@ the rest.
 
 Pro also adds full root-cause proof, who changed what, impact, log excerpts,
 routing and threads. Active probes and the heartbeat monitor are opt-in. See
-[Community vs Pro](/docs/editions), the [configuration
-guide](/docs/general-configuration), or the [complete configuration
-reference](/docs/configuration-reference).
+[Community vs Pro](/editions), the [configuration
+guide](/general-configuration), or the [complete configuration
+reference](/configuration-reference).
 
 ## 🚀 Install in minutes
 
@@ -101,22 +101,22 @@ kubectl get pods -n kwatch
 You should see one kwatch pod with `STATUS Running` and `READY 1/1`. kwatch
 runs as a single replica with its state on a small volume. If the pod or its
 node fails, Kubernetes restarts it. Running more than one replica for high
-availability is a [Pro](/docs/editions) feature. 🎉
+availability is a [Pro](/editions) feature. 🎉
 
 ### 4. Optional: add Pro
 
-[Sign up](/signup) for a free Pro license (early access), then run the same
+[Sign up](https://app.kwatch.dev) for a free Pro license (early access), then run the same
 command again and choose **License / Pro**, then **Add or replace key**.
-See [License](/docs/license).
+See [License](/license).
 
 ## 🛠️ What next?
 
-- Need the full lifecycle and troubleshooting guide? Read [Installation](/docs/installation).
-- Want Slack, Discord, email, or PagerDuty? Open [Channels](/docs/channels).
-- Want to change thresholds or silence known noise? Read [Configuration](/docs/general-configuration).
-- Want to understand the manager? Read [kwatch.sh manager](/docs/kwatch-manager).
-- Want the Pro features? Read [Community vs Pro](/docs/editions) and [License](/docs/license).
-- Want to contribute code? Start with [Contributing](/docs/contributing).
+- Need the full lifecycle and troubleshooting guide? Read [Installation](/installation).
+- Want Slack, Discord, email, or PagerDuty? Open [Channels](/channels).
+- Want to change thresholds or silence known noise? Read [Configuration](/general-configuration).
+- Want to understand the manager? Read [kwatch.sh manager](/kwatch-manager).
+- Want the Pro features? Read [Community vs Pro](/editions) and [License](/license).
+- Want to contribute code? Start with [Contributing](/contributing).
 
 If you are unsure where to begin, install with the manager first. You can run
 it again later to configure, upgrade, check, or uninstall kwatch. ✨

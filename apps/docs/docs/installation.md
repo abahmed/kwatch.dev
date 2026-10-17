@@ -63,7 +63,7 @@ Run the same command later to configure, upgrade, manage your license,
 check status, or uninstall.
 The manager is fully interactive: select the cluster first, then it detects
 the running kwatch version and shows only the actions valid for that state.
-Read the [kwatch.sh manager guide](/docs/kwatch-manager) for every menu option,
+Read the [kwatch.sh manager guide](/kwatch-manager) for every menu option,
 legacy migration, recovery behavior, and advanced usage.
 
 The release artifacts below are for inspection only. The supported lifecycle is
@@ -72,9 +72,9 @@ through `kwatch.sh`; do not apply or delete the files directly.
 ## 🔑 Add a Pro license (optional)
 
 Community needs no key. To use Pro, which is free during early access, get a
-key on your [account page](/account) and choose **License / Pro** then **Add or
+key on your [account page](https://app.kwatch.dev) and choose **License / Pro** then **Add or
 replace key** in the manager. A fresh install also offers it at the end. For a
-scripted run, set `KWATCH_LICENSE_KEY`. See [License](/docs/license).
+scripted run, set `KWATCH_LICENSE_KEY`. See [License](/license).
 
 ## 📦 Release artifacts (inspection only)
 
@@ -128,4 +128,4 @@ claiming that it is monitoring-ready.
 
 Run `kwatch lint` before applying a changed config. Use `kwatch lint --check`
 when you also want to test credentials for providers that support checks. See the [configuration
-reference](/docs/general-configuration).
+reference](/general-configuration).

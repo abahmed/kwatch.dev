@@ -6,7 +6,7 @@ sidebar_position: 4
 
 # RBAC and deployment security
 
-kwatch never needs write access to monitored workloads. Its ClusterRole is read-only for observed resources. The chart value `rbac.mode` selects `full` (the default: `list` and `watch` on every resource, so custom kinds can be watched) or `least-privilege` (an explicit set of kinds kwatch understands). Use the [General configuration](/docs/general-configuration#-kubernetes-permissions-and-graceful-degradation) permission section as the starting point rather than granting a cluster-admin role.
+kwatch never needs write access to monitored workloads. Its ClusterRole is read-only for observed resources. The chart value `rbac.mode` selects `full` (the default: `list` and `watch` on every resource, so custom kinds can be watched) or `least-privilege` (an explicit set of kinds kwatch understands). Use the [General configuration](/general-configuration#-kubernetes-permissions-and-graceful-degradation) permission section as the starting point rather than granting a cluster-admin role.
 
 ## Review checklist
 
@@ -15,7 +15,7 @@ kwatch never needs write access to monitored workloads. Its ClusterRole is read-
 - **Secrets.** By default kwatch's ServiceAccount can read every Secret in the cluster; kwatch keeps only hashes, never values. Set `watch.secrets: false` to remove every Secret permission. Checks that need Secrets (missing references, certificate expiry) then report that they cannot verify. `rbac.mode: least-privilege` alone does not remove it.
 - Run `kubectl auth can-i` for the permissions you rely on in the target cluster.
 - Run as non-root with a read-only root filesystem, dropped capabilities and seccomp enabled (the shipped manifests do).
-- Use image digests and verify release signatures, checksums, SBOM and provenance (see [Release integrity](/docs/release-integrity)).
+- Use image digests and verify release signatures, checksums, SBOM and provenance (see [Release integrity](/release-integrity)).
 
 ## Endpoint exposure
 

@@ -10,7 +10,7 @@ pagination_prev: null
 # 📈 HPA monitor
 
 :::info Pro
-This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/editions).
 :::
 
 An **HPA** (Horizontal Pod Autoscaler) changes the number of Pods when load
@@ -30,7 +30,7 @@ sustained period with scaling errors.
 
 ## Configuration
 
-There are no HPA settings: kwatch always watches HorizontalPodAutoscalers and reports scaling failures and an HPA that stays at its maximum with scaling errors. Use `silences` or a maintenance annotation for a known case (see [General configuration](/docs/general-configuration)).
+There are no HPA settings: kwatch always watches HorizontalPodAutoscalers and reports scaling failures and an HPA that stays at its maximum with scaling errors. Use `silences` or a maintenance annotation for a known case (see [General configuration](/general-configuration)).
 
 ## What triggers an alert
 

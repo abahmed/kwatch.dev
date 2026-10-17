@@ -7,7 +7,7 @@ keywords: [kwatch, Kubernetes alerts, Dingtalk, notification channel]
 # Dingtalk alerts
 
 Send kwatch incident alerts to **Dingtalk**. Use the
-[interactive manager](/docs/installation) for installation and
+[interactive manager](/installation) for installation and
 credential setup. This page explains the provider fields and shows
 a minimal configuration fragment.
 
@@ -15,7 +15,7 @@ a minimal configuration fragment.
 
 - `accessToken` — Access token.
 
-For a guided setup, use the [Dingtalk channel guide](/docs/channels/dingtalk).
+For a guided setup, use the [Dingtalk channel guide](/channels/dingtalk).
 
 Credentials, tokens, keys, passwords, and webhook URLs must be mounted
 from a Kubernetes Secret. Use an exact `${file:/absolute/path}` reference
@@ -41,4 +41,4 @@ alert:
     accessToken: "${file:/config/dingtalk-accessToken}"
 ```
 
-Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/docs/channels) for guidance, or the [complete provider reference](/docs/channels/providers) for the catalog-wide view.
+Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.

@@ -85,21 +85,23 @@ Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 #### Switching kwatch.dev to the new landing site
 
-`kwatch-site` still serves the old site. Until you switch, the `web` job is
-skipped and the `docs` job also deploys `apps/docs` to `kwatch-site`.
+`kwatch-site` still serves the old site. Until you switch, nothing deploys to
+it: the `web` job is skipped, `docs` deploys only to `kwatch-docs` and `app`
+only to `kwatch-app`.
 
 1. Create the `kwatch-docs` Pages project, attach `docs.kwatch.dev`, and run
    the `docs` job (push to `main` or run the workflow with `docs`). Check
    `https://docs.kwatch.dev/`.
 2. Set the repository variable `DEPLOY_WEB_TO_KWATCH_SITE` to `true`
    (Settings, Secrets and variables, Actions, Variables).
-3. Run the workflow with `web`. `kwatch-site` now serves `apps/web`, and the
-   `docs` job stops deploying to `kwatch-site`.
+3. Run the workflow with `web`. `kwatch-site` now serves `apps/web`, and later
+   pushes that touch `apps/web` or `packages/brand` redeploy it.
 4. Check `https://kwatch.dev/kwatch.sh`, `https://kwatch.dev/charts/index.yaml`
    and a sample `https://kwatch.dev/docs/installation` (301 to docs).
 
-Roll back by deleting the variable (or setting it to anything else) and
-running the workflow with `docs`.
+To stop web deploys, delete the variable (or set it to anything else). That
+does not restore the old site; redeploy the previous `kwatch-site` build from
+the Cloudflare dashboard if you need to roll back.
 
 Until the release workflow writes to `apps/web/public`, `kwatch.sh` and
 `charts/` live in both `apps/docs/static` and `apps/web/public`, and the `web`

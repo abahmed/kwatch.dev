@@ -7,9 +7,9 @@ name: Deploy websites
 #   app   apps/app   -> kwatch-app   (app.kwatch.dev)
 #
 # CUTOVER: kwatch-site still serves the old site until the repository variable
-# DEPLOY_WEB_TO_KWATCH_SITE is set to 'true'. While it is unset, the docs job
-# also deploys apps/docs to kwatch-site (legacy behaviour) and the web job is
-# skipped. Set the variable only after kwatch-docs is live on docs.kwatch.dev.
+# DEPLOY_WEB_TO_KWATCH_SITE is set to 'true'. While it is unset, nothing
+# deploys to kwatch-site and the current kwatch.dev stays as it is. Set the
+# variable only after kwatch-docs is live on docs.kwatch.dev.
 
 on:
   push:
@@ -164,20 +164,6 @@ jobs:
           fi
           npx --yes wrangler@4.124.0 pages deploy apps/docs/build \
             --project-name kwatch-docs \
-            --branch main \
-            --commit-dirty=true
-
-      # Legacy behaviour until the web cutover: kwatch-site keeps serving
-      # apps/docs. Skipped once DEPLOY_WEB_TO_KWATCH_SITE is 'true'.
-      - name: Publish to kwatch-site (legacy, until cutover)
-        if: vars.DEPLOY_WEB_TO_KWATCH_SITE != 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          npx --yes wrangler@4.124.0 pages deploy apps/docs/build \
-            --project-name kwatch-site \
             --branch main \
             --commit-dirty=true
 

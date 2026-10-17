@@ -64,9 +64,7 @@ jobs:
           else
             changed="$(git diff --name-only "$BEFORE" "$AFTER")"
             echo "$changed"
-            # The installer and charts are still written under apps/docs/static
-            # by the release workflow, so they also trigger a web deploy.
-            if echo "$changed" | grep -qE '^(apps/web/|packages/brand/|apps/docs/static/kwatch\.sh$|apps/docs/static/charts/)'; then web=true; fi
+            if echo "$changed" | grep -qE '^(apps/web/|packages/brand/)'; then web=true; fi
             if echo "$changed" | grep -qE '^(apps/docs/|packages/brand/)'; then docs=true; fi
             if echo "$changed" | grep -qE '^(apps/app/|packages/brand/)'; then app=true; fi
           fi
@@ -101,16 +99,6 @@ jobs:
 
       - name: Build
         run: yarn build:web
-
-      # Releases still write kwatch.sh and charts/ under apps/docs/static until
-      # the release paths move; publish those so kwatch.dev never serves a
-      # stale installer. Remove this step with the docs copies.
-      - name: Overlay latest installer and charts from the release paths
-        run: |
-          set -euo pipefail
-          cp apps/docs/static/kwatch.sh apps/web/dist/kwatch.sh
-          rm -rf apps/web/dist/charts
-          cp -R apps/docs/static/charts apps/web/dist/charts
 
       - name: Publish to Cloudflare Pages
         env:

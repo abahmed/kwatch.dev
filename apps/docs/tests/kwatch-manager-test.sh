@@ -6,8 +6,8 @@ CAPTURE_DIR=$(mktemp -d)
 trap 'rm -rf "$CAPTURE_DIR"' EXIT
 export CAPTURE_DIR
 
-# shellcheck source=../static/kwatch.sh
-source "$ROOT/static/kwatch.sh"
+# shellcheck source=../../web/public/kwatch.sh
+source "$ROOT/../web/public/kwatch.sh"
 CONFIG_MOUNT_PATH="$CAPTURE_DIR"
 
 command_error_file="$CAPTURE_DIR/command-error"

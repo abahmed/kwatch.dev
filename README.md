@@ -28,7 +28,7 @@ Open the local URL printed by Docusaurus, usually `http://localhost:3000/`.
 | `apps/docs/docs/` | Public documentation pages |
 | `apps/docs/src/theme/` | Docs UI overrides (search bar, 404) |
 | `apps/docs/src/css/` | Site-wide styles |
-| `apps/docs/static/kwatch.sh` | Interactive installer and manager |
+| `apps/web/public/kwatch.sh` | Interactive installer and manager |
 | `apps/docs/src/data/releases.json` | Stable and preview versions written by the release workflow |
 | `apps/docs/sidebars.ts` | Documentation navigation |
 
@@ -44,7 +44,7 @@ yarn test:manager
 yarn typecheck
 yarn build:docs
 yarn seo:verify
-bash -n apps/docs/static/kwatch.sh apps/docs/tests/*.sh
+bash -n apps/web/public/kwatch.sh apps/docs/tests/*.sh
 ```
 
 `yarn docs:verify` reads the catalogs from a checkout of the Kwatch repository
@@ -103,9 +103,8 @@ To stop web deploys, delete the variable (or set it to anything else). That
 does not restore the old site; redeploy the previous `kwatch-site` build from
 the Cloudflare dashboard if you need to roll back.
 
-Until the release workflow writes to `apps/web/public`, `kwatch.sh` and
-`charts/` live in both `apps/docs/static` and `apps/web/public`, and the `web`
-job overlays the `apps/docs/static` copies onto the build.
+`kwatch.sh` and `charts/` live only in `apps/web/public`; the kwatch release
+workflow writes the chart index and packages there.
 
 ## 🤝 Contribute
 

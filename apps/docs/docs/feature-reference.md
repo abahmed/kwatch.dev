@@ -9,7 +9,7 @@ keywords: [kwatch features, Kubernetes monitoring capabilities, feature catalog]
 
 The feature catalog is generated from the Kwatch source and is published here:
 
-[Open the generated feature reference](/docs/reference/generated/features)
+[Open the generated feature reference](/reference/generated/features)
 
 This page remains at its old URL so existing links keep working. Update the
 feature definitions in the Go source and regenerate the website reference;

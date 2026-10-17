@@ -16,13 +16,13 @@ alert channel; the defaults already cover the common Kubernetes failures.
 
 | You want to... | Start with... |
 | --- | --- |
-| Choose a notification destination | [Channels](/docs/channels) |
+| Choose a notification destination | [Channels](/channels) |
 | Watch fewer namespaces | [`namespaces`](#-general) |
 | Ignore an intentional failure | [Silences](#-silences--advanced-suppression) |
 | Group related incidents | [Correlation](#-correlation--incident-lifecycle) |
 | Add a runbook link | [Custom templates and runbooks](#-custom-message-templates) |
 | Keep credentials safe | [Secret-backed credentials](#-secret-backed-credentials-are-required) |
-| See every accepted key | [Complete configuration reference](/docs/configuration-reference) |
+| See every accepted key | [Complete configuration reference](/configuration-reference) |
 
 ### ✅ A safe change checklist
 
@@ -41,8 +41,8 @@ Secrets and applies changes to the managed workload. It can also enable a
 
 kwatch comes in two editions, Community and Pro. Settings and sections marked
 <span className="kw-pro">Pro</span> only take effect with a Pro license; Pro is free during
-early access. See [Community vs Pro](/docs/editions). The default `rbac.mode: full` and
-the other install defaults are described in [Production readiness](/docs/operations/production-readiness).
+early access. See [Community vs Pro](/editions). The default `rbac.mode: full` and
+the other install defaults are described in [Production readiness](/operations/production-readiness).
 
 Sensitive strings must use an exact `${file:/absolute/path}` reference to read
 a file mounted from a Kubernetes Secret at startup.
@@ -512,7 +512,7 @@ Optional sources are reported as `optional_api_unavailable` or
 missing; kwatch continues with the remaining
 sources. Metrics API evidence, Prometheus, a service mesh, and a
 cloud-provider API are not required for core Kubernetes object monitoring.
-See [Production operations](/docs/operations/rbac-and-security)
+See [Production operations](/operations/rbac-and-security)
 for the full list.
 
 The interactive `kwatch.sh` manager downloads the matching
@@ -562,7 +562,7 @@ letter case; an empty value counts as unset, and any other text fails startup
 
 ## 🔑 License
 
-Setup is through the installer's **License / Pro** menu (run `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` and choose **Add or replace key**). One license covers one cluster. See [Community vs Pro](/docs/editions) and [License](/docs/license).
+Setup is through the installer's **License / Pro** menu (run `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` and choose **Add or replace key**). One license covers one cluster. See [Community vs Pro](/editions) and [License](/license).
 
 Without a key kwatch runs the Community edition and makes no license call.
 With a key, the leader replica activates it against `https://api.kwatch.dev`
@@ -775,7 +775,7 @@ tier wins.
 There are no correlation settings to tune. kwatch follows each failure to
 what it depends on, groups failures that share a cause into one incident, and
 updates or closes that incident only when something new is true. See
-[Correlation and alerting](/docs/architecture/correlation-and-alerting) for
+[Correlation and alerting](/architecture/correlation-and-alerting) for
 how it works, and [Silences](#-silences--advanced-suppression) to hold a known
 failure.
 
@@ -784,7 +784,7 @@ failure.
 <span className="kw-pro">Pro</span> kwatch reports claims, volumes and
 attachments that fail, and volumes that are nearly full, as part of its
 storage detection. These checks have no thresholds or switches of their own.
-See [Kubernetes coverage](/docs/kubernetes-coverage).
+See [Kubernetes coverage](/kubernetes-coverage).
 
 ### 🔇 Silences — stop the noise {#-silences--advanced-suppression}
 
@@ -1032,8 +1032,8 @@ alert:
     integrationKey: "${file:/config/pagerduty-integration-key}"
 ```
 
-The [complete provider reference](/docs/channels/providers) lists every integration and field,
-and the [complete configuration reference](/docs/configuration-reference) lists every accepted
+The [complete provider reference](/channels/providers) lists every integration and field,
+and the [complete configuration reference](/configuration-reference) lists every accepted
 configuration key, type, default and status. A route matches on namespaces, severities, reasons
 and owners; with no routes a provider receives everything. Only failures that can succeed on a
 retry (timeout, 5xx, rate limit) are retried; a permanent 4xx is given up on at once and goes to

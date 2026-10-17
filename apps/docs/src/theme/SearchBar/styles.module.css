@@ -1,0 +1,80 @@
+.search {
+  position: relative;
+  width: min(420px, 38vw);
+}
+
+.label {
+  position: absolute;
+  left: -9999px;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 300;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+}
+
+.result {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.result:hover,
+.result:focus-visible {
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.result span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+@media (max-width: 996px) {
+  .search {
+    width: 100%;
+  }
+}

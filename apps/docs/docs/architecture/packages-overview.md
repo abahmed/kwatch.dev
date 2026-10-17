@@ -9,7 +9,7 @@ pagination_next: architecture/correlation-and-alerting
 
 # 🧩 Core packages
 
-This is the source-tree guide. Read the [overview](/docs/architecture/overview)
+This is the source-tree guide. Read the [overview](/architecture/overview)
 first for behavior. The dependency rules below are enforced in the repository
 by `scripts/check-architecture.sh`. Capability tiers (Community and Pro) are
 defined in `internal/feature`.
@@ -117,4 +117,4 @@ The script enforces these rules:
 | Add a provider | `internal/alert/<provider>`, catalog metadata, transport tests |
 | Change the state file | `internal/storage`, bump `SchemaVersion` |
 
-See [Contributing](/docs/contributing) for the full guides.
+See [Contributing](/contributing) for the full guides.

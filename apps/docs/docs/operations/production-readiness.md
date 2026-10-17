@@ -14,13 +14,13 @@ kwatch is designed for a Kubernetes-native, single-writer operating model. Use t
 - kwatch runs **one replica** with the `Recreate` strategy.
 - With Pro, state lives in a database file on a `ReadWriteOnce` PVC mounted at `/var/lib/kwatch`. Community keeps state in memory.
 - A Kubernetes Lease is only a **lock**: it stops two processes from writing the volume at once. There is no second Pod and no kwatch self-failover; if the Pod or its node fails, Kubernetes restarts it.
-- Running several replicas (standbys that take over the lock) is part of kwatch Pro. See [Replication and failover](/docs/operations/replication-and-failover).
+- Running several replicas (standbys that take over the lock) is part of kwatch Pro. See [Replication and failover](/operations/replication-and-failover).
 
 Notification delivery is at least once, not exactly once; provider retries and a restart can produce a duplicate.
 
 ## Operational targets
 
-Initial targets for normal cluster conditions, not guarantees: readiness within 120 seconds after a healthy startup, and graceful shutdown within 45 seconds (the deployment allows 60 seconds). After a hard node failure, plan for up to about 7 to 8 minutes without monitoring (see [Replication and failover](/docs/operations/replication-and-failover#node-failure-the-real-monitoring-gap)).
+Initial targets for normal cluster conditions, not guarantees: readiness within 120 seconds after a healthy startup, and graceful shutdown within 45 seconds (the deployment allows 60 seconds). After a hard node failure, plan for up to about 7 to 8 minutes without monitoring (see [Replication and failover](/operations/replication-and-failover#node-failure-the-real-monitoring-gap)).
 
 ## Health signals
 
@@ -33,7 +33,7 @@ Initial targets for normal cluster conditions, not guarantees: readiness within 
 | `/metrics` | Prometheus metrics with bounded labels. |
 | `/status` <span className="kw-pro">Pro</span> | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents. Plain text; JSON needs Pro. |
 
-kwatch serves no other endpoints: there are no profiling or test-alert endpoints. `/status` lists object names to anyone who can reach the health port, so keep that port inside the cluster and read it with `kubectl port-forward`. Health responses carry safe reason codes, not raw errors. The full reason vocabulary is in [General configuration](/docs/general-configuration#-health-reasons).
+kwatch serves no other endpoints: there are no profiling or test-alert endpoints. `/status` lists object names to anyone who can reach the health port, so keep that port inside the cluster and read it with `kubectl port-forward`. Health responses carry safe reason codes, not raw errors. The full reason vocabulary is in [General configuration](/general-configuration#-health-reasons).
 
 An unavailable optional API is degraded in `/health` and does not make kwatch unready. Readiness is withdrawn while a required source (Pods, Nodes) is unavailable, for example after its permission is revoked, and returns when it recovers.
 
@@ -41,7 +41,7 @@ An unavailable optional API is degraded in `/health` and does not make kwatch un
 
 On termination readiness drops at once, sources stop, the final incident snapshot is written, queued alerts are sent (or dead-lettered once the drain deadline passes, keeping their outbox records for the next start) and the state file is closed. A required component failure makes the Pod unready and lets Kubernetes restart it. The heartbeat monitor <span className="kw-pro">Pro</span> pings only while monitoring is ready, so an external dead man's switch notices a Pod that is up but not monitoring.
 
-With Pro, after a restart kwatch restores open incidents from the state file, so they are not announced again, and records changes made while it was down. See [Persistence and recovery](/docs/operations/persistence-recovery). Without a license, state is in memory and a restart takes a fresh baseline.
+With Pro, after a restart kwatch restores open incidents from the state file, so they are not announced again, and records changes made while it was down. See [Persistence and recovery](/operations/persistence-recovery). Without a license, state is in memory and a restart takes a fresh baseline.
 
 ## Memory and CPU
 
@@ -63,7 +63,7 @@ Delivery uses bounded per-provider queues, retries for failures that can succeed
 
 For production installations, review:
 
-- the read-only ClusterRole and `rbac.mode` (`full` by default, `least-privilege` optional), see [RBAC and deployment security](/docs/operations/rbac-and-security);
+- the read-only ClusterRole and `rbac.mode` (`full` by default, `least-privilege` optional), see [RBAC and deployment security](/operations/rbac-and-security);
 - the state volume: `ReadWriteOnce` block storage, never NFS or `ReadWriteMany`;
 - a 60-second termination grace period, probes, and resource requests and limits;
 - non-root execution, read-only root filesystem, dropped capabilities and the `RuntimeDefault` seccomp profile (the shipped manifests set these);
@@ -81,4 +81,4 @@ When an alert is missing or delayed:
 3. Check delivery queue depth, retry and failure metrics, and provider status.
 4. Check namespace and reason scope, silences, baseline, cooldown and the audit log.
 
-See [Troubleshoot missing alerts](/docs/operations/troubleshooting) for the detailed path.
+See [Troubleshoot missing alerts](/operations/troubleshooting) for the detailed path.

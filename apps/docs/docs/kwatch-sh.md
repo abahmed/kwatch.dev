@@ -96,7 +96,7 @@ installation is available.
 
 ## 🔑 License / Pro
 
-Community needs no key. For [Pro](/docs/editions) open **License / Pro**:
+Community needs no key. For [Pro](/editions) open **License / Pro**:
 
 - **Show license status** prints the license state.
 - **Add or replace key** stores your key in a Kubernetes Secret and wires it
@@ -107,7 +107,7 @@ Community needs no key. For [Pro](/docs/editions) open **License / Pro**:
   delete the license Secrets.
 
 The key is kept across upgrades and travels with configuration backups. See
-[License](/docs/license) for how to get a key.
+[License](/license) for how to get a key.
 
 ## 🔐 What the manager protects
 
@@ -195,5 +195,5 @@ kubectl logs -n kwatch deployment/kwatch
 ```
 
 Run the manager again and choose **View status**. The
-[installation guide](/docs/installation) explains the supported managed
+[installation guide](/installation) explains the supported managed
 lifecycle and health checks.

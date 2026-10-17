@@ -79,11 +79,11 @@ make verify-focused PKGS="./internal/detection/... ./internal/incident"
 If the detector introduces a failure that can cause others, add a
 [propagation row](https://github.com/abahmed/kwatch/blob/main/docs/contributing-propagation-rule.md); that guide also adds
 the plain-English wording a message uses for the cause (`causeWords`).
-Regenerate [Kubernetes coverage](/docs/kubernetes-coverage) with
+Regenerate [Kubernetes coverage](/kubernetes-coverage) with
 `go run ./cmd/coveragedocs` when modes change.
 
 ## Documentation
 
-Update the matching user-facing page (see [Kubernetes failure coverage](/docs/kubernetes-coverage)),
+Update the matching user-facing page (see [Kubernetes failure coverage](/kubernetes-coverage)),
 mark it as Pro when the feature catalog says so, and add release notes when
 behavior changes.

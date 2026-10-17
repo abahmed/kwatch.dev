@@ -28,9 +28,9 @@ curl http://localhost:8060/readyz
 curl http://localhost:8060/health
 ```
 
-`/healthz` reports process liveness. `/readyz` succeeds only when the Pod holds the state lock and its required state and informer sources are ready. `/health` exposes safe degradation reason codes. A Pod that cannot get the volume, or that waits for the lock behind an old Pod, stays unready. See [production readiness](/docs/operations/production-readiness) for the endpoint contract.
+`/healthz` reports process liveness. `/readyz` succeeds only when the Pod holds the state lock and its required state and informer sources are ready. `/health` exposes safe degradation reason codes. A Pod that cannot get the volume, or that waits for the lock behind an old Pod, stays unready. See [production readiness](/operations/production-readiness) for the endpoint contract.
 
-Also check your edition. Without a license, kwatch runs Community: one provider, a smaller set of detectors, and state in memory. A detector or delivery feature marked Pro is not active until a license is added; see [Community vs Pro](/docs/editions).
+Also check your edition. Without a license, kwatch runs Community: one provider, a smaller set of detectors, and state in memory. A detector or delivery feature marked Pro is not active until a license is added; see [Community vs Pro](/editions).
 
 ## 2. Confirm that kwatch can see the source
 
@@ -43,7 +43,7 @@ kubectl describe pod -n production <pod-name>
 kubectl logs -n production <pod-name> --previous
 ```
 
-For node, network, or storage findings, inspect the corresponding Kubernetes resource and confirm the [coverage](/docs/kubernetes-coverage). If access is denied, review the [RBAC guide](/docs/operations/rbac-and-security) before changing permissions.
+For node, network, or storage findings, inspect the corresponding Kubernetes resource and confirm the [coverage](/kubernetes-coverage). If access is denied, review the [RBAC guide](/operations/rbac-and-security) before changing permissions.
 
 ## 3. Check scope and suppression
 
@@ -55,7 +55,7 @@ If kwatch sees the condition, look for a deliberate decision to stay quiet:
 - Settling, cooldown, merging of symptoms under one root cause, and node-level incidents may fold related symptoms into another incident. Check the incident's root before assuming something was dropped.
 - Low-priority problems go to a digest (one message every 30 minutes) instead of their own message.
 
-Review the [configuration guide](/docs/general-configuration) for these controls. With the audit log (Pro), every incident decision is written as a JSON line you can search before removing a silence or changing a setting.
+Review the [configuration guide](/general-configuration) for these controls. With the audit log (Pro), every incident decision is written as a JSON line you can search before removing a silence or changing a setting.
 
 ## 4. Separate incident creation from delivery
 
@@ -73,5 +73,5 @@ test credentials for providers that support checks. Use `/status` (opt-in) and t
 After fixing the source, configuration, or provider, wait for the Pod
 to become ready and check a real incident or a supported test notification.
 Confirm that the expected destination received it. If the Pod restarted,
-review [replication and failover](/docs/operations/replication-and-failover)
+review [replication and failover](/operations/replication-and-failover)
 for state restore and monitoring-gap behavior.

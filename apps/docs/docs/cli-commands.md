@@ -98,10 +98,10 @@ with `replay-export is a kwatch Pro feature`.
 ## Internal commands (used by the installer)
 
 The binary also has `kwatch license` subcommands. The
-[kwatch.sh installer](/docs/kwatch-sh) calls them for you from its
+[kwatch.sh installer](/kwatch-sh) calls them for you from its
 **License / Pro** menu, so you do not need to run them. To manage a license, run
 the installer (`/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"`) and
-see [License](/docs/license).
+see [License](/license).
 
 ## Environment variables
 

@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 🌐 Mattermost
 
-Use the [interactive kwatch manager](/docs/installation) to configure
+Use the [interactive kwatch manager](/installation) to configure
 Mattermost alerts. It stores credentials in Kubernetes Secrets and verifies
 the installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

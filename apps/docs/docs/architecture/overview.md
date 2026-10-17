@@ -65,7 +65,7 @@ never lets an incident resolve.
 
 ## Editions
 
-One binary, two editions (see [Community vs Pro](/docs/editions)). Community
+One binary, two editions (see [Community vs Pro](/editions)). Community
 detects pod crashes, OOM, Pending and restarts and node failures, explains them
 with a root-cause headline, and keeps state in memory. Pro adds the other
 detectors, full proof, who changed what, impact and log excerpts, routing,
@@ -76,7 +76,7 @@ early access.
 
 kwatch runs as one replica with the `Recreate` strategy. A Kubernetes Lease is
 only a lock that guards the state volume; there is no second Pod and no
-self-failover. See [Replication and failover](/docs/operations/replication-and-failover).
+self-failover. See [Replication and failover](/operations/replication-and-failover).
 
 Continue reading to explore each package, the end-to-end data flow, and the
 design decisions that shaped kwatch.

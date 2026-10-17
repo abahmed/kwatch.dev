@@ -12,8 +12,8 @@ Start with the runtime flow rather than opening every package:
 observation → detection → root cause → incident → message → delivery
 ```
 
-Read the [architecture overview](/docs/architecture/overview) for behavior and
-the [core packages](/docs/architecture/packages-overview) page for the full
+Read the [architecture overview](/architecture/overview) for behavior and
+the [core packages](/architecture/packages-overview) page for the full
 package map and import rules.
 
 ## Repository map
@@ -39,11 +39,11 @@ package map and import rules.
 ## Where should a change go?
 
 - A new abnormal state: a detector in `internal/detection/detectors`
-  ([Add a monitor](/docs/contributing/adding-monitor)).
+  ([Add a monitor](/contributing/adding-monitor)).
 - A new way failure spreads: a row in the propagation table.
 - A new watched kind: a schema in `internal/inventory/kube`.
 - A new fact in the message: a sentence writer in `notification/compose`.
-- A provider: `internal/alert/<provider>` ([Add a provider](/docs/contributing/adding-provider)).
+- A provider: `internal/alert/<provider>` ([Add a provider](/contributing/adding-provider)).
 - A state-file change: `internal/storage`, bump `SchemaVersion`.
 
 Keep clients, queues and cache sync in the source. Detectors and rules see only

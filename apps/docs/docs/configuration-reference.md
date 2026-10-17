@@ -10,10 +10,10 @@ keywords: [kwatch configuration, Kubernetes monitoring settings, alert configura
 The exact configuration catalog is generated from the Kwatch source and is
 published here:
 
-[Open the generated configuration reference](/docs/reference/generated/configuration)
+[Open the generated configuration reference](/reference/generated/configuration)
 
 For explanations, examples, safe credential handling, and migration guidance,
-see [General configuration](/docs/general-configuration).
+see [General configuration](/general-configuration).
 
 This page remains at its old URL so existing links keep working. Do not add
 new configuration tables here; update the source catalog and regenerate the

@@ -56,12 +56,8 @@ function descriptionFrom(html) {
 
 const entries = htmlFiles(buildRoot).flatMap((file) => {
   const url = routeFor(file);
-  const isDoc = url === '/docs' || url.startsWith('/docs/');
-  const isPost = url.startsWith('/blog/') &&
-    !url.startsWith('/blog/tags/') &&
-    !url.startsWith('/blog/authors/') &&
-    url !== '/blog/archive';
-  if (!isDoc && !isPost) return [];
+  // Every page on the docs host is documentation, except the 404 page.
+  if (url === '/404') return [];
 
   const html = fs.readFileSync(file, 'utf8');
   if (html.includes('content="noindex')) return [];
@@ -76,7 +72,6 @@ const entries = htmlFiles(buildRoot).flatMap((file) => {
 
   return [{
     url,
-    type: isDoc ? 'Documentation' : 'Guide',
     title,
     description: descriptionFrom(html),
     headings,

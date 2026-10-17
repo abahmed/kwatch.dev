@@ -8,7 +8,7 @@ keywords: [kwatch, Kubernetes CronJob monitoring, missed schedule, suspended Cro
 # Missed CronJob schedule alerts
 
 :::info Pro
-This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/editions).
 :::
 
 A CronJob creates Jobs on a schedule. kwatch watches for suspended CronJobs
@@ -17,7 +17,7 @@ paused or missed recurring work.
 
 ## What kwatch detects
 
-kwatch reports suspended CronJobs and missed or repeatedly failing schedules. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/docs/general-configuration)).
+kwatch reports suspended CronJobs and missed or repeatedly failing schedules. There is no on/off switch for this detector: kwatch always watches every supported resource. To silence a known, intentional case use `silences` or a maintenance annotation (see [General configuration](/general-configuration)).
 
 A CronJob that intentionally runs less often than daily may need a different
 operational check. Review its schedule before treating a gap between runs as a
@@ -32,5 +32,5 @@ kubectl get jobs -n <namespace>
 ```
 
 Check the schedule, suspension flag, last scheduled time, and recent Jobs.
-If a Job was created but failed, follow the [Job monitor guide](/docs/job-monitor-configuration)
+If a Job was created but failed, follow the [Job monitor guide](/job-monitor-configuration)
 and inspect the Job's Pods.

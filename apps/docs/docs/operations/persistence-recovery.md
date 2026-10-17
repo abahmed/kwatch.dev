@@ -7,7 +7,7 @@ sidebar_position: 3
 # Persistence and recovery
 
 :::info Pro
-Keeping incidents and history on disk across restarts is part of kwatch Pro, which is free during early access. The Community edition keeps state in memory. See [Community vs Pro](/docs/editions).
+Keeping incidents and history on disk across restarts is part of kwatch Pro, which is free during early access. The Community edition keeps state in memory. See [Community vs Pro](/editions).
 :::
 
 With Pro, kwatch stores restart-critical state in one transactional database file, `/var/lib/kwatch/state.db`, on a PVC. It is not stored in ConfigMaps. The file is created with owner-only permissions and holds one bucket per data class: incidents, changes, baselines, evidence, timeline, object fingerprints, lifecycle state, provider thread IDs, the delivery outbox and the flight recording.
@@ -41,6 +41,6 @@ A kill at any moment (SIGKILL, OOM, node loss) leaves a file that opens at the n
 
 The state file can be removed to reset kwatch: it then starts cold and sends one startup summary. To recover, scale the Deployment to zero, restore or remove the file on the volume, and start one replica. Open incidents are restored from the file, and kwatch compares saved object fingerprints with the live cluster to record changes made while it was down.
 
-If a copy is wanted before an upgrade, copy `/var/lib/kwatch/state.db` from the volume while the Pod is stopped. See [Replication and failover](/docs/operations/replication-and-failover) for the volume requirements.
+If a copy is wanted before an upgrade, copy `/var/lib/kwatch/state.db` from the volume while the Pod is stopped. See [Replication and failover](/operations/replication-and-failover) for the volume requirements.
 
 Never assume a notification was delivered exactly once. Delivery is at least once; use incident state, the audit log, provider logs and dead letters to reconcile.

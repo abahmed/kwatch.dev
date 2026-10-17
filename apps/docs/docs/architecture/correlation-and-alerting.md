@@ -38,7 +38,7 @@ decision and `notification/compose` writes the text from the decision alone.
 Severity decides how loudly an incident is delivered. Without an override,
 kwatch derives the tier itself; overriding it by reason or owner kind
 (`severityByReason`, `severityByOwnerKind`) is <span className="kw-pro">Pro</span>. See
-[General configuration](/docs/general-configuration#-severity).
+[General configuration](/general-configuration#-severity).
 
 ## Where root cause comes from
 
@@ -138,5 +138,5 @@ taking kwatch down.
 - **Pages are never folded** into the overflow digest, and resolves and pages
   go ahead of routine messages in a provider's queue.
 
-See the [provider reference](/docs/channels/providers) and
-[General configuration](/docs/general-configuration#-delivery-behaviour).
+See the [provider reference](/channels/providers) and
+[General configuration](/general-configuration#-delivery-behaviour).

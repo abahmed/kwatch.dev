@@ -9,7 +9,7 @@ keywords: [kwatch coverage, Kubernetes monitoring, Kubernetes failures, cluster 
 
 This page answers one question: **what can kwatch notice?** It is a technical
 reference for operators who want to understand the signals behind an alert.
-For a quick overview, see the [getting started guide](/docs).
+For a quick overview, see the [getting started guide](/).
 
 kwatch combines informer state, status conditions, Kubernetes Events, logs,
 kubelet stats, active probes and (with Pro) incident state kept on disk. It does
@@ -25,7 +25,7 @@ delivered, not what is watched.
 
 The Community edition covers pod and node failures and explains them with a
 root-cause headline. Every other detector below is part of kwatch Pro, which is
-free during early access. See [Community vs Pro](/docs/editions).
+free during early access. See [Community vs Pro](/editions).
 
 | Area | Signals | Edition |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ free during early access. See [Community vs Pro](/docs/editions).
 | Security | RBAC self-audit that reports missing permissions | Community |
 
 The authoritative list is the feature catalog shipped with each release; the
-generated [feature reference](/docs/reference/generated/features) shows every
+generated [feature reference](/reference/generated/features) shows every
 capability ID.
 
 ## Object and lifecycle signals
@@ -105,7 +105,7 @@ bounded reason (`permission_denied`, `api_unavailable`, `sync_timeout`,
 `budget_exceeded`, `object_cap_reached` or `disabled_by_config`) and never
 create a fabricated incident. Set `watch.secrets: false` to remove Secret
 access; checks that need Secrets then report that they cannot verify. See
-[General configuration](/docs/general-configuration#-kubernetes-permissions-and-graceful-degradation).
+[General configuration](/general-configuration#-kubernetes-permissions-and-graceful-degradation).
 
 ## Root cause
 

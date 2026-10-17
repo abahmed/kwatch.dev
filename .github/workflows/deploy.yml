@@ -1,22 +1,141 @@
-name: Deploy website
+name: Deploy websites
+
+# Three Cloudflare Pages projects, each deployed only when its app (or
+# packages/brand) changes:
+#   web   apps/web   -> kwatch-site  (kwatch.dev)       gated, see below
+#   docs  apps/docs  -> kwatch-docs  (docs.kwatch.dev)
+#   app   apps/app   -> kwatch-app   (app.kwatch.dev)
+#
+# CUTOVER: kwatch-site still serves the old site until the repository variable
+# DEPLOY_WEB_TO_KWATCH_SITE is set to 'true'. While it is unset, the docs job
+# also deploys apps/docs to kwatch-site (legacy behaviour) and the web job is
+# skipped. Set the variable only after kwatch-docs is live on docs.kwatch.dev.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Which site to deploy
+        type: choice
+        options: [all, web, docs, app]
+        default: all
 
 permissions:
   contents: read
 
-concurrency:
-  group: website-deploy
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    name: Deploy to Cloudflare Pages
+  changes:
+    name: Detect changed sites
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      docs: ${{ steps.filter.outputs.docs }}
+      app: ${{ steps.filter.outputs.app }}
+    steps:
+      - name: Check out website
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Work out what changed
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          TARGET: ${{ inputs.target }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          web=false; docs=false; app=false
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$TARGET" in
+              all) web=true; docs=true; app=true ;;
+              web) web=true ;;
+              docs) docs=true ;;
+              app) app=true ;;
+            esac
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+            || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # New branch or unknown base: deploy everything.
+            web=true; docs=true; app=true
+          else
+            changed="$(git diff --name-only "$BEFORE" "$AFTER")"
+            echo "$changed"
+            # The installer and charts are still written under apps/docs/static
+            # by the release workflow, so they also trigger a web deploy.
+            if echo "$changed" | grep -qE '^(apps/web/|packages/brand/|apps/docs/static/kwatch\.sh$|apps/docs/static/charts/)'; then web=true; fi
+            if echo "$changed" | grep -qE '^(apps/docs/|packages/brand/)'; then docs=true; fi
+            if echo "$changed" | grep -qE '^(apps/app/|packages/brand/)'; then app=true; fi
+          fi
+          {
+            echo "web=$web"
+            echo "docs=$docs"
+            echo "app=$app"
+          } >> "$GITHUB_OUTPUT"
+
+  web:
+    name: Deploy web to kwatch-site
+    needs: changes
+    # Cutover gate: only after kwatch-docs is live.
+    if: needs.changes.outputs.web == 'true' && vars.DEPLOY_WEB_TO_KWATCH_SITE == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: deploy-kwatch-site
+      cancel-in-progress: false
+    steps:
+      - name: Check out website
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build:web
+
+      # Releases still write kwatch.sh and charts/ under apps/docs/static until
+      # the release paths move; publish those so kwatch.dev never serves a
+      # stale installer. Remove this step with the docs copies.
+      - name: Overlay latest installer and charts from the release paths
+        run: |
+          set -euo pipefail
+          cp apps/docs/static/kwatch.sh apps/web/dist/kwatch.sh
+          rm -rf apps/web/dist/charts
+          cp -R apps/docs/static/charts apps/web/dist/charts
+
+      - name: Publish to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets are required."
+            exit 1
+          fi
+          npx --yes wrangler@4.124.0 pages deploy apps/web/dist \
+            --project-name kwatch-site \
+            --branch main \
+            --commit-dirty=true
+
+  docs:
+    name: Deploy docs to kwatch-docs
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-kwatch-docs
+      cancel-in-progress: false
     steps:
       - name: Check out website
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -33,7 +152,7 @@ jobs:
       - name: Build
         run: yarn build:docs
 
-      - name: Publish to Cloudflare Pages
+      - name: Publish to kwatch-docs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -44,6 +163,60 @@ jobs:
             exit 1
           fi
           npx --yes wrangler@4.124.0 pages deploy apps/docs/build \
+            --project-name kwatch-docs \
+            --branch main \
+            --commit-dirty=true
+
+      # Legacy behaviour until the web cutover: kwatch-site keeps serving
+      # apps/docs. Skipped once DEPLOY_WEB_TO_KWATCH_SITE is 'true'.
+      - name: Publish to kwatch-site (legacy, until cutover)
+        if: vars.DEPLOY_WEB_TO_KWATCH_SITE != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx --yes wrangler@4.124.0 pages deploy apps/docs/build \
             --project-name kwatch-site \
+            --branch main \
+            --commit-dirty=true
+
+  app:
+    name: Deploy app to kwatch-app
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-kwatch-app
+      cancel-in-progress: false
+    steps:
+      - name: Check out website
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build:app
+
+      - name: Publish to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets are required."
+            exit 1
+          fi
+          npx --yes wrangler@4.124.0 pages deploy apps/app/dist \
+            --project-name kwatch-app \
             --branch main \
             --commit-dirty=true

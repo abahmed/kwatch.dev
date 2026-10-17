@@ -10,7 +10,7 @@ pagination_prev: null
 # 💓 Heartbeat monitor (dead man's switch)
 
 :::info Pro
-This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/docs/editions).
+This feature is part of kwatch Pro, which is free during early access. See [Community vs Pro](/editions).
 :::
 
 This is an optional **watch-the-watcher** check. An external service expects a

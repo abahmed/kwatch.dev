@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 🏗️ Matrix
 
-Use the [interactive kwatch manager](/docs/installation) to configure Matrix
+Use the [interactive kwatch manager](/installation) to configure Matrix
 alerts. It stores credentials in Kubernetes Secrets and verifies the
 installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

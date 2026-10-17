@@ -9,7 +9,7 @@ pagination_prev: null
 
 # 📧 Email
 
-Use the [interactive kwatch manager](/docs/installation) to configure Email
+Use the [interactive kwatch manager](/installation) to configure Email
 alerts. It stores credentials in Kubernetes Secrets and verifies the
 installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

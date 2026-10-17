@@ -9,7 +9,7 @@ pagination_prev: null
 
 # ✈️ Telegram
 
-Use the [interactive kwatch manager](/docs/installation) to configure Telegram
+Use the [interactive kwatch manager](/installation) to configure Telegram
 alerts. It stores credentials in Kubernetes Secrets and verifies the
 installation. The configuration fragments below explain provider settings;
 they are not separate installation steps.

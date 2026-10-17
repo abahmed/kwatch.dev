@@ -17,19 +17,15 @@ yarn typecheck:web  # astro check
 
 ## public/
 
-- `kwatch.sh` and `charts/` are copies of `apps/docs/static`. These URLs must keep working: `https://kwatch.dev/kwatch.sh` and `https://kwatch.dev/charts/index.yaml`.
+- `kwatch.sh` and `charts/` are the source of truth, written by the kwatch release workflow. These URLs must keep working: `https://kwatch.dev/kwatch.sh` and `https://kwatch.dev/charts/index.yaml`.
 - `_headers`: security headers with a strict CSP (`'self'` only, no inline script or style).
 - `_redirects`: `/pricing`, `/community`, `/blog/*`, `/search`, the old account paths and `/docs/*`. These are not added to `apps/docs`.
 
 ## Cutover notes
 
-Until the cutover, `kwatch-site` still deploys `apps/docs`, and the kwatch release workflow still writes the chart index, packages and `kwatch.sh` into `apps/docs/static`. The copies in `apps/web/public` are a snapshot and will go stale if a release happens first.
-
 At cutover:
 
-1. Change the release workflow to write `kwatch.sh` and `charts/` into `apps/web/public`.
-2. Re-copy the current files from `apps/docs/static` to `apps/web/public`, and remove `kwatch.sh` and `charts/` from `apps/docs`.
-3. Point `kwatch-site` at `apps/web` in `.github/workflows/deploy.yml`: build `yarn build:web`, publish `apps/web/dist`. Until then the deploy workflow is unchanged.
-4. Check with curl: `/kwatch.sh` is 200 `text/plain`, `/charts/index.yaml` is 200, `/docs/intro` is 301 to `docs.kwatch.dev`, `/signup` is 301 to `app.kwatch.dev`.
+1. Point `kwatch-site` at `apps/web` in `.github/workflows/deploy.yml`: build `yarn build:web`, publish `apps/web/dist`. Until then the deploy workflow is unchanged.
+2. Check with curl: `/kwatch.sh` is 200 `text/plain`, `/charts/index.yaml` is 200, `/docs/intro` is 301 to `docs.kwatch.dev`, `/signup` is 301 to `app.kwatch.dev`.
 
 If the site is deployed as its own Pages project instead (for example `kwatch-web`), add a deploy step like the existing docs one with `--project-name=kwatch-web` and `apps/web/dist`.

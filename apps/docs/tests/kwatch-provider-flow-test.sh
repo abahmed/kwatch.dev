@@ -5,8 +5,8 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 CAPTURE_DIR=$(mktemp -d)
 trap 'rm -rf "$CAPTURE_DIR"' EXIT
 
-# shellcheck source=../static/kwatch.sh
-source "$ROOT/static/kwatch.sh"
+# shellcheck source=../../web/public/kwatch.sh
+source "$ROOT/../web/public/kwatch.sh"
 CONFIG_MOUNT_PATH="$CAPTURE_DIR"
 NAMESPACE=kwatch
 RELEASE=kwatch

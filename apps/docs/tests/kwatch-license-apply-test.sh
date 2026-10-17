@@ -9,8 +9,8 @@ CAPTURE_DIR=$(mktemp -d)
 trap 'rm -rf "$CAPTURE_DIR"' EXIT
 export NO_COLOR=1 KWATCH_PLAIN_UI=true
 
-# shellcheck source=../static/kwatch.sh
-source "$ROOT/static/kwatch.sh"
+# shellcheck source=../../web/public/kwatch.sh
+source "$ROOT/../web/public/kwatch.sh"
 NAMESPACE=kwatch
 RELEASE=kwatch
 

@@ -47,7 +47,7 @@ jobs:
         run: git diff --exit-code -- apps/docs/docs/reference/generated
 
       - name: Check shell syntax
-        run: bash -n apps/docs/static/kwatch.sh apps/docs/tests/*.sh
+        run: bash -n apps/web/public/kwatch.sh apps/docs/tests/*.sh
 
       - name: Check whitespace
         run: git diff --check

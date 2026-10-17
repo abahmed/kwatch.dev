@@ -18,8 +18,8 @@ EOF
 chmod +x "$CAPTURE_DIR/kubectl"
 PATH="$CAPTURE_DIR:$PATH"
 
-# shellcheck source=../static/kwatch.sh
-source "$ROOT/static/kwatch.sh"
+# shellcheck source=../../web/public/kwatch.sh
+source "$ROOT/../web/public/kwatch.sh"
 SELECTED_CONTEXT=test
 
 stderr_file="$CAPTURE_DIR/stderr"

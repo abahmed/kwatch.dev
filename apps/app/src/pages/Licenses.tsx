@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useState} from 'react';
 import type {ReactNode} from 'react';
 import {getFreeLicense, moveLicense, replaceKey} from '../api';
 import type {License} from '../api';
@@ -18,36 +18,11 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
   const [revealed, setRevealed] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const key = newKey ?? license.key;
-  const moreRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
-  const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState<null | 'move' | 'replace'>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
   const [message, setMessage] = useState('');
-
-  // Close the More panel on Escape (focus goes back to its button) and on a
-  // click outside it. An outside click leaves focus where the user put it.
-  useEffect(() => {
-    if (!menu) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      setMenu(false);
-      moreRef.current?.focus();
-    };
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (menuRef.current?.contains(t) || moreRef.current?.contains(t)) return;
-      setMenu(false);
-    };
-    document.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDown);
-    };
-  }, [menu]);
 
   const st = statusOf(license);
   const a = license.activation;
@@ -106,16 +81,16 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
         <button type="button" className={`btn btn-sm ${a ? '' : 'btn-signal'}`} onClick={copy}>
           {copied ? 'Copied' : 'Copy key'}
         </button>
-        <button
-          ref={moreRef}
-          type="button"
-          className="btn btn-sm"
-          aria-expanded={menu}
-          aria-controls={`more-${license.lid}`}
-          onClick={() => setMenu(!menu)}
-        >
-          More
-        </button>
+        {a && (
+          <button type="button" className="btn btn-sm" onClick={() => setDialog('move')}>
+            Move to another cluster
+          </button>
+        )}
+        {license.status !== 'revoked' && (
+          <button type="button" className="btn btn-sm" onClick={() => setDialog('replace')}>
+            Replace key
+          </button>
+        )}
       </div>
 
       {(error || message) && (
@@ -125,42 +100,8 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
         </div>
       )}
 
-      {menu && (
-        <div ref={menuRef} id={`more-${license.lid}`} className="menu license-wide" role="group" aria-label="More actions">
-          {a && (
-            <button
-              type="button"
-              className="menu-item"
-              onClick={() => {
-                setMenu(false);
-                setDialog('move');
-              }}
-            >
-              <span className="menu-title">Move to another cluster</span>
-              <span className="small muted">
-                The new cluster takes it within about 5 minutes; this one drops to Community at its next check.{' '}
-                {plural(license.transfers_left, 'move', 'moves')} left this month.
-              </span>
-            </button>
-          )}
-          {license.status !== 'revoked' && (
-            <button
-              type="button"
-              className="menu-item"
-              onClick={() => {
-                setMenu(false);
-                setDialog('replace');
-              }}
-            >
-              <span className="menu-title">Replace key</span>
-              <span className="small muted">If the key leaked. The old key stops working.</span>
-            </button>
-          )}
-        </div>
-      )}
-
       {dialog === 'move' && (
-        <Dialog title="Move to another cluster" onClose={() => setDialog(null)} returnFocusRef={moreRef}>
+        <Dialog title="Move to another cluster" onClose={() => setDialog(null)}>
           <p>
             A license works on one cluster at a time. Moving releases it from the current cluster. On the new
             cluster, run the installer and choose License / Pro, then Add or replace key. The new cluster takes
@@ -190,7 +131,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
         </Dialog>
       )}
       {dialog === 'replace' && (
-        <Dialog title="Replace key" onClose={() => setDialog(null)} returnFocusRef={moreRef}>
+        <Dialog title="Replace key" onClose={() => setDialog(null)}>
           <p>
             This issues a new key. <strong>The old key stops working</strong>, so update it on every cluster that
             uses it.

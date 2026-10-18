@@ -1,7 +1,7 @@
 # Pro readiness before v1.0.0-rc.21: four features
 
 Status: draft for the lead. Specs only, no production code.
-Audience: paying Pro users who are new to Kubernetes. Copy follows `MESSAGING.md`: Pro is free during early access (no prices, no "trial"), install is installer-first, licenses live only in the installer's License / Pro menu, "source available". Free tiers only (Cloudflare Workers, D1; no new paid service).
+Audience: paying Pro users who are new to Kubernetes. Copy follows `MESSAGING.md`: Pro is free during early access (no prices, no "trial"), install is installer-first, licenses live only in the installer's License / Pro menu, "source available". Free tiers only (Cloudflare Workers, D1, R2 free allowance; no new paid service).
 
 **Decisions (user, final):** Resend quota is limited, so (1) silence alerts send no email: the Worker posts to a webhook the user registers, and the app shows cluster status; (2) support sends exactly one email per request, to the support inbox with Reply-To set to the user, and no confirmation email. Existing sign-in and license emails are unchanged.
 
@@ -245,7 +245,7 @@ File `apps/web/public/kwatch.sh`, `show_supported_menu` (about lines 6694 to 671
 🧩 View capabilities
 🔑 License / Pro
 ♻️  Restore a previous configuration   (only with backups)
-🧰 Create support bundle      <- spec 3
+🧰 Share diagnostics with support   <- spec 3
 🧹 Uninstall kwatch
 🚪 Exit
 ```
@@ -292,7 +292,7 @@ Saved file: `kwatch-support-YYYYMMDD-HHMMSS.tar.gz` (UTC), written to the curren
 
 Code format: `KW-` plus 4 characters from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` (no 0 O 1 I L), for example `KW-7F3K`. Unique across live uploads; the Worker retries on collision. The code grants no access by itself.
 
-Size: at most 5 MB per upload (Q: also fits the mail-attachment path for saved files).
+Size: at most 5 MB per upload. A saved file of that size also fits a mail attachment.
 
 ### 3.2 Included
 
@@ -472,7 +472,7 @@ Server error: `We could not send your request. Nothing was sent. Try again, and 
 Heading `Request sent`
 Body: `We will reply by e-mail to {email}. Replies come from our support address, so check your spam folder if you do not see one.`
 Reference: `Reference KW-4F7A2C` (mono, selectable, Copy button; 6 characters from a confusion-free alphabet).
-Block `Make a support bundle while you wait`: `1 Run the installer: /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` `2 Choose Share diagnostics with support.` `3 Read it, then attach the file when you reply to our e-mail. Secrets are removed.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
+Block `Make a support bundle while you wait`: `1 Run the installer: /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` `2 Choose Share diagnostics with support.` `3 We read your logs through the code it prints. Or save a file instead and attach it when you reply to our e-mail. Secrets are removed either way.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
 
 The page keeps the reference only in memory; refreshing returns to the empty form (no thread storage).
 

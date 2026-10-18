@@ -684,6 +684,27 @@ grep -Fq 'already stores KwatchConfig as v1beta1' <<<"$LAST_COMMAND_ERROR"
 printf '%s\n' '    - name: v1beta1' >>"$crd_file"
 crd_keeps_stored_versions "$crd_file"
 
+# The refusal reaches the user through apply_manifests, not just the helper.
+guard_out=$(
+  kubectl() { if [[ "$*" == *storedVersions* ]]; then printf v1beta1; fi; }
+  choose_storage_mode() { return 0; }
+  deployment_name() { return 0; }
+  curl() {
+    local out="" prev="" arg
+    for arg in "$@"; do [ "$prev" = -o ] && out="$arg"; prev="$arg"; done
+    [ -n "$out" ] && printf '%s\n' '    - name: v1alpha1' >"$out"
+    if [[ "$*" == *SHA256SUMS* ]]; then printf 404; fi
+    return 0
+  }
+  verify_release_file() { return 0; }
+  set +e
+  apply_manifests v1.0.0-rc.1 </dev/null >/dev/null 2>&1
+  rc=$?
+  [ "$rc" -ne 0 ] || exit 1
+  report_unexpected_exit "$rc" 2>&1
+)
+grep -Fq 'already stores KwatchConfig as v1beta1' <<<"$guard_out"
+
 # KwatchConfig uses the served API version of the installed CRD, and an
 # existing namespace is not applied again.
 NAMESPACE=kwatch

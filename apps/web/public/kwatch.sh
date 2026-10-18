@@ -8159,7 +8159,7 @@ license_move_flow() {
   fi
 }
 
-# Cluster check-ins: whether the Pod pings api.kwatch.dev every 15 minutes so
+# Cluster check-ins: whether the Pod pings api.kwatch.dev every 30 minutes so
 # app.kwatch.dev can show the cluster as silent. Stored in the KwatchConfig
 # (spec.clusterCheckins, default on) so upgrades keep it.
 CHECKINS_CONFIG_PATH="clusterCheckins"
@@ -8174,8 +8174,8 @@ checkins_state() {
 checkins_flow() {
   local state choice target reason
   ui_heading "Cluster check-ins"
-  ui_detail "  kwatch checks in with api.kwatch.dev every 15 minutes. If it goes quiet"
-  ui_detail "  for 30 minutes, app.kwatch.dev shows this cluster as silent."
+  ui_detail "  kwatch checks in with api.kwatch.dev every 30 minutes. If it goes quiet"
+  ui_detail "  for 60 minutes, app.kwatch.dev shows this cluster as silent."
   ui_detail "  Nothing is sent to you. Sent: a random or hashed installation ID, the kwatch version,"
   ui_detail "  the node count and the cluster name if you set one."
   state=$(checkins_state)
@@ -8190,7 +8190,7 @@ checkins_flow() {
   if reason=$(patch_config_value "$CHECKINS_CONFIG_PATH" boolean "$target" 2>&1); then
     LICENSE_FLOW_CHANGED=true
     if [ "$target" = true ]; then
-      ui_success "Cluster check-ins are on. The first check-in follows within 15 minutes."
+      ui_success "Cluster check-ins are on. The first check-in follows within 30 minutes."
     else
       ui_success "Cluster check-ins are off."
       ui_detail "  If the final check-in cannot reach api.kwatch.dev, app.kwatch.dev shows this"

@@ -1,14 +1,14 @@
 ---
-title: kwatch replicas, standby and failover on Kubernetes
+title: kwatch single replica and failover on Kubernetes
 sidebar_label: Replication and failover
-description: How kwatch runs as one replica with a state lock, what happens when its Pod or node fails, and how extra replicas wait as standbys.
+description: How kwatch runs as one replica with a state lock, what happens when its Pod or node fails, and why there is no high availability in v1.
 sidebar_position: 2
 ---
 
 # Replication and failover
 
-:::info Pro
-Running more than one replica (high availability) is part of kwatch Pro, which is free during early access. The Community edition runs one replica. See [Community vs Pro](/editions).
+:::note No high availability in v1
+kwatch runs as one pod, in Community and in Pro. There is no second replica to take over. If the pod is down, kwatch is not watching until Kubernetes restarts it.
 :::
 
 By default kwatch runs **one replica** with the `Recreate` strategy. Its state lives in a file on a PersistentVolumeClaim mounted at `/var/lib/kwatch`. A Kubernetes Lease is used only as a **lock**: it stops two processes from writing the volume at once. There is no second Pod by default and no kwatch self-failover. If the Pod or its node fails, Kubernetes restarts the Pod and kwatch resumes from the volume.
@@ -21,16 +21,11 @@ Two kwatch processes can overlap for a short time: a node cut off from the netwo
 
 ## Replica behavior
 
-| Replicas | Edition | Behavior |
-| --- | --- | --- |
-| 1 | Community and Pro | One process holds the lock. No kwatch self-failover; Kubernetes restarts the Pod. |
-| More than 1 | Pro | One replica holds the lock; the others wait as standbys and take over if the holder loses the Lease. |
-
-On Community, extra replicas still wait as standbys, and kwatch logs that the edition supports one replica and that high availability needs kwatch Pro. A standby does not watch resources, send notifications or write state until it holds the Lease.
+Run exactly one replica. One process holds the lock; Kubernetes restarts the pod if it fails. Extra replicas are not supported and would only wait for the lock without watching resources, sending notifications or writing state.
 
 ## Node failure: the real monitoring gap
 
-A crashed or unreachable node is the slowest case, because Kubernetes decides when the Pod may start elsewhere. Plan for up to about 7 to 8 minutes without monitoring after a hard node failure: about 70 to 80 seconds for node detection and eviction (the chart shortens the default toleration to 30 seconds), then up to about 6 minutes more for a `ReadWriteOnce` volume to detach. The heartbeat monitor (Pro) is the only signal during that window.
+A crashed or unreachable node is the slowest case, because Kubernetes decides when the Pod may start elsewhere. Plan for up to about 7 to 8 minutes without monitoring after a hard node failure: about 70 to 80 seconds for node detection and eviction (the chart shortens the default toleration to 30 seconds), then up to about 6 minutes more for a `ReadWriteOnce` volume to detach. Your own heartbeat URL (Pro) or Cluster check-ins (Pro) are the only signals during that window.
 
 If you know the node is really down (powered off, not just partitioned), you can shorten the gap by tainting it out of service:
 

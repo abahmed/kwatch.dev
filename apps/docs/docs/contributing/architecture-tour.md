@@ -58,7 +58,7 @@ add a small function or table row instead. Avoid adding business logic to
 - One goroutine makes every decision and does no I/O. Slow work runs on bounded
   workers.
 - kwatch runs one replica; the Lease is a lock for the state volume, not a
-  failover mechanism. Extra replicas wait as standbys (Pro).
+  failover mechanism. There is no high availability in v1.
 - Production code does not call `time.Now`, `http.DefaultClient` or the default
   resolver; use the injected clock and the shared transport.
 

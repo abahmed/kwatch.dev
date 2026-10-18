@@ -122,8 +122,8 @@ kubectl get pods -n kwatch
 
 You should see one kwatch pod with `STATUS Running` and `READY 1/1`. kwatch
 runs as a single replica with its state on a small volume. If the pod or its
-[node](/glossary#node) fails, Kubernetes restarts it. Running more than one
-replica for high availability is a [Pro](/editions) feature.
+[node](/glossary#node) fails, Kubernetes restarts it. There is no
+high availability in v1: kwatch is always one pod.
 
 ### 4. Optional: add Pro
 

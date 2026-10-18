@@ -894,7 +894,7 @@ The shipped manifests and chart run kwatch as a non-root user with a read-only
 root filesystem, disabled privilege escalation, all Linux capabilities dropped,
 and the `RuntimeDefault` seccomp profile. The namespace manifest also requests
 the Kubernetes `restricted` Pod Security profile. With Pro, state is written to a PVC mounted at `/var/lib/kwatch`; kwatch runs as a single
-replica and its Lease is only a lock (extra replicas as standbys are Pro). The ClusterRole remains read-only.
+replica and its Lease is only a lock. The ClusterRole remains read-only.
 
 Keep the Secret protected with least-privilege RBAC, enable encryption at rest
 for Secrets in the API server/etcd, and rotate provider credentials if access

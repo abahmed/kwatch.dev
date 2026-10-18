@@ -57,6 +57,19 @@ If the license service is unreachable, kwatch keeps its Pro features for up
 to 7 days from the last successful renewal: each renewal is valid for 3 days,
 followed by a 4-day grace period, then kwatch falls back to Community.
 
+## When a license expires
+
+Each license runs for 3 months. kwatch emails you 14 days and 3 days before it
+ends, and again when it has expired. When the license ends, Pro features switch
+off and kwatch falls back to Community: detection and alerting keep working,
+but Pro-only features (persistence, extra providers, routing and the rest of
+what is marked <span className="kw-pro">Pro</span>) stop. kwatch also logs when
+Pro turns on, when a renewal starts failing and the grace period begins, and
+when Pro turns off.
+
+To renew, sign in at [app.kwatch.dev](https://app.kwatch.dev), then run the
+installer, open **License / Pro** and choose **Add or replace key**.
+
 ## Moving to another cluster
 
 A key is bound to one cluster at a time. There are two ways to move it, and

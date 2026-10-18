@@ -69,7 +69,7 @@ One binary, two editions (see [Community vs Pro](/editions)). Community
 detects pod crashes, OOM, Pending and restarts and node failures, explains them
 with a root-cause headline, and keeps state in memory. Pro adds the other
 detectors, full proof, who changed what, impact and log excerpts, routing,
-threads, templates, persistence on disk and standby replicas. Pro is free during
+threads, templates, persistence on disk and Cluster check-ins. Pro is free during
 early access.
 
 ## One replica and a state lock

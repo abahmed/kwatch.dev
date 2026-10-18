@@ -11,6 +11,7 @@ const sidebars: SidebarsConfig = {
       items: [
         {type: 'doc', id: 'getting-started', label: 'What is kwatch'},
         'installation',
+        'glossary',
         'kwatch-manager',
         'kwatch-sh',
         'upgrading',

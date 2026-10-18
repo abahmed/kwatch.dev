@@ -6,7 +6,7 @@ description: Get, install, move and troubleshoot a kwatch Pro license key.
 keywords: [kwatch license, kwatch Pro, license key, installer, activation, grace period]
 ---
 
-# License
+# 🔑 License
 
 Community needs no license. Pro features need a license key, one per cluster.
 

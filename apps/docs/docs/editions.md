@@ -6,15 +6,16 @@ description: What kwatch Community includes, what kwatch Pro adds, and how early
 keywords: [kwatch Pro, kwatch Community, editions, early access, license]
 ---
 
-# Community vs Pro
+# ⭐ Community vs Pro
 
-kwatch ships in two editions from the same binary. Community needs no account
-and no key. Pro needs a license key, one per cluster.
+kwatch ships in two editions from the same binary. Community is free forever,
+with no account and no key. Pro needs a license key, one per cluster.
 
 :::info Early access
-Pro is **free during early access**. A license lasts 3 months and may be
-renewed. You can have up to 2 clusters per account, or per company domain for
-work emails. There are no prices and no payment details.
+Pro is **free during early access**. Each license is free for 3 months and we
+may renew it. One license runs one cluster, with up to 2 per account or
+company. No payment details. If that ever changes, you will hear well in
+advance.
 :::
 
 ## At a glance
@@ -78,7 +79,7 @@ the file stays valid when you upgrade.
 - **What is sent:** a hashed cluster id, the kwatch version, the node count and the instance public key.
   A Community install without a key makes no license calls.
 
-## Get Pro
+## 🔑 Get Pro
 
 1. [Sign up](https://app.kwatch.dev) and open the sign-in link.
 2. Choose **Get 3 months of Pro free** on your [account](https://app.kwatch.dev) page.
@@ -89,7 +90,7 @@ Details, moving a license and troubleshooting are on the
 [License](/license) page, and the commands are in the
 [CLI reference](/cli-commands).
 
-## Source available
+## 📄 Source available
 
 kwatch is source available under the Elastic License 2.0 (ELv2). You may run
 it for free in your own clusters, read and change the code, and share it. You

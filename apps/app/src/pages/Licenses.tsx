@@ -1,4 +1,4 @@
-import {useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {getFreeLicense, moveLicense, replaceKey} from '../api';
 import type {License} from '../api';
@@ -19,12 +19,35 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
   const [newKey, setNewKey] = useState<string | null>(null);
   const key = newKey ?? license.key;
   const moreRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState<null | 'move' | 'replace'>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
   const [message, setMessage] = useState('');
+
+  // Close the More panel on Escape (focus goes back to its button) and on a
+  // click outside it. An outside click leaves focus where the user put it.
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setMenu(false);
+      moreRef.current?.focus();
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || moreRef.current?.contains(t)) return;
+      setMenu(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+    };
+  }, [menu]);
 
   const st = statusOf(license);
   const a = license.activation;
@@ -103,7 +126,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
       )}
 
       {menu && (
-        <div id={`more-${license.lid}`} className="menu license-wide" role="group" aria-label="More actions">
+        <div ref={menuRef} id={`more-${license.lid}`} className="menu license-wide" role="group" aria-label="More actions">
           {a && (
             <button
               type="button"

@@ -3,7 +3,7 @@
 Status: draft for the lead. Specs only, no production code.
 Audience: paying Pro users who are new to Kubernetes. Copy follows `MESSAGING.md`: Pro is free during early access (no prices, no "trial"), install is installer-first, licenses live only in the installer's License / Pro menu, "source available". Free tiers only (Cloudflare Workers and D1, Resend; no new paid service).
 
-**Decisions (user, final):** Resend quota is limited, so (1) silence alerts send no email: the Worker posts to a webhook the user registers, and the app shows cluster status; (2) support sends exactly one text-only email per request, to the support inbox with Reply-To set to the user, and no confirmation email; (3) no file is ever uploaded to our API: diagnostics are saved to a file on the user's machine and attached by the user to their own email reply. Existing sign-in and license emails are unchanged.
+**Decisions (user, final):** Resend quota is limited, so (1) the managed heartbeat sends no notification of any kind (no email, no webhook): the app only shows each cluster's last seen and a silent state computed on read; (2) support sends exactly one text-only email per request, to the support inbox with Reply-To set to the user, and no confirmation email; (3) no file is ever uploaded to our API: diagnostics are saved to a file on the user's machine and attached by the user to their own email reply. Existing sign-in and license emails are unchanged.
 
 Owners: kwatch-core (Go, `kwatch test-alert`, managed ping), kwatch-web (`kwatch.sh`, `/support`), kwatch-api (Worker, D1), kwatch-app (app.kwatch.dev).
 
@@ -18,141 +18,107 @@ Owners: kwatch-core (Go, `kwatch test-alert`, managed ping), kwatch-web (`kwatch
 
 ---
 
-## 1. Managed heartbeat: "tell me when my cluster goes quiet"
+## 1. Managed heartbeat: "see when my cluster goes quiet"
 
 ### 1.1 What it is, and what it cannot say
 
-kwatch Pro pings `api.kwatch.dev` every 5 minutes. A Worker cron notices when pings stop. The page and message must be honest about what silence means: **kwatch stopped talking.** The cluster may be fine. Three usual causes: the kwatch pod stopped, the cluster or node is down, or the cluster lost outbound access to `api.kwatch.dev`.
+kwatch Pro pings `api.kwatch.dev` every 10 minutes. app.kwatch.dev shows each cluster's last seen time, and marks it **silent** when nothing has been heard for 20 minutes. **Nothing is sent to anyone**: no email, no webhook, no push. The user looks at the app. (Notifications are a later decision.)
 
-Name in all UI: **Silence alerts**. Never "uptime monitoring", never "we monitor your cluster".
+The app must be honest about what silence means: **kwatch stopped talking.** The cluster may be fine. Three usual causes: the kwatch pod stopped, the cluster or node is down, or the cluster lost outbound access to `api.kwatch.dev`.
+
+Name in all UI: **Cluster check-ins** for the feature and **Silent** for the state (not "alerts", because nothing is sent). Never "uptime monitoring", never "we monitor your cluster", never "we will notify you".
 
 ### 1.2 Relation to the existing heartbeat monitor
 
-`kwatch/internal/heartbeat` (config `heartbeatMonitor`) GETs a URL the user owns (Healthchecks.io and similar) on a schedule, only while monitoring is ready. It stays unchanged and is the "bring your own" option.
+`kwatch/internal/heartbeat` (config `heartbeatMonitor`) GETs a URL the user owns (Healthchecks.io and similar), only while monitoring is ready. It stays unchanged and is the way to actually get notified today.
 
-| | Your URL (existing) | Silence alerts (new) |
+| | Your URL (existing) | Cluster check-ins (new) |
 |---|---|---|
 | Who watches | A service you choose | kwatch Worker |
-| Needs | Account elsewhere | Pro license, app.kwatch.dev sign-in |
-| Where you hear | Whatever that service sends | The app, plus a webhook you register  |
+| Needs | An account elsewhere | Pro license, app.kwatch.dev sign-in |
+| Where you hear | Whatever that service sends | You look at the Clusters page |
 | Config | `heartbeatMonitor.url` | License / Pro menu toggle |
 
-They can run together; neither disables the other. In docs and the app, present them as two ways to answer the same question, with the cost of each: yours is more setup and fully yours; ours is one switch.
+They can run together. The app links the existing option: `Want a message when it goes quiet? kwatch can ping a monitor you own.` Reuse the same readiness rule: no ping while kwatch is not ready, so a pod that is up but not monitoring is quiet. Keep the ping separate from the daily `/license/renew` (24h lease, unchanged).
 
-Reuse the same readiness rule: no ping is sent while kwatch is not ready, so a pod that is up but not monitoring counts as quiet. Keep the ping separate from the daily `/license/renew` (24h lease, unchanged).
+### 1.3 Defaults and toggle
 
-### 1.3 Default, toggle, threshold
-
-- **Default: on** for an active Pro license, announced once at the moment of adding or moving a key in the installer ("Silence alerts are on. Turn them off in License / Pro."). Rationale: a switch nobody finds protects nobody; the ping adds no data beyond the renew payload (cluster id hash, kwatch version, node count) and says so on `/pro`. Open question Q1 if the lead prefers opt-in.
-- **Where to toggle:** installer, License / Pro submenu, because the ping is sent by the pod and the installer owns config. The app shows the state read-only (`On`, `Off`, `Not yet seen`) with a hint "Change it in the installer: License / Pro > Silence alerts".
-- **Where to set the threshold:** the app, because it is server-side. Choices: 10 (default), 15, 30, 60 minutes. Ping is every 5 min, so 10 minutes means two missed pings; one slow ping never alerts. No free-form numbers.
-- Turning off sends one final `{"silence_alerts": false}` ping so the Worker stops watching instead of reporting a false silence. If the final ping fails, the app shows the cluster as silent until the user removes the cluster or key; the installer says so.
+- **On by default** for an active Pro license, announced once when a key is added or moved in the installer: `Cluster check-ins are on. Turn them off in License / Pro.`
+- **Ping every 10 minutes. Silent after 20 minutes** (two missed pings). Both are fixed; no setting, no threshold control.
+- **Toggle:** installer, License / Pro submenu (the pod sends the ping and the installer owns config). The app shows the state read-only with `Change it in the installer: License / Pro > Cluster check-ins.`
+- Turning off sends one final `{"checkins": false}` ping so the app shows `Check-ins off` instead of a false silence. If that ping fails the app shows the cluster as silent until the key is removed or moved; the installer says so.
 
 ### 1.4 Installer: License / Pro submenu
 
 Current items: Show license status, Add or replace key, Move license to this cluster, Remove key, Back. Insert after Show license status:
 
 ```
- Silence alerts: on   (change)
+ Cluster check-ins: on   (change)
 ```
 
 Selecting it opens:
 
 ```
-Silence alerts
+Cluster check-ins
 
-  kwatch checks in with api.kwatch.dev every 5 minutes. If it goes quiet
-  for 10 minutes or more, app.kwatch.dev shows this cluster as silent.
-  Sent: a hashed cluster ID, the kwatch version and the node count.
+  kwatch checks in with api.kwatch.dev every 10 minutes. If it goes quiet
+  for 20 minutes, app.kwatch.dev shows this cluster as silent.
+  Nothing is sent to you. Sent: a hashed cluster ID, the kwatch version,
+  the node count and the cluster name if you set one.
 
   > Turn off
     Back
 ```
 
-When off the first row reads `Turn on`. Success line: `Silence alerts are on. The first check-in follows within 5 minutes.` / `Silence alerts are off.` Failure (config write or rollout failed): `Could not change Silence alerts: <reason>. Nothing was changed. Run the installer again after fixing it.` Show the item only with an active key; otherwise it is absent (not greyed).
+When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The first check-in follows within 10 minutes.` / `Cluster check-ins are off.` Failure: `Could not change Cluster check-ins: <reason>. Nothing was changed. Run the installer again after fixing it.` The item exists only with an active key (absent otherwise, not greyed).
 
 ### 1.5 Worker behaviour (contract for kwatch-api)
 
-- New route `POST /license/ping`, same instance authentication as `/license/renew` (signed by the instance key; unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, silence_alerts}`. `cluster_name` comes from `app.clusterName` if set. Response `204`. Ignore more than one ping per 4 minutes per license (still `204`).
-- D1 (LICENSE_DB, migration `0006`): per activation `last_ping`, `alert_threshold_min` (default 10), `silence_alerts` (0/1), `alert_state` (`ok` | `silent`), `silent_since`.
-- Cron `*/5 * * * *` added next to the daily one. One indexed query: activations with `silence_alerts=1`, `alert_state='ok'`, `last_ping < now - threshold`. Mark `silent`, set `silent_since`, fire notifications. On a ping from a `silent` cluster: mark `ok`, fire the recovery.
-- Free-tier budget (important): one cluster costs 288 pings, so 288 Worker requests and about 288 D1 writes a day. Free tier is 100k of each per day, so the ceiling is about 340 clusters. Mitigation if needed: ping every 10 minutes (about 690 clusters) with the default threshold at 20. Q2.
-- A cluster whose activation is released, whose license is revoked, or whose key was removed is never reported silent.
-- Flapping guard: at most one `silent` notification per cluster per 24 hours; the app still shows every transition. Recovery notifications are sent only for a silence that was notified.
+- New route `POST /license/ping`, instance-authenticated like `/license/renew` (unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, checkins}`. `204` on success. A ping within 8 minutes of the last is acknowledged without a write.
+- D1 (LICENSE_DB, migration `0006`), columns on the activation: `last_ping`, `checkins` (0/1), `recovered_at`, `quiet_seconds`. On each ping, in the same single `UPDATE`: if `now - last_ping` exceeded 20 minutes, set `recovered_at=now` and `quiet_seconds=now-last_ping`.
+- **No cron and no stored state.** Silent is computed on read: `checkins=1 AND now - last_ping > 20 min`. The existing daily cron is untouched. Nothing else calls Resend or `fetch`.
+- Free-tier budget: one cluster is 144 pings a day, so about 144 Worker requests and 144 D1 row writes. Free tier is 100k of each per day, so the ceiling is about 690 clusters. Revisit before reaching 500.
+- A released, revoked or removed activation is never shown as silent (`Not attached`).
+- `GET /account/clusters` (session): per cluster `{name, id_short, license, version, nodes, last_ping, checkins, state, recovered_at?, quiet_seconds?}` with `state` one of `waiting`, `ok`, `silent`, `off`, `detached`.
 
-### 1.6 How you hear about it (no email)
+### 1.6 In-app copy for each state (replaces any message to users)
 
-Decided: **in-app cluster status plus a webhook** the user registers once per license in the app. The Worker `POST`s a JSON message when a cluster turns silent and when it recovers.
-
-- Kinds: Slack, Microsoft Teams, Discord, Generic (JSON). The app picks the payload shape by kind; the user pastes only a URL.
-- Security: https only; reject `localhost`, IP literals and private ranges; 5-second timeout, no redirects, one retry after 60 seconds, then give up and record `delivery: failed` on the event. The URL is a credential: stored server-side (encrypted with an existing Worker secret), shown masked after saving (`https://hooks.slack.com/...`, last 4 characters only), never returned by the API in full, replaced rather than edited.
-- "Send test" posts `kwatch test: this is how a silence alert will look. Nothing is wrong.`
-- Cost: one outbound `fetch` per event. Free-plan Workers allow 50 subrequests per invocation, so cap at 40 notifications per cron run and carry the rest to the next run.
-
-**Alternative the app and docs mention:** kwatch's existing heartbeat monitor can ping a URL the user owns (Healthchecks.io and similar) instead. No new Worker cost, but a third service to set up. The app panel links to it. A user with no webhook still sees every silent cluster in the app.
-
-### 1.7 Webhook message copy (all kinds, plain text body; markdown where the platform renders it)
-
-Silent:
-
-```
-kwatch has gone quiet in {cluster}
-Last heard from at {HH:MM UTC} ({N} minutes ago).
-Likely cause: the kwatch pod stopped, the cluster is down, or it cannot reach api.kwatch.dev. Your apps may be fine; while kwatch is quiet it cannot alert you.
-Next step: kubectl -n kwatch get pods
-https://app.kwatch.dev/clusters
-```
-
-Recovered:
-
-```
-kwatch is back in {cluster}
-It was quiet for {duration}, from {HH:MM UTC} to {HH:MM UTC}. Alerts are flowing again.
-Anything that broke while kwatch was quiet may not have been reported. Check: kubectl -n kwatch logs deploy/kwatch --tail=50
-```
-
-`{cluster}` is `cluster_name`, else the first 8 characters of the hashed cluster id. Namespace `kwatch` is the installer default; if `activations` ever stores a different namespace, use it (Q3).
-
-Status colour: silent uses failing #E5484D, recovered uses resolved #2F80ED, only where the platform supports colour bars (Slack attachment, Discord embed, Teams card accent).
-
-### 1.8 App screens (app.kwatch.dev, new page `/clusters`, nav item "Clusters")
-
-Table on desktop, stacked cards under 640px. Columns: Cluster (name, mono id below), License, Last seen, Status, Version, Nodes.
-
-Status values and exact copy:
-
-| State | Pill | Last seen cell | Detail line |
+| State | Pill | Last seen | Detail line |
 |---|---|---|---|
-| Healthy | `Checking in` (neutral Ink outline) | `2 minutes ago` | |
-| Not yet seen | `Waiting` (neutral) | `Not yet` | `Add the key in the installer, then wait up to 5 minutes.` |
-| Silent | `Quiet since 14:02 UTC` (failing red, text plus shape, never colour alone) | `18 minutes ago` | `kwatch stopped talking. Run kubectl -n kwatch get pods.` |
-| Recovered (shown 24h) | `Back at 14:41 UTC` (resolved blue) | `Just now` | `Quiet for 39 minutes.` |
-| Alerts off | `Silence alerts off` (neutral) | `Not tracked` | `Turn them on in the installer: License / Pro > Silence alerts.` |
-| Released / revoked | `Not attached` (neutral) | | |
+| Healthy | `Checking in` | `4 minutes ago` | |
+| Waiting | `Waiting` | `Not yet` | `Add the key in the installer, then wait up to 10 minutes.` |
+| Silent | `Silent since 14:02 UTC` | `38 minutes ago` | `kwatch stopped talking. Your apps may be fine, but kwatch cannot alert you while it is silent. Run kubectl -n kwatch get pods.` |
+| Back (24h) | `Back at 14:41 UTC` | `Just now` | `Silent for 39 minutes. Anything that broke in that time may not have been reported.` |
+| Check-ins off | `Check-ins off` | `Not tracked` | `Turn them on in the installer: License / Pro > Cluster check-ins.` |
+| Released or revoked | `Not attached` | | |
 
-Below the table, one panel "Silence alerts":
+`Silent since` is the last ping time plus 20 minutes. Pills pair a word with colour: silent uses failing #E5484D, back uses resolved #2F80ED, the rest neutral. `kwatch` is the installer's default namespace; if the ping later carries the namespace, use it.
 
-- Heading `Silence alerts`; body `If kwatch goes quiet for this long, we mark the cluster as silent and notify your webhook.`
-- Field `Quiet for` (select 10 / 15 / 30 / 60 minutes), `Save` (Ink). Saved note: `Saved. Applies from the next check.`
--  Field `Webhook` with kind select, URL input, `Save`, `Send test`, `Remove`. Empty state: `No webhook yet. Silent clusters still show here. Add a webhook to hear about it in Slack, Teams or Discord.` Error: `That URL did not accept the test message (it returned 404). Check the URL and try again.`
-- Link `Prefer your own monitor? kwatch can ping a URL you own.` to the docs page for `heartbeatMonitor`.
+### 1.7 App screen (new page `/clusters`, nav item "Clusters")
+
+Table on desktop, stacked cards under 640px. Columns: Cluster (name, short id in mono below), License, Last seen, Status, Version, Nodes. Last seen is shown relative with the UTC time in the title attribute and in the pill text for silent and back. The page refreshes when focused and has a `Refresh` text button; no polling.
+
+Under the table, one quiet panel:
+
+- Heading `How this works`; body `kwatch checks in every 10 minutes. After 20 minutes without a check-in we mark the cluster silent here. We do not send messages. Want one? kwatch can ping a monitor you own.` (link to the docs page for `heartbeatMonitor`).
+- Empty state (no cluster attached): `No clusters yet. Add a key in the installer (License / Pro > Add or replace key) and it appears here within 10 minutes.`
 - Loading: skeleton rows with `aria-busy`. Error: `Could not load your clusters. Reload the page; if it keeps failing, use Get help.`
 
-Dark mode: pills invert to the dark status colours with the same text; focus ring Ink in light, #F2F3F0 in dark. Time is shown in the viewer's zone with UTC in the title attribute and visible text on the status pill.
+Dark mode: dark status colours with the same words; focus ring Ink in light, #F2F3F0 in dark.
 
-### 1.9 Acceptance checks
+### 1.8 Acceptance checks
 
-1. With silence alerts on, a pod that pings every 5 minutes is never marked silent; stopping it marks it `silent` between 10 and 15 minutes later (threshold 10).
-2. A restart that pings again within 10 minutes produces no event.
-3. Recovery produces exactly one `recovered` event and only if a `silent` event was sent.
-4. Turning off in the installer sends the final ping; the cluster is then `Silence alerts off` and never alerts.
-5. Revoked license or released cluster never alerts.
-6.  Webhook URL: `http://`, `https://localhost`, `https://10.0.0.1` and redirecting URLs are rejected with the copy above; full URL is never in any API response.
-7.  A failing webhook retries once after 60 seconds, then records `failed`; the cron run still completes.
-8. More than 40 pending notifications in a run: 40 are sent, the rest next run.
-9. No code path in this feature calls Resend.
-10. `/pro` and the installer text list exactly what is sent: hashed cluster id, version, node count, optional cluster name. Core confirms against the payload.
-11. The existing `heartbeatMonitor` tests still pass untouched.
+1. A pod pinging every 10 minutes is never shown silent; stopping it shows `silent` at 20 minutes plus, with the correct "Silent since" time, computed with no cron running.
+2. A restart that pings again within 20 minutes is never silent.
+3. A ping after a gap over 20 minutes sets `Back at` and the quiet duration, shown for 24 hours.
+4. Turning off in the installer sends the final ping; the cluster shows `Check-ins off` and never `silent`.
+5. Revoked license or released cluster shows `Not attached`.
+6. A second ping within 8 minutes causes no D1 write.
+7. No code path in this feature sends email, calls a webhook, or reads or stores a notification URL; the Worker config has no new cron.
+8. `GET /account/clusters` returns only the account's own clusters.
+9. The installer and `/pro` list exactly what is sent: hashed cluster id, version, node count, optional cluster name. Core confirms against the payload.
+10. The existing `heartbeatMonitor` tests pass untouched.
+11. Every state in 1.6 renders with its exact text, at 320px and in dark mode, and passes axe with no serious issues.
 
 ---
 
@@ -422,12 +388,12 @@ Single column, labels above, no uploads, no live chat.
 - `Your email` read-only, prefilled from the session; hint `We reply to this address.`
 - `License` select, defaulting to the one with a cluster attached; options show the id used on the Licenses page.
 - `Cluster` select of attached clusters (name, version, last seen) plus `Not sure or not installed yet`.
-- `What do you need help with?` select: `Installing kwatch`, `Alerts not arriving`, `An alert I do not understand`, `Silence alerts`, `My license`, `Something else`.
+- `What do you need help with?` select: `Installing kwatch`, `Alerts not arriving`, `An alert I do not understand`, `Cluster check-ins`, `My license`, `Something else`.
 - `Tell us what happened` textarea, 20 to 4000 characters, counter `1200 / 4000`. Placeholder `What you expected, what you saw, and what you tried.`
 - Hint: `No file goes in this form. After we reply by e-mail, attach your diagnostics file to that reply. Installer: Save diagnostics to file.`
 - Button `Send request` (Ink); disabled while invalid or sending.
 
-Server adds, not editable, shown in a read-only summary row under the form (`Sent with your request: license, plan and expiry, cluster names, versions and last seen`): license id, plan, expiry, each cluster's name, version, node count, last seen and silence state, edition.
+Server adds, not editable, shown in a read-only summary row under the form (`Sent with your request: license, plan and expiry, cluster names, versions and last seen`): license id, plan, expiry, each cluster's name, version, node count, last seen and check-in state, edition.
 
 Validation: `Please write at least 20 characters so we can help.`; `That is over the 4000 character limit.`
 Rate limit (429): `You have sent 3 requests today. Please wait for our reply, or try again tomorrow. For something urgent, open an issue on GitHub.`
@@ -445,8 +411,8 @@ The page keeps the reference only in memory; refreshing returns to the empty for
 ### 4.5 API and email (kwatch-api)
 
 - `POST /support` (session, CSRF like other account routes): JSON `{license, cluster_uuid?, topic, message}` (body at most 8 KB) → `202 {ref}`. The route accepts no file or other content type (`415`). The Worker verifies the license belongs to the account and is active Pro; the cluster must belong to that license.
-- Sends **one** Resend email: `to` the support inbox (Worker var `SUPPORT_INBOX`, Q1), `reply_to` the user's account e-mail, `from` the existing `kwatch <noreply@mail.kwatch.dev>`. Subject `[Support] {topic} - {ref} - {email}`; no attachment. Body: message, then a plain list of the attached facts (license id, plan, expiry, clusters with version, nodes, last seen, silence state). Plain text, no tracking. Footer line for the person answering: `Ask them to attach their kwatch diagnostics file to the reply.`
-- Quota protection: per-account limit of 3 requests per UTC day (`rate_counters` key `support:{accountId}`), plus a global daily support budget of 10 sends carved out of the existing 95 (Q2: for example auth 55, tx 30, support 10). If the global budget is exhausted: `Support is busy right now. Please try again tomorrow or open an issue on GitHub.` (503); the counter is refunded. A failed Resend call refunds both counters and shows the server error copy.
+- Sends **one** Resend email: `to` the support inbox (Worker var `SUPPORT_INBOX` = `support@kwatch.dev`), `reply_to` the user's account e-mail, `from` the existing `kwatch <noreply@mail.kwatch.dev>`. Subject `[Support] {topic} - {ref} - {email}`; no attachment. Body: message, then a plain list of the attached facts (license id, plan, expiry, clusters with version, nodes, last seen, check-in state). Plain text, no tracking. Footer line for the person answering: `Ask them to attach their kwatch diagnostics file to the reply.`
+- Quota protection: per-account limit of 3 requests per UTC day (`rate_counters` key `support:{accountId}`), plus a global daily support budget of 10 sends carved out of the existing 95 (Q1: for example auth 55, tx 30, support 10). If the global budget is exhausted: `Support is busy right now. Please try again tomorrow or open an issue on GitHub.` (503); the counter is refunded. A failed Resend call refunds both counters and shows the server error copy.
 - No message body is stored in D1; store only `ref`, account id, time (for the rate limit and so the owner can search the inbox by reference). Privacy page says: `Requests are sent to our support inbox. We do not keep a copy in the app.` (kwatch-web updates `privacy.md`.)
 - No confirmation email, no other new email anywhere.
 
@@ -475,11 +441,9 @@ Real `<label>`s, errors in `aria-live="polite"` beside the field plus a summary 
 
 ## Open questions
 
-1. **Support inbox address:** which address is `SUPPORT_INBOX` and does it accept replies from users?
-2. **Resend budget split:** support gets 10 of the 95 daily sends and 3 per account per day. Taken from which budget (auth 60, tx 35)?
-3. **Silence alerts default:** on (recommended, announced in the installer) or opt-in?
-4. **Free-tier ceiling:** 5-minute pings cap about 340 clusters on Workers and D1 free limits. Accept, or ping every 10 minutes with a 20-minute default?
-5. **Namespace in messages:** the Next step uses `kwatch`. Should the ping carry the installed namespace so the command is exact?
-6. **Webhook storage:** is a user webhook URL (a credential) in D1, encrypted with an existing Worker secret, acceptable?
-7. **Test alert and paging providers:** can each resolve a test event? Otherwise exclude them from "all providers".
-8. **Redaction source of truth:** one Go list in `internal/redact` called through the pod (`kwatch redact`), or a shell subset?
+1. **Resend budget split:** support gets 10 of the 95 daily sends and 3 per account per day. Taken from which budget (auth 60, tx 35)?
+2. **Check-ins free-tier ceiling:** 10-minute pings cap about 690 clusters on Workers and D1 free limits. Fine for early access; who revisits it and at what number?
+3. **Namespace in messages:** the next step in the app uses `kwatch`. Should the ping carry the installed namespace so the command is exact?
+4. **Test alert and paging providers:** can each resolve a test event? Otherwise exclude them from "all providers".
+5. **Redaction source of truth:** one Go list in `internal/redact` called through the pod (`kwatch redact`), or a shell subset?
+6. **Support inbox replies:** `support@kwatch.dev` must accept mail from users (Reply-To replies go there and back); confirm the mailbox exists and who reads it.

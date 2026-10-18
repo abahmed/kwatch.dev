@@ -12,6 +12,9 @@ Junction logo.
   dark-ground app icon, with stroke weights tuned per size.
 - `logo/favicon.svg` is the app icon with a `prefers-color-scheme` rule that
   tones the tile and Signal down in dark mode.
+- `MESSAGING.md` is the copy spec: headline, benefits, glossary, install
+  framing, editions wording and words to avoid. Keep every site in step with
+  it.
 
 ## Rules (from the Brand board)
 

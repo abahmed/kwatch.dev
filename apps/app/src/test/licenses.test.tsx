@@ -59,6 +59,32 @@ describe('/licenses', () => {
     expect(screen.queryByRole('button', {name: 'Get a free Pro license'})).not.toBeInTheDocument();
   });
 
+  it('orders actions Copy, Show, Move, Replace with no toggle state or Signal', async () => {
+    mockApi({'GET /account': {body: account({licenses: [license()]})}});
+    renderAt('/licenses');
+    const card = await screen.findByRole('region', {name: 'License lic_1'});
+    const names = within(card).getAllByRole('button').map((b) => b.textContent);
+    expect(names).toEqual(['Copy key', 'Show key', 'Move to another cluster', 'Replace key']);
+    expect(within(card).getByRole('group', {name: 'Key actions'})).toBeInTheDocument();
+    expect(within(card).getByRole('group', {name: 'Manage license'})).toBeInTheDocument();
+    expect(within(card).getByRole('button', {name: 'Show key'})).not.toHaveAttribute('aria-pressed');
+    expect(card.querySelector('.btn-signal')).toBeNull();
+  });
+
+  it('shows Showing while the key loads', async () => {
+    mockApi({'GET /account': {body: account({licenses: [license()]})}});
+    const base = globalThis.fetch;
+    vi.stubGlobal('fetch', (url: RequestInfo | URL, init?: RequestInit) =>
+      String(url).endsWith('/key') ? new Promise<Response>(() => {}) : base(url, init),
+    );
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    await user.click(await screen.findByRole('button', {name: 'Show key'}));
+    const b = await screen.findByRole('button', {name: 'Showing…'});
+    expect(b).toBeDisabled();
+    expect(b).toHaveAttribute('aria-busy', 'true');
+  });
+
   it('shows the key on demand and forgets it on hide', async () => {
     const {calls} = mockApi({
       'GET /account': {body: account({licenses: [license()]})},

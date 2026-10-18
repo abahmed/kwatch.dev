@@ -24,6 +24,8 @@ Owners: kwatch-core (Go, `kwatch test-alert`, managed ping), kwatch-web (`kwatch
 
 kwatch Pro pings `api.kwatch.dev` every 10 minutes. app.kwatch.dev shows each cluster's last seen time, and marks it **silent** when nothing has been heard for 20 minutes. **Nothing is sent to anyone**: no email, no webhook, no push. The user looks at the app. (Notifications are a later decision.)
 
+A cluster that is shut down on purpose (for example a staging cluster scaled down after work hours) is **not** silent. When kwatch stops cleanly it sends a last "stopping" check-in, and the app shows the neutral state **Stopped** until the next check-in. Silent means check-ins stopped *without* a clean stop.
+
 The app must be honest about what silence means: **kwatch stopped talking.** The cluster may be fine. Three usual causes: the kwatch pod stopped, the cluster or node is down, or the cluster lost outbound access to `api.kwatch.dev`.
 
 Name in all UI: **Cluster check-ins** for the feature and **Silent** for the state (not "alerts", because nothing is sent). Never "uptime monitoring", never "we monitor your cluster", never "we will notify you".
@@ -46,6 +48,7 @@ They can run together. The app links the existing option: `Want a message when i
 - **On by default** for an active Pro license, announced once when a key is added or moved in the installer: `Cluster check-ins are on. Turn them off in License / Pro.`
 - **Ping every 10 minutes. Silent after 20 minutes** (two missed pings). Both are fixed; no setting, no threshold control.
 - **Toggle:** installer, License / Pro submenu (the pod sends the ping and the installer owns config). The app shows the state read-only with `Change it in the installer: License / Pro > Cluster check-ins.`
+- **Clean stop:** on graceful shutdown (SIGTERM, within the pod's termination grace period) kwatch makes one best-effort check-in with `stopping: true`, with a 2-second limit so it never delays shutdown. A crash, OOM kill, node loss or lost network sends nothing, so those show Silent. Scaling a Deployment to zero, `kubectl delete`, and a node drain are clean stops.
 - Turning off sends one final `{"checkins": false}` ping so the app shows `Check-ins off` instead of a false silence. If that ping fails the app shows the cluster as silent until the key is removed or moved; the installer says so.
 
 ### 1.4 Installer: License / Pro submenu
@@ -74,12 +77,13 @@ When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The 
 
 ### 1.5 Worker behaviour (contract for kwatch-api)
 
-- New route `POST /license/ping`, instance-authenticated like `/license/renew` (unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, checkins}`. `204` on success. A ping within 8 minutes of the last is acknowledged without a write.
-- D1 (LICENSE_DB, migration `0006`), columns on the activation: `last_ping`, `checkins` (0/1), `recovered_at`, `quiet_seconds`. On each ping, in the same single `UPDATE`: if `now - last_ping` exceeded 20 minutes, set `recovered_at=now` and `quiet_seconds=now-last_ping`.
-- **No cron and no stored state.** Silent is computed on read: `checkins=1 AND now - last_ping > 20 min`. The existing daily cron is untouched. Nothing else calls Resend or `fetch`.
+- New route `POST /license/ping`, instance-authenticated like `/license/renew` (unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, checkins, boot_id, stopping?}`. `boot_id` is a random id made when the process starts, sent on every check-in. `204` on success. A ping within 8 minutes of the last is acknowledged without a write.
+- D1 (LICENSE_DB, migration `0006`), columns on the activation: `last_ping`, `checkins` (0/1), `boot_id`, `stopped_at` (null unless stopped), `recovered_at`, `quiet_seconds`. On each ping, in the same single `UPDATE`: if `now - last_ping` exceeded 20 minutes, set `recovered_at=now` and `quiet_seconds=now-last_ping`.
+- **Stopping check-in:** applies only when its `boot_id` equals the stored one (set by that process's earlier check-ins); it sets `stopped_at=now` and `last_ping=now`. Otherwise it is acknowledged and ignored. This matters in a rolling update: the new pod checks in before the old pod sends its stopping check-in, and the old pod's stop must not mark the cluster Stopped. Any normal check-in clears `stopped_at`; if the gap since `last_ping` exceeded 20 minutes and the cluster was not Stopped, it records `recovered_at` as before (a restart after a clean stop records nothing).
+- **No cron and no stored state.** Silent is computed on read: `stopped` when `stopped_at` is set; else `silent` when `checkins=1 AND now - last_ping > 20 min`. The existing daily cron is untouched. Nothing else calls Resend or `fetch`.
 - Free-tier budget: one cluster is 144 pings a day, so about 144 Worker requests and 144 D1 row writes. Free tier is 100k of each per day, so the ceiling is about 690 clusters. Revisit before reaching 500.
 - A released, revoked or removed activation is never shown as silent (`Not attached`).
-- `GET /account/clusters` (session): per cluster `{name, id_short, license, version, nodes, last_ping, checkins, state, recovered_at?, quiet_seconds?}` with `state` one of `waiting`, `ok`, `silent`, `off`, `detached`.
+- `GET /account/clusters` (session): per cluster `{name, id_short, license, version, nodes, last_ping, checkins, state, recovered_at?, quiet_seconds?}` with `state` one of `waiting`, `ok`, `stopped`, `silent`, `off`, `detached`; plus `stopped_at` when stopped.
 
 ### 1.6 In-app copy for each state (replaces any message to users)
 
@@ -87,12 +91,13 @@ When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The 
 |---|---|---|---|
 | Healthy | `Checking in` | `4 minutes ago` | |
 | Waiting | `Waiting` | `Not yet` | `Add the key in the installer, then wait up to 10 minutes.` |
+| Stopped | `Stopped since 18:30 UTC` (neutral, no red) | `Yesterday 18:30` | `kwatch was stopped cleanly, for example by scaling it down. It cannot send alerts while stopped. It shows Checking in again when it starts.` |
 | Silent | `Silent since 14:02 UTC` | `38 minutes ago` | `kwatch stopped talking. Your apps may be fine, but kwatch cannot alert you while it is silent. Run kubectl -n kwatch get pods.` |
 | Back (24h) | `Back at 14:41 UTC` | `Just now` | `Silent for 39 minutes. Anything that broke in that time may not have been reported.` |
 | Check-ins off | `Check-ins off` | `Not tracked` | `Turn them on in the installer: License / Pro > Cluster check-ins.` |
 | Released or revoked | `Not attached` | | |
 
-`Silent since` is the last ping time plus 20 minutes. Pills pair a word with colour: silent uses failing #E5484D, back uses resolved #2F80ED, the rest neutral. `kwatch` is the installer's default namespace; if the ping later carries the namespace, use it.
+`Stopped since` is the time of the stopping check-in. `Silent since` is the last ping time plus 20 minutes. Stopped is never red and never counts as a problem. If it stays stopped for more than 7 days the detail line adds ` If this is not planned, check the cluster.` Pills pair a word with colour: silent uses failing #E5484D, back uses resolved #2F80ED, the rest neutral. `kwatch` is the installer's default namespace; if the ping later carries the namespace, use it.
 
 ### 1.7 App screen (new page `/clusters`, nav item "Clusters")
 
@@ -118,7 +123,12 @@ Dark mode: dark status colours with the same words; focus ring Ink in light, #F2
 8. `GET /account/clusters` returns only the account's own clusters.
 9. The installer and `/pro` list exactly what is sent: hashed cluster id, version, node count, optional cluster name. Core confirms against the payload.
 10. The existing `heartbeatMonitor` tests pass untouched.
-11. Every state in 1.6 renders with its exact text, at 320px and in dark mode, and passes axe with no serious issues.
+11. A graceful stop (SIGTERM) sends one `stopping` check-in within 2 seconds and never delays shutdown by more than that; the app then shows `Stopped since {time}` with the neutral pill and the exact text, never `Silent`, even after hours.
+12. The next normal check-in after a stop shows `Checking in` and records no `Back at` or quiet duration.
+13. `kill -9`, OOM kill, node loss or blocked egress send no `stopping` check-in and show `Silent` after 20 minutes.
+14. Rolling update: a new pod checks in, then the old pod sends `stopping` with the old `boot_id`; the cluster stays `Checking in` (the stopping check-in is ignored).
+15. A cluster stopped for over 7 days shows the extra sentence.
+16. Every state in 1.6 renders with its exact text, at 320px and in dark mode, and passes axe with no serious issues.
 
 ---
 

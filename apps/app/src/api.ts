@@ -35,6 +35,24 @@ export type AccountResponse = {
   trials?: FreeInfo;
 };
 
+export type ClusterState = 'waiting' | 'ok' | 'silent' | 'off' | 'detached';
+
+/** GET /account/clusters row (spec pro-readiness-rc21 1.5). Times are unix seconds. */
+export type Cluster = {
+  name: string | null;
+  id_short: string;
+  license: string;
+  version: string | null;
+  nodes: number | null;
+  last_ping: number | null;
+  checkins: boolean;
+  state: ClusterState;
+  recovered_at?: number | null;
+  quiet_seconds?: number | null;
+};
+
+export type SupportRequest = {license: string; cluster_uuid?: string; topic: string; message: string};
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -103,3 +121,5 @@ export function displayKey(l: License): string {
   if (l.key_masked) return l.key_masked;
   return l.key ? maskKey(l.key) : '';
 }
+export const getClusters = () => apiFetch<{clusters: Cluster[]}>('/account/clusters');
+export const sendSupport = (req: SupportRequest) => apiFetch<{ref: string}>('/support', {method: 'POST', body: req});

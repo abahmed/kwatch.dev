@@ -5,6 +5,8 @@ import type {ApiError} from './api';
 import {Shell} from './components';
 import {RequireAuth} from './session';
 import Account from './pages/Account';
+import Clusters from './pages/Clusters';
+import Help from './pages/Help';
 import Licenses from './pages/Licenses';
 import NotFound from './pages/NotFound';
 import Signin from './pages/Signin';
@@ -70,6 +72,8 @@ export default function App() {
         }
       >
         <Route path="/licenses" element={<Licenses />} />
+        <Route path="/clusters" element={<Clusters />} />
+        <Route path="/help" element={<Help />} />
         <Route path="/account" element={<Account />} />
       </Route>
       <Route path="*" element={<NotFound />} />

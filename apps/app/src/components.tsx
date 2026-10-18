@@ -49,6 +49,8 @@ export function Shell() {
       <nav className="side" aria-label="App">
         <span className="wordmark">kwatch</span>
         <NavLink to="/licenses">Licenses</NavLink>
+        <NavLink to="/clusters">Clusters</NavLink>
+        <NavLink to="/help">Get help</NavLink>
         <NavLink to="/account">Account</NavLink>
         <a className="muted-link" href={DOCS_URL}>
           Docs ↗

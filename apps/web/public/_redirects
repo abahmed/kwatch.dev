@@ -2,8 +2,20 @@
 /pricing /pro 301
 /community / 301
 /blog / 301
-/blog/* / 301
-/search https://docs.kwatch.dev/search 301
+/blog/detect-crashes-in-your-cluster-using-kwatch-and-pagerduty https://docs.kwatch.dev/channels/provider-guides/pagerduty 301
+/blog/detect-crashes-in-your-cluster-using-kwatch-and-slack https://docs.kwatch.dev/channels/provider-guides/slack 301
+/blog/kwatch-hits-100k-downloads / 301
+/blog/monitor-pvc-usage https://docs.kwatch.dev/kubernetes-coverage 301
+/blog/reduce-kubernetes-alert-noise https://docs.kwatch.dev/architecture/correlation-and-alerting 301
+/blog/release-v0-4-0 https://github.com/abahmed/kwatch/releases/tag/v0.4.0 301
+/blog/release-v0-5-0 https://github.com/abahmed/kwatch/releases/tag/v0.5.0 301
+/blog/release-v0-6-0 https://github.com/abahmed/kwatch/releases/tag/v0.6.0 301
+/blog/troubleshoot-kubernetes-crashloopbackoff https://docs.kwatch.dev/operations/troubleshooting 301
+/blog/what-is-kwatch / 301
+/search https://docs.kwatch.dev/ 301
+
+# The old site's sitemap URL. The sitemap index is the only sitemap now.
+/sitemap.xml /sitemap-index.xml 301
 
 # Account pages now live on the app host.
 /signup https://app.kwatch.dev/signup 301
@@ -15,4 +27,5 @@
 
 # Documentation moved to its own host.
 /docs https://docs.kwatch.dev/ 301
+/docs/intro https://docs.kwatch.dev/ 301
 /docs/* https://docs.kwatch.dev/:splat 301

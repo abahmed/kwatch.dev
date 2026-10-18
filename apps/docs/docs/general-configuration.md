@@ -602,8 +602,7 @@ you manage updates yourself (e.g. you pin images).
 
 ## 📡 Minimal adoption telemetry
 
-Community sends nothing to `api.kwatch.dev`. Telemetry runs only with an
-active <span className="kw-pro">Pro</span> license, and sends a small
+Telemetry is **on by default** in official builds. kwatch sends a small
 pseudonymous heartbeat so the project can estimate adoption.
 
 **What is sent.** One HTTPS `POST` with a JSON body of exactly two fields:
@@ -612,10 +611,9 @@ pseudonymous heartbeat so the project can estimate adoption.
 {"cluster_uuid": "<installation ID>", "kwatch_version": "<version>"}
 ```
 
-The installation ID is a random or hashed UUID, derived once from a salted
-SHA-256 hash of the `kube-system` namespace UID, so the UID itself never leaves
-the cluster; if that namespace cannot be read, kwatch uses a random UUID
-instead. It is kept in
+The installation ID is a UUID derived once from a salted SHA-256 hash of the
+`kube-system` namespace UID, so the UID itself never leaves the cluster; if
+that namespace cannot be read, kwatch uses a random UUID instead. It is kept in
 kwatch's state file. The field is named `cluster_uuid` for wire
 compatibility. No cluster name, namespace, resource name, node count,
 configuration, provider setting, log line or incident is sent. As with any
@@ -632,13 +630,13 @@ monitoring.
 
 | Parameter | What it does |
 |:---|---|
-| `telemetry.enabled` | ✅ Send adoption heartbeats with an active Pro license (default: `true`); has no effect on Community |
+| `telemetry.enabled` | ✅ Send adoption heartbeats (default: `true`) |
 
 **How to disable it.** Set `telemetry.enabled: false` in the configuration, or
 set the environment variable `KWATCH_TELEMETRY` to `false`, `0`, `off` or `no`.
 An unrecognized value (a typo such as `flase`) fails startup with a clear
 error instead of being ignored.
-Community, development builds, recognized CI environments (`CI` is set) and installs
+Development builds, recognized CI environments (`CI` is set) and installs
 without a state store do not send telemetry. At startup kwatch logs one line
 naming the endpoint and either that it is enabled or why it is skipped
 (`disabled`, `disabled_env`, `dev_build`, `ci_environment`). Outcomes are

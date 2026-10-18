@@ -140,7 +140,7 @@ migration.
 At provider and setting prompts, type `back` to discard the current partial
 edit and return to the previous selection. No partial Secret is saved.
 
-Community sends no telemetry; it runs only with an active Pro license. It is not a special installation question. `telemetry.enabled` is a
+Telemetry is not a special installation question. `telemetry.enabled` is a
 normal Operations setting in **Edit settings**. Fresh installs use the catalog
 default, upgrades preserve the existing value, and users can change it with
 the other settings.

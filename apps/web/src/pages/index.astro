@@ -38,10 +38,43 @@ const faq = [
   ['What permissions does it need?', 'Read access to the resources it watches. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
   ['Why is Pro free?', "We want kwatch proven on real clusters before we charge anything. If that changes, you'll hear well in advance."],
 ];
+
+const site = 'https://kwatch.dev';
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'kwatch',
+    url: site,
+    description: 'Runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.',
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Kubernetes',
+    license: 'https://github.com/abahmed/kwatch/blob/main/LICENSE',
+    codeRepository: 'https://github.com/abahmed/kwatch',
+    image: `${site}/og.png`,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'kwatch',
+    url: site,
+    logo: `${site}/apple-touch-icon.png`,
+    sameAs: ['https://github.com/abahmed/kwatch'],
+    email: 'hello@kwatch.dev',
+  },
+  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'kwatch', url: site },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  },
+];
 ---
 <Base
-  title="kwatch — Kubernetes incidents, explained"
-  description="kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next."
+  title="kwatch — Kubernetes alerts with the root cause"
+  description="kwatch runs in your cluster and turns CrashLoopBackOff, OOMKilled and more into one incident with the root cause and fix, sent to Slack or 50+ channels."
+  jsonLd={jsonLd}
 >
   <section class="hero wrap">
     <div class="hero-text">

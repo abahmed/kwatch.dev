@@ -5,7 +5,7 @@ import {DOCS_URL} from '../config';
 import {fmtAgoLong, fmtUtcFull, fmtUtcTime, plural} from '../format';
 import {useClusters} from '../useClusters';
 
-const SILENT_AFTER = 30 * 60;
+const SILENT_AFTER = 60 * 60;
 const BACK_WINDOW = 24 * 3600;
 
 type View = {
@@ -42,7 +42,7 @@ export function clusterView(c: Cluster, nowMs = Date.now()): View {
         tone: 'waiting',
         pill: 'Waiting',
         lastSeen: 'Not yet',
-        detail: 'Add the key in the installer, then wait up to 15 minutes.',
+        detail: 'Add the key in the installer, then wait up to 30 minutes.',
       };
     case 'silent':
       return {
@@ -122,7 +122,7 @@ export default function Clusters() {
       {clusters && clusters.length === 0 && (
         <p className="body">
           No clusters yet. Add a key in the installer (License / Pro &gt; Add or replace key) and it appears here within
-          15 minutes.
+          30 minutes.
         </p>
       )}
 
@@ -182,7 +182,7 @@ export default function Clusters() {
       <section className="panel">
         <h2>How this works</h2>
         <p>
-          kwatch checks in every 15 minutes. After 30 minutes without a check-in we mark the cluster silent here. We do
+          kwatch checks in every 30 minutes. After 60 minutes without a check-in we mark the cluster silent here. We do
           not send messages. Want one?{' '}
           <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>kwatch can ping a monitor you own.</a>
         </p>

@@ -1,5 +1,6 @@
 ---
-title: n8n alerts
+title: n8n provider settings for kwatch Kubernetes alerts
+sidebar_label: n8n alerts
 description: Configure n8n Kubernetes alerts with kwatch. Required settings include Workflow webhook URL; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, n8n, notification channel]
 ---
@@ -40,3 +41,8 @@ alert:
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
+
+## Related
+
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

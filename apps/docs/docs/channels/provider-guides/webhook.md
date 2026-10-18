@@ -1,5 +1,6 @@
 ---
-title: Generic Webhook alerts
+title: Generic Webhook provider settings for kwatch Kubernetes alerts
+sidebar_label: Generic Webhook alerts
 description: Configure Generic Webhook Kubernetes alerts with kwatch. Required settings include Webhook URL; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Generic Webhook, notification channel]
 ---
@@ -43,3 +44,9 @@ alert:
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
+
+## Related
+
+- [Set up Generic Webhook alerts step by step](/channels/webhook)
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

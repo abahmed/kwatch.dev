@@ -1,6 +1,7 @@
 ---
 sidebar_position: 14
-title: HPA Monitor
+title: "HorizontalPodAutoscaler alerts: stuck or maxed-out HPAs"
+sidebar_label: HPA Monitor
 description: configure kwatch to detect Kubernetes HPAs stuck at maximum replicas or unable to scale
 keywords: [kwatch, kubernetes, configuration, monitor, hpa, autoscaling, horizontalpodautoscaler]
 pagination_next: null
@@ -43,3 +44,10 @@ There are no HPA settings: kwatch always watches HorizontalPodAutoscalers and re
 - HPA at `maxReplicas` with no scaling errors (normal — you've reached your
   max, that's expected)
 - HPA scaling up successfully (kwatch only alerts on failures)
+
+## Related
+
+- [Kubernetes failure coverage](/kubernetes-coverage): every detector and its edition
+- [General configuration](/general-configuration) and the [generated configuration reference](/reference/generated/configuration)
+- [Community vs Pro](/editions)
+- [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

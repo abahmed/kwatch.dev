@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
-title: Discord
+title: Send Kubernetes alerts to Discord with kwatch
+sidebar_label: Discord
 description: Receive clear Kubernetes incident alerts in Discord — configure webhook integration and channel routing for kwatch
 keywords: [kwatch, discord, kubernetes incident alerts, pod monitoring, k8s notifications, devops]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/discord.png" max-height="700px" alt="Discord notification screenshot" />
 </p>
+
+## Related
+
+- [Discord provider settings](/channels/provider-guides/discord) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 5
-title: Google Chat
+title: Send Kubernetes alerts to Google Chat with kwatch
+sidebar_label: Google Chat
 description: Send clear Kubernetes incident alerts to Google Chat — configure webhook URL for kwatch notifications
 keywords: [kwatch, google chat, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/googlechat.png" max-height="700px" alt="Google Chat notification screenshot" />
 </p>
+
+## Related
+
+- [Google Chat provider settings](/channels/provider-guides/googlechat) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

@@ -34,3 +34,10 @@ kubectl get jobs -n <namespace>
 Check the schedule, suspension flag, last scheduled time, and recent Jobs.
 If a Job was created but failed, follow the [Job monitor guide](/job-monitor-configuration)
 and inspect the Job's Pods.
+
+## Related
+
+- [Kubernetes failure coverage](/kubernetes-coverage): every detector and its edition
+- [General configuration](/general-configuration) and the [generated configuration reference](/reference/generated/configuration)
+- [Community vs Pro](/editions)
+- [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

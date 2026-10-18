@@ -1,5 +1,6 @@
 ---
-title: ClickUp alerts
+title: ClickUp provider settings for kwatch Kubernetes alerts
+sidebar_label: ClickUp alerts
 description: Configure ClickUp Kubernetes alerts with kwatch. Required settings include Personal API token and List ID to create tasks in; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, ClickUp, notification channel]
 ---
@@ -42,3 +43,8 @@ alert:
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
+
+## Related
+
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

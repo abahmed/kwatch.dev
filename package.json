@@ -11,6 +11,7 @@
     "dev:app": "yarn workspace @kwatch/app dev",
     "build:app": "yarn workspace @kwatch/app build",
     "typecheck:app": "yarn workspace @kwatch/app typecheck",
+    "lint:app": "yarn workspace @kwatch/app lint",
     "test:app": "yarn workspace @kwatch/app test",
     "build:docs": "yarn workspace @kwatch/docs build",
     "dev:web": "yarn workspace @kwatch/web dev",

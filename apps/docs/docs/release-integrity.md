@@ -1,6 +1,7 @@
 ---
 sidebar_position: 8
-title: Release integrity
+title: "Verify kwatch releases: cosign, checksums, SBOM, provenance"
+sidebar_label: Release integrity
 description: Verify kwatch images, checksums, release manifests, and Cosign signatures.
 keywords: [kwatch release integrity, Cosign, Kubernetes image verification, SBOM]
 ---

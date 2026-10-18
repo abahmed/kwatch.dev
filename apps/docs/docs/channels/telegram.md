@@ -1,6 +1,7 @@
 ---
 sidebar_position: 9
-title: Telegram
+title: Send Kubernetes alerts to Telegram with kwatch
+sidebar_label: Telegram
 description: Send clear Kubernetes incident alerts to Telegram — configure bot token and chat ID for kwatch notifications
 keywords: [kwatch, telegram, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
@@ -78,3 +79,8 @@ alert:
 <p align="center">
     <img src="./../../img/telegram.png" max-height="700px" alt="Telegram notification screenshot" />
 </p>
+
+## Related
+
+- [Telegram provider settings](/channels/provider-guides/telegram) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

@@ -34,14 +34,47 @@ const timeline = [
 const faq = [
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
-  ['What leaves my cluster?', 'Your alerts, to the channels you choose. With Pro, a daily license check sends a hashed cluster ID, the kwatch version and the node count. Nothing else.'],
+  ['What leaves my cluster?', 'Your alerts, to the channels you choose. With Pro, a daily license check sends a hashed cluster ID, the kwatch version and the node count. Separately, kwatch sends an anonymous adoption ping (hashed cluster ID and version) at most once a week; turn it off with telemetry.enabled: false. Nothing else.'],
   ['What permissions does it need?', 'Read access to the resources it watches. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
   ['Why is Pro free?', "We want kwatch proven on real clusters before we charge anything. If that changes, you'll hear well in advance."],
 ];
+
+const site = 'https://kwatch.dev';
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'kwatch',
+    url: site,
+    description: 'Runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.',
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Kubernetes',
+    license: 'https://github.com/abahmed/kwatch/blob/main/LICENSE',
+    codeRepository: 'https://github.com/abahmed/kwatch',
+    image: `${site}/og.png`,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'kwatch',
+    url: site,
+    logo: `${site}/apple-touch-icon.png`,
+    sameAs: ['https://github.com/abahmed/kwatch'],
+    email: 'hello@kwatch.dev',
+  },
+  { '@context': 'https://schema.org', '@type': 'WebSite', name: 'kwatch', url: site },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  },
+];
 ---
 <Base
-  title="kwatch — Kubernetes incidents, explained"
-  description="kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next."
+  title="kwatch — Kubernetes alerts with the root cause"
+  description="kwatch runs in your cluster and turns CrashLoopBackOff, OOMKilled and more into one incident with the root cause and fix, sent to Slack or 50+ channels."
+  jsonLd={jsonLd}
 >
   <section class="hero wrap">
     <div class="hero-text">
@@ -146,7 +179,7 @@ const faq = [
     <div class="wrap section-tight privacy">
       <div>
         <h2 class="display h2-md">Your data stays in your cluster.</h2>
-        <p class="privacy-lede">kwatch is one pod. It redacts secrets before anything is stored or sent, and it talks only to the channels you choose. There is no kwatch cloud reading your logs.</p>
+        <p class="privacy-lede">kwatch is one pod. It redacts secrets before anything is stored or sent, and it sends alerts only to the channels you choose. The only other traffic is the license check for Pro and a weekly anonymous ping you can turn off. There is no kwatch cloud reading your logs.</p>
       </div>
       <ul class="facts">
         <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>

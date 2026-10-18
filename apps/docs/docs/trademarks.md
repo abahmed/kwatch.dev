@@ -1,7 +1,7 @@
 ---
 sidebar_position: 10
 title: Trademarks
-description: Kwatch name and logo usage guidance.
+description: How the kwatch name and logo may be used, and the trademark guidelines that apply to kwatch software, docs and community projects.
 keywords: [kwatch trademark, kwatch logo, source available branding]
 ---
 

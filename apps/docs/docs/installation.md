@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: Installation
+title: Install kwatch on Kubernetes with the kwatch.sh installer
+sidebar_label: Installation
 description: install and manage kwatch on Kubernetes with the interactive kwatch.sh manager and Secret-backed credentials
 keywords: [kwatch, kubernetes installation, kwatch.sh, Kubernetes monitoring, cluster alerts, Kubernetes Secret]
 pagination_next: kwatch-manager
@@ -20,7 +21,8 @@ For the normal lifecycle, use the manager:
 | --- | --- |
 | Try kwatch with the fewest decisions | 🧭 [Interactive manager](#-interactive-manager-recommended) |
 | Need to inspect the generated resources | 🔍 [Release artifacts](https://github.com/abahmed/kwatch/tree/main/deploy) |
-| Prefer Helm (advanced) | See the chart in the [kwatch repository](https://github.com/abahmed/kwatch/tree/main/deploy/chart) |
+| Move from v0.10.x | ⬆️ [Upgrading to v1.0.0](/upgrading) |
+| Prefer Helm (advanced) | A short pointer in [Upgrading](/upgrading#if-you-use-helm-advanced); chart values are in the [kwatch repository](https://github.com/abahmed/kwatch/tree/main/deploy/chart) |
 
 ## ✅ Before you begin
 

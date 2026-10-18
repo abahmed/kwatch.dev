@@ -1,6 +1,7 @@
 ---
 sidebar_position: 11
-title: Feature catalog
+title: "kwatch feature catalog: Community and Pro capabilities"
+sidebar_label: Feature catalog
 description: Compatibility entry point for the generated kwatch feature catalog.
 keywords: [kwatch features, Kubernetes monitoring capabilities, feature catalog]
 ---

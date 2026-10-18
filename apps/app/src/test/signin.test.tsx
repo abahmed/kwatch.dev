@@ -112,6 +112,14 @@ describe('routing', () => {
     expect(await screen.findByRole('heading', {name: 'Sign in to kwatch'})).toBeInTheDocument();
   });
 
+  it('does not send / to /signin on a server error', async () => {
+    mockApi({'GET /account': {status: 500, body: {error: 'boom'}}});
+    renderAt('/');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach');
+    expect(screen.getByRole('button', {name: 'Try again'})).toBeInTheDocument();
+    expect(screen.queryByRole('heading', {name: 'Sign in to kwatch'})).not.toBeInTheDocument();
+  });
+
   it('sends a 401 on /licenses to /signin', async () => {
     mockApi(signedOut);
     renderAt('/licenses');

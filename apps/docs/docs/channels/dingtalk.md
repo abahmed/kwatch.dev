@@ -1,6 +1,7 @@
 ---
 sidebar_position: 13
-title: DingTalk
+title: Send Kubernetes alerts to DingTalk with kwatch
+sidebar_label: DingTalk
 description: Send clear Kubernetes incident alerts to DingTalk — configure webhook and security tokens for kwatch
 keywords: [kwatch, dingtalk, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
@@ -74,3 +75,8 @@ alert:
     secret: "${file:/config/dingtalk-secret}"
     compact: true
 ```
+
+## Related
+
+- [DingTalk provider settings](/channels/provider-guides/dingtalk) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

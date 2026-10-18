@@ -1,6 +1,7 @@
 ---
 sidebar_position: 14
-title: FeiShu
+title: Send Kubernetes alerts to FeiShu with kwatch
+sidebar_label: FeiShu
 description: Route clear Kubernetes incident alerts to FeiShu (Lark) — configure webhook URL for kwatch
 keywords: [kwatch, feishu, lark, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
@@ -74,3 +75,8 @@ alert:
 <p align="center">
     <img src="./../../img/feishu.png" max-height="700px" alt="FeiShu notification screenshot" />
 </p>
+
+## Related
+
+- [FeiShu provider settings](/channels/provider-guides/feishu) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

@@ -1,7 +1,8 @@
 ---
 sidebar_position: 1
 slug: /channels
-title: Channels
+title: "Kubernetes alert channels: Slack, Discord, PagerDuty, email"
+sidebar_label: Channels
 description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 55 notification providers
 keywords: [kwatch channels, Kubernetes notifications, Kubernetes alerts, Slack, Discord, PagerDuty, webhooks]
 pagination_next: channels/slack

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 8
-title: Community vs Pro
+title: "kwatch Community vs Pro: features and early access"
+sidebar_label: Community vs Pro
 description: What kwatch Community includes, what kwatch Pro adds, and how early access licensing works.
 keywords: [kwatch Pro, kwatch Community, editions, early access, license]
 ---
@@ -27,7 +28,7 @@ work emails. There are no prices and no payment details.
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
 | Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export`, standby replicas |
 
-The per-capability list is on the [pricing page](https://kwatch.dev/pro) and in the
+The per-capability list is on the [Pro page](https://kwatch.dev/pro) and in the
 [generated feature reference](/reference/generated/features). Every
 capability there carries its tier.
 
@@ -74,7 +75,7 @@ the file stays valid when you upgrade.
   your account page.
 - **When a license ends**, kwatch falls back to Community. Detection and
   alerting never stop.
-- **What is sent:** a hashed cluster id, the kwatch version and the node count.
+- **What is sent:** a hashed cluster id, the kwatch version, the node count and the instance public key.
   A Community install without a key makes no license calls.
 
 ## Get Pro

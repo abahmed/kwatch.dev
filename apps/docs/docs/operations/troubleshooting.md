@@ -1,5 +1,6 @@
 ---
-title: Troubleshoot missing or delayed alerts
+title: Troubleshoot missing or delayed Kubernetes alerts in kwatch
+sidebar_label: Troubleshoot missing or delayed alerts
 description: Trace a missing kwatch Kubernetes alert from Pod readiness and source access through suppression, incident state, and provider delivery.
 sidebar_position: 2
 keywords: [kwatch missing alerts, Kubernetes alert troubleshooting, notification delivery, readiness]

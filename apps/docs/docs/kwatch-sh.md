@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: kwatch.sh manager reference
+title: "kwatch.sh installer reference: options and what it verifies"
+sidebar_label: kwatch.sh manager reference
 description: Install, configure, upgrade, verify, and uninstall kwatch with the interactive kwatch.sh manager.
 keywords: [kwatch.sh, Kubernetes installation, kwatch manager, Kubernetes Secrets]
 ---
@@ -33,7 +34,7 @@ bash kwatch.sh
 ```
 
 The script is plain Bash and is published in
-[`kwatch.dev/static/kwatch.sh`](https://github.com/abahmed/kwatch.dev/blob/main/static/kwatch.sh).
+[`apps/web/public/kwatch.sh`](https://github.com/abahmed/kwatch.dev/blob/main/apps/web/public/kwatch.sh).
 
 The manager checks the cluster, lets you configure zero, one, or several alert
 providers, stores credentials in a Kubernetes Secret, installs the CRD and
@@ -119,6 +120,22 @@ The key is kept across upgrades and travels with configuration backups. See
 - A failed rollout restores the previous config and attempts a rollback.
 - Optional TLS monitoring is enabled only after you approve its Secret access.
 - Uninstall preserves the CRD, configuration resource, backups, and namespace.
+
+## 🔎 What the installer verifies
+
+The installer downloads release files over HTTPS, so TLS protects the
+connection. It uses `curl -f`, so an HTTP error stops the run instead of
+applying an error page. It accepts only release tags that match a strict
+pattern (`vX.Y.Z` or `vX.Y.Z-rc.N`), and it fetches the manifests, such as
+`deploy/deploy.yaml` and the CRD, from the GitHub tag of that release.
+
+It does **not** verify checksums or signatures. To check the image yourself,
+run `cosign verify ghcr.io/abahmed/kwatch:<tag>`; see
+[Release integrity](/release-integrity) for the checksums, SBOMs and provenance.
+
+Installs made by the installer use the raw `deploy.yaml`, which has
+`rbac.mode` `full`. The Helm chart defaults to `least-privilege`; see
+[RBAC and deployment security](/operations/rbac-and-security).
 
 ## 🧪 Version-aware settings
 

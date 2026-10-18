@@ -1,6 +1,7 @@
 ---
 sidebar_position: 6
-title: Rocket.Chat
+title: Send Kubernetes alerts to Rocket.Chat with kwatch
+sidebar_label: Rocket.Chat
 description: Receive clear Kubernetes incident alerts in Rocket.Chat — configure webhook and channel for kwatch
 keywords: [kwatch, rocketchat, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/rocketchat.png" max-height="700px" alt="Rocket.Chat notification screenshot" />
 </p>
+
+## Related
+
+- [Rocket.Chat provider settings](/channels/provider-guides/rocketchat) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

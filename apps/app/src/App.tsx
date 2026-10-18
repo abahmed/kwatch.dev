@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {Navigate, Route, Routes, useSearchParams} from 'react-router-dom';
 import {getAccount} from './api';
+import type {ApiError} from './api';
 import {Shell} from './components';
 import {RequireAuth} from './session';
 import Account from './pages/Account';
@@ -8,16 +9,44 @@ import Licenses from './pages/Licenses';
 import NotFound from './pages/NotFound';
 import Signin from './pages/Signin';
 
-/** `/` goes to the licenses when signed in, else to sign-in. */
+/** `/` goes to the licenses when signed in, to sign-in only on a 401. */
 function Home() {
   const [to, setTo] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    let cancelled = false;
     getAccount().then(
-      () => setTo('/licenses'),
-      () => setTo('/signin'),
+      () => !cancelled && setTo('/licenses'),
+      (err) => {
+        if (cancelled) return;
+        if ((err as ApiError).status === 401) setTo('/signin');
+        else setFailed(true);
+      },
     );
-  }, []);
-  return to ? <Navigate to={to} replace /> : <main className="center"><p className="muted">Loading…</p></main>;
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+  if (to) return <Navigate to={to} replace />;
+  if (failed) {
+    return (
+      <main className="center">
+        <p role="alert" className="alert">Could not reach the kwatch service. Check your connection and try again.</p>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            setFailed(false);
+            setAttempt((n) => n + 1);
+          }}
+        >
+          Try again
+        </button>
+      </main>
+    );
+  }
+  return <main className="center"><p className="muted">Loading…</p></main>;
 }
 
 /** Emails sent before the split link to /signup. */

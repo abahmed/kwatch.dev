@@ -1,6 +1,7 @@
 ---
 sidebar_position: 7
-title: Licensing
+title: "kwatch license: source available under ELv2"
+sidebar_label: Licensing
 description: kwatch is source available under the Elastic License 2.0 (ELv2).
 keywords: [kwatch license, Elastic License 2.0, ELv2, source available]
 ---

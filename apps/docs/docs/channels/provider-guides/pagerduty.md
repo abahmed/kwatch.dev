@@ -1,5 +1,6 @@
 ---
-title: PagerDuty alerts
+title: PagerDuty provider settings for kwatch Kubernetes alerts
+sidebar_label: PagerDuty alerts
 description: Configure PagerDuty Kubernetes alerts with kwatch. Required settings include PagerDuty integration key; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, PagerDuty, notification channel]
 ---
@@ -40,3 +41,9 @@ alert:
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
+
+## Related
+
+- [Set up PagerDuty alerts step by step](/channels/pagerduty)
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

@@ -17,6 +17,22 @@ const structuredData = {
   publisher: {'@type': 'Organization', name: 'kwatch', url: 'https://kwatch.dev/'},
 };
 
+const softwareApplication = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  '@id': `${origin}/#software`,
+  name: 'kwatch',
+  description:
+    'Source-available Kubernetes incident monitoring and alerting: what broke, why, and what to do next.',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Kubernetes',
+  url: 'https://kwatch.dev/',
+  installUrl: `${origin}/installation`,
+  license: 'https://www.elastic.co/licensing/elastic-license',
+  codeRepository: 'https://github.com/abahmed/kwatch',
+  publisher: {'@type': 'Organization', name: 'kwatch', url: 'https://kwatch.dev/'},
+};
+
 export default function Root({children}: {children: ReactNode}) {
   const {pathname} = useLocation();
   const isNoIndexRoute = pathname === '/404' || pathname === '/404.html';
@@ -42,6 +58,11 @@ export default function Root({children}: {children: ReactNode}) {
         {pathname === '/' && (
           <script type="application/ld+json">
             {JSON.stringify(structuredData)}
+          </script>
+        )}
+        {pathname === '/' && (
+          <script type="application/ld+json">
+            {JSON.stringify(softwareApplication)}
           </script>
         )}
       </Head>

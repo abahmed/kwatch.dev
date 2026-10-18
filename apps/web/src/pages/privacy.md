@@ -12,7 +12,8 @@ the license service at `api.kwatch.dev`. kwatch is operated by Abdelrahman
 Ahmed ("we"). Contact: [hello@kwatch.dev](mailto:hello@kwatch.dev).
 
 kwatch runs in your own cluster. The free Community edition needs no account,
-and without a license key it never contacts the license service.
+and without a license key it never contacts the license service. The one
+exception is the anonymous telemetry ping described below.
 
 ## What we collect
 
@@ -33,9 +34,10 @@ The website does not use analytics or advertising cookies.
 
 ## Telemetry
 
-kwatch sends an anonymous weekly ping containing a hashed cluster ID and the
-kwatch version, so we can see which versions are in use. It is separate from
-licensing and contains no personal data. Turn it off with
+Telemetry is on by default. kwatch sends an anonymous adoption ping, at most
+once every 7 days, containing a hashed cluster ID and the kwatch version, so we
+can see which versions are in use. It is separate from licensing, works in the
+Community edition too, and contains no personal data. Turn it off with
 `telemetry.enabled: false` or `KWATCH_TELEMETRY=false`.
 
 ## How long we keep data
@@ -66,7 +68,7 @@ We do not sell your data and do not share it for advertising.
 | --- | --- |
 | Cloudflare | DNS, the API at `api.kwatch.dev`, its database, and the Turnstile bot check on the sign-up form |
 | Resend | Delivers sign-in and license emails |
-| Render | Hosts the website |
+| Cloudflare Pages | Hosts the website |
 
 These providers may process data outside your country, including in the
 United States, under their own data protection terms.

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 6
-title: Kubernetes failure coverage
+title: "Kubernetes failure detection: CrashLoopBackOff, OOMKilled, Pending"
+sidebar_label: Kubernetes failure coverage
 description: What kwatch can detect across Kubernetes workloads, storage, nodes, services, and cluster signals, and which detectors are Community or Pro.
 keywords: [kwatch coverage, Kubernetes monitoring, Kubernetes failures, cluster health]
 ---
@@ -87,6 +88,33 @@ capability ID.
   probes endpoints outside the cluster that pod environments name. Both are off
   by default. A target must fail `failureThreshold` consecutive checks before
   alerting and resolves on its first success.
+
+## Common pod errors kwatch reports
+
+These are Community detectors. Each one becomes an incident with a root-cause
+headline and next steps, delivered to your [alert channels](/channels).
+
+### CrashLoopBackOff
+
+kwatch watches container waiting and terminated states and restart
+transitions, so a container that keeps crashing is reported as one incident
+with the cause rather than one alert per restart.
+
+### OOMKilled
+
+OOM kills and repeated OOMs are detected, and eviction evidence is kept
+with the incident.
+
+### ImagePullBackOff and ErrImagePull
+
+Image pull failures such as `ErrImagePull`, `ImagePullBackOff`,
+`InvalidImageName` and an unavailable registry are reported as image pull
+incidents.
+
+If an expected alert does not arrive, see
+[Troubleshoot missing or delayed alerts](/operations/troubleshooting). For the
+full catalog, see the [feature reference](/feature-reference) and the
+[configuration reference](/configuration-reference).
 
 ## Watch modes and dynamic status
 

@@ -318,6 +318,18 @@ selected_release=$(select_release_version)
   exit 1
 }
 unset RELEASE_CHOICE
+# A leftover release candidate older than the stable release is not offered.
+latest_version() { printf '%s' v1.0.0; }
+latest_release_candidate() { printf '%s' v1.0.0-rc.19; }
+RELEASE_CHOICE=2
+selected_release=$(select_release_version)
+[ "$selected_release" = v1.0.0 ] || {
+  echo "an RC older than stable was offered or selected" >&2
+  exit 1
+}
+unset RELEASE_CHOICE
+latest_version() { printf '%s' v1.10.5; }
+latest_release_candidate() { printf '%s' v1.11.0-rc.7; }
 selected_upgrade=$(select_upgrade_version v1.0.0)
 [ "$selected_upgrade" = v1.10.5 ] || {
   echo "upgrade did not require and select a newer release" >&2

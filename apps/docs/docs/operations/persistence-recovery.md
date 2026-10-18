@@ -1,5 +1,6 @@
 ---
-title: Persistence and recovery
+title: kwatch state persistence and recovery on a PVC
+sidebar_label: Persistence and recovery
 description: Where kwatch keeps its state, what is retained, how it recovers after a crash or schema change, and what the Community edition keeps in memory.
 sidebar_position: 3
 ---

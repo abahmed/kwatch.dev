@@ -5,7 +5,7 @@ import {DOCS_URL} from '../config';
 import {fmtAgoLong, fmtUtcFull, fmtUtcTime, plural} from '../format';
 import {useClusters} from '../useClusters';
 
-const SILENT_AFTER = 20 * 60;
+const SILENT_AFTER = 30 * 60;
 const BACK_WINDOW = 24 * 3600;
 
 type View = {
@@ -18,7 +18,7 @@ type View = {
 /** Maps an API cluster to the copy of spec 1.6. */
 export function clusterView(c: Cluster, nowMs = Date.now()): View {
   const now = nowMs / 1000;
-  const last = c.last_ping ?? 0;
+  const last = c.last_seen ?? 0;
   const seen = last ? fmtAgoLong(last, nowMs) : 'Not yet';
   switch (c.state) {
     case 'detached':
@@ -33,7 +33,7 @@ export function clusterView(c: Cluster, nowMs = Date.now()): View {
     case 'stopped':
       return {
         tone: 'stopped',
-        pill: `Stopped · since ${fmtUtcTime(c.stopped_at ?? last)}`,
+        pill: `Stopped · since ${fmtUtcTime(c.stopped_since ?? last)}`,
         lastSeen: seen,
         detail: 'kwatch was shut down cleanly. It will show Healthy again when it starts.',
       };
@@ -42,12 +42,12 @@ export function clusterView(c: Cluster, nowMs = Date.now()): View {
         tone: 'waiting',
         pill: 'Waiting',
         lastSeen: 'Not yet',
-        detail: 'Add the key in the installer, then wait up to 10 minutes.',
+        detail: 'Add the key in the installer, then wait up to 15 minutes.',
       };
     case 'silent':
       return {
         tone: 'silent',
-        pill: `Silent since ${fmtUtcTime(last + SILENT_AFTER)}`,
+        pill: `Silent since ${fmtUtcTime(c.silent_since ?? last + SILENT_AFTER)}`,
         lastSeen: seen,
         detail: (
           <>
@@ -56,7 +56,7 @@ export function clusterView(c: Cluster, nowMs = Date.now()): View {
           </>
         ),
       };
-    default: {
+    case 'back': {
       if (c.recovered_at && now - c.recovered_at < BACK_WINDOW) {
         const mins = Math.max(1, Math.round(Math.max(0, (c.quiet_seconds ?? 0) - SILENT_AFTER) / 60));
         return {
@@ -68,6 +68,8 @@ export function clusterView(c: Cluster, nowMs = Date.now()): View {
       }
       return {tone: 'ok', pill: 'Checking in', lastSeen: seen};
     }
+    default:
+      return {tone: 'ok', pill: 'Checking in', lastSeen: seen};
   }
 }
 
@@ -86,7 +88,7 @@ function Name({c}: {c: Cluster}) {
 
 function lastSeenCell(c: Cluster, v: View) {
   if (!v.lastSeen) return null;
-  return c.last_ping ? <span title={fmtUtcFull(c.last_ping)}>{v.lastSeen}</span> : v.lastSeen;
+  return c.last_seen ? <span title={fmtUtcFull(c.last_seen)}>{v.lastSeen}</span> : v.lastSeen;
 }
 
 export default function Clusters() {
@@ -120,7 +122,7 @@ export default function Clusters() {
       {clusters && clusters.length === 0 && (
         <p className="body">
           No clusters yet. Add a key in the installer (License / Pro &gt; Add or replace key) and it appears here within
-          10 minutes.
+          15 minutes.
         </p>
       )}
 
@@ -141,7 +143,7 @@ export default function Clusters() {
               {clusters.map((c) => {
                 const v = clusterView(c, nowMs);
                 return (
-                  <tr key={`${c.license}-${c.id_short}`}>
+                  <tr key={c.cluster_uuid || `${c.license}-${c.id_short}`}>
                     <td><Name c={c} /></td>
                     <td className="mono small">{c.license}</td>
                     <td>{lastSeenCell(c, v)}</td>
@@ -160,7 +162,7 @@ export default function Clusters() {
             {clusters.map((c) => {
               const v = clusterView(c, nowMs);
               return (
-                <li key={`${c.license}-${c.id_short}`} className="cluster-card">
+                <li key={c.cluster_uuid || `${c.license}-${c.id_short}`} className="cluster-card">
                   <Name c={c} />
                   <div><Pill view={v} /></div>
                   {v.detail && <p className="detail small muted">{v.detail}</p>}
@@ -180,7 +182,7 @@ export default function Clusters() {
       <section className="panel">
         <h2>How this works</h2>
         <p>
-          kwatch checks in every 10 minutes. After 20 minutes without a check-in we mark the cluster silent here. We do
+          kwatch checks in every 15 minutes. After 30 minutes without a check-in we mark the cluster silent here. We do
           not send messages. Want one?{' '}
           <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>kwatch can ping a monitor you own.</a>
         </p>

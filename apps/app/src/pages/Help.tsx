@@ -12,13 +12,13 @@ import {useClusters} from '../useClusters';
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
 const MIN = 20;
 const MAX = 4000;
-const TOPICS = [
-  'Installing kwatch',
-  'Alerts not arriving',
-  'An alert I do not understand',
-  'Cluster check-ins',
-  'My license',
-  'Something else',
+const TOPICS: [string, string][] = [
+  ['installing', 'Installing kwatch'],
+  ['alerts_not_arriving', 'Alerts not arriving'],
+  ['alert_unclear', 'An alert I do not understand'],
+  ['checkins', 'Cluster check-ins'],
+  ['license', 'My license'],
+  ['other', 'Something else'],
 ];
 
 export function supportError(err: unknown): string {
@@ -26,10 +26,10 @@ export function supportError(err: unknown): string {
   if (e?.code === 'network') {
     return 'We could not reach the kwatch service, so nothing was sent. Check your connection and try again.';
   }
-  if (e?.status === 429) {
+  if (e?.status === 429 || e?.code === 'support_limit') {
     return 'You have sent 3 requests today. Please wait for our reply, or try again tomorrow. For something urgent, open an issue on GitHub.';
   }
-  if (e?.status === 503) {
+  if (e?.status === 503 || e?.code === 'support_busy') {
     return 'Support is busy right now. Please try again tomorrow or open an issue on GitHub.';
   }
   if (e?.status === 401) return 'Your session expired. Please sign in again.';
@@ -97,7 +97,7 @@ export default function Help() {
 
   const [lid, setLid] = useState('');
   const [cluster, setCluster] = useState('');
-  const [topic, setTopic] = useState(TOPICS[0]);
+  const [topic, setTopic] = useState(TOPICS[0][0]);
   const [message, setMessage] = useState('');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -165,18 +165,18 @@ export default function Help() {
       <select id="help-cluster" value={cluster} onChange={(e) => setCluster(e.target.value)}>
         <option value="">Not sure or not installed yet</option>
         {mine.map((c) => (
-          <option key={c.id_short} value={c.id_short}>
+          <option key={c.cluster_uuid} value={c.cluster_uuid}>
             {c.name || 'Unnamed cluster'} ({c.id_short}
             {c.version ? `, v${c.version.replace(/^v/, '')}` : ''}
-            {c.last_ping ? `, ${fmtAgoLong(c.last_ping).toLowerCase()}` : ''})
+            {c.last_seen ? `, ${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
           </option>
         ))}
       </select>
 
       <label htmlFor="help-topic">What do you need help with?</label>
       <select id="help-topic" value={topic} onChange={(e) => setTopic(e.target.value)}>
-        {TOPICS.map((t) => (
-          <option key={t}>{t}</option>
+        {TOPICS.map(([id, label]) => (
+          <option key={id} value={id}>{label}</option>
         ))}
       </select>
 

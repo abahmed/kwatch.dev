@@ -8,8 +8,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 const now = () => Math.floor(Date.now() / 1000);
 const cl = (over: Partial<Cluster>): Cluster => ({
-  name: 'prod', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
-  last_ping: now() - 240, checkins: true, state: 'ok', ...over,
+  name: 'prod', cluster_uuid: 'uuid-1', id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3,
+  last_seen: now() - 240, checkins: true, state: 'ok', ...over,
 });
 
 async function show(clusters: Cluster[]) {
@@ -25,20 +25,20 @@ describe('/clusters', () => {
     expect(screen.getAllByText('4 minutes ago').length).toBeGreaterThan(0);
   });
   it('waiting', async () => {
-    await show([cl({state: 'waiting', last_ping: null})]);
+    await show([cl({state: 'waiting', last_seen: null})]);
     expect(await screen.findAllByText('Waiting')).not.toHaveLength(0);
     expect(screen.getAllByText('Not yet').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Add the key in the installer, then wait up to 10 minutes.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Add the key in the installer, then wait up to 15 minutes.').length).toBeGreaterThan(0);
   });
   it('silent shows time since last ping + 20 min', async () => {
     const last = Date.UTC(2026, 9, 1, 13, 42) / 1000;
-    await show([cl({state: 'silent', last_ping: last})]);
-    expect(await screen.findAllByText('Silent since 14:02 UTC')).not.toHaveLength(0);
+    await show([cl({state: 'silent', last_seen: last, silent_since: last + 1800})]);
+    expect(await screen.findAllByText('Silent since 14:12 UTC')).not.toHaveLength(0);
     expect(screen.getAllByText(/kwatch stopped talking/).length).toBeGreaterThan(0);
   });
   it('stopped is neutral and not silent', async () => {
     const at = Date.UTC(2026, 9, 1, 18, 5) / 1000;
-    await show([cl({state: 'stopped', stopped_at: at})]);
+    await show([cl({state: 'stopped', stopped_since: at})]);
     const pill = (await screen.findAllByText('Stopped · since 18:05 UTC'))[0];
     expect(pill.className).not.toMatch(/silent/);
     expect(screen.getAllByText(/shut down cleanly/).length).toBeGreaterThan(0);
@@ -46,13 +46,13 @@ describe('/clusters', () => {
   });
   it('back within 24h', async () => {
     const rec = Date.UTC(2026, 9, 1, 14, 41) / 1000;
-    await show([cl({recovered_at: now() - 3600, quiet_seconds: 59 * 60, last_ping: now() - 5})]);
+    await show([cl({state: 'back', recovered_at: now() - 3600, quiet_seconds: 69 * 60, last_seen: now() - 5})]);
     expect(await screen.findAllByText(/^Back at \d\d:\d\d UTC$/)).not.toHaveLength(0);
     expect(screen.getAllByText(/Silent for 39 minutes/).length).toBeGreaterThan(0);
     expect(rec).toBeGreaterThan(0);
   });
   it('old recovery is plain healthy', async () => {
-    await show([cl({recovered_at: now() - 3 * 86400, quiet_seconds: 3600})]);
+    await show([cl({state: 'back', recovered_at: now() - 3 * 86400, quiet_seconds: 3600})]);
     expect(await screen.findAllByText('Checking in')).not.toHaveLength(0);
   });
   it('check-ins off and not attached', async () => {

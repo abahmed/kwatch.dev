@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const base = {
   'GET /account': {body: account({licenses: [license()]})},
   'GET /account/clusters': {
-    body: {clusters: [{name: 'prod', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3, last_ping: Math.floor(Date.now() / 1000) - 60, checkins: true, state: 'ok'}]},
+    body: {clusters: [{name: 'prod', id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3, last_seen: Math.floor(Date.now() / 1000) - 60, checkins: true, state: 'ok'}]},
   },
 };
 const text = 'The alerts never arrive in Slack since upgrading.';
@@ -51,7 +51,7 @@ describe('/help', () => {
     expect(screen.getByText('KW-4F7A2C')).toBeInTheDocument();
     expect(screen.getByText(/We will reply by e-mail to ab@acme.com/)).toBeInTheDocument();
     const body = JSON.parse(String(calls.find((c) => c.key === 'POST /support')!.init.body));
-    expect(body).toEqual({license: 'lic_1', topic: 'Installing kwatch', message: text});
+    expect(body).toEqual({license: 'lic_1', topic: 'installing', message: text});
   });
   it.each([
     [429, /You have sent 3 requests today/],

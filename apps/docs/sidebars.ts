@@ -89,6 +89,8 @@ const sidebars: SidebarsConfig = {
       collapsible: false,
       items: [
         'cli-commands',
+        'configuration-reference',
+        'feature-reference',
         {
           type: 'category',
           label: 'Generated reference',

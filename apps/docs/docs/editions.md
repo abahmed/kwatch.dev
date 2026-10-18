@@ -69,8 +69,8 @@ the file stays valid when you upgrade.
   mailbox provider such as Gmail the limit is per account.
 - **3 months, renewable.** Each license runs for 3 months from the day you
   start it, and we may renew it.
-- **Offline for 7 days.** kwatch renews daily. A renewal is valid for 3 days,
-  followed by a 4-day grace period.
+- **Offline for up to 7 days.** kwatch renews daily. A renewal is valid for 3 days,
+  followed by a 4-day grace period, then kwatch falls back to Community.
 - **3 moves per 30 days** to another cluster, with the installer
   (**License / Pro**, then **Move license to this cluster**) or **Transfer** on
   your account page.

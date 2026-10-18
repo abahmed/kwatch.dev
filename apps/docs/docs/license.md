@@ -55,7 +55,7 @@ key to that cluster. Nothing else about your cluster is sent.
 
 If the license service is unreachable, kwatch keeps its Pro features for up
 to 7 days from the last successful renewal: each renewal is valid for 3 days,
-followed by a 4-day grace period.
+followed by a 4-day grace period, then kwatch falls back to Community.
 
 ## Moving to another cluster
 
@@ -108,7 +108,7 @@ The license state appears in the `/status` output:
 | `invalid` | The key is malformed or unrecognised. | Re-copy the key from your account page. |
 | `pending` | A key is present but not yet verified. | Wait for the first check; verify outbound access to `api.kwatch.dev`. |
 | `active` | License valid and renewed. | Nothing. |
-| `grace` | Renewal failing, within the grace period (up to 7 days offline). | Restore network access to `api.kwatch.dev`. |
+| `grace` | Renewal failing, within the grace period (3-day lease plus 4-day grace, up to 7 days offline). | Restore network access to `api.kwatch.dev`. |
 | `expired` | The license has expired. | Start or renew a license on your account page. |
 | `revoked` | The license was revoked. | Contact hello@kwatch.dev. |
 | `conflict` | The key is active on another cluster. | Run the installer here and choose **License / Pro**, then **Move license to this cluster**; or transfer it on your account page, or use a separate key. |

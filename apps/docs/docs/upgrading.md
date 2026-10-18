@@ -3,13 +3,12 @@ sidebar_position: 3
 title: Upgrade kwatch to v1.0.0 from v0.10.x
 sidebar_label: Upgrading to v1.0.0
 description: Upgrade a running kwatch v0.10.x install to v1.0.0 with the kwatch.sh installer, and what changes on the first start.
-keywords: [kwatch upgrade, kwatch v1.0.0, v0.10.5, release candidate, kwatch.sh, migration]
+keywords: [kwatch upgrade, kwatch v1.0.0, v0.10.5, kwatch.sh, kubectl apply, helm upgrade, migration]
 ---
 
 # ⬆️ Upgrading to v1.0.0
 
-The last stable release is `v0.10.5`. `v1.0.0` is a major release and is
-currently in release-candidate testing (the newest is `v1.0.0-rc.19`). This page
+`v1.0.0` is a major release; the previous stable release is `v0.10.5`. This page
 tells you what to expect when you move to it. The upgrade runs through the
 [`kwatch.sh` installer](/kwatch-sh), like every other lifecycle action.
 
@@ -28,10 +27,7 @@ Run the installer and select your cluster:
   afterwards; credentials are stored in a Secret.
 - **A running `v1.0.0` or newer.** Choose **Upgrade**. The configuration is backed
   up first, and a failed rollout is rolled back when possible.
-- **Stable or release candidate.** The installer selects the newest Stable
-  release by default. Until `v1.0.0` is published as Stable, choose the
-  release candidate in the version prompt and confirm it. The in-app update
-  check does not nag release-candidate users.
+- **Version.** The installer selects the newest Stable release by default.
 
 See the [installer guide](/kwatch-manager) for every menu option.
 
@@ -73,12 +69,26 @@ and metrics, and pod logs. Secrets are watched by default; set
 Secret needs only `get` and `update`. See
 [RBAC and deployment security](/operations/rbac-and-security).
 
+## If you applied manifests with kubectl
+
+Use the installer; it is the recommended path. If you apply manifests yourself,
+note that the Deployment selector changed: it now includes
+`app.kubernetes.io/instance: kwatch`. Kubernetes does not allow a selector to
+change on an existing Deployment, so delete the old Deployment first, then
+apply the new manifests:
+
+```bash
+kubectl -n kwatch delete deployment kwatch
+```
+
+kwatch is down until the new manifests are applied.
+
 ## If you use Helm (advanced)
 
 Helm is a short pointer here; the installer is the supported path. The chart
-repository is `https://kwatch.dev/charts`, and the published chart is
-currently `0.10.5`. The `v1.0.0` chart is published with the stable release.
-Its default `rbac.mode` is `least-privilege`; pass `--set rbac.mode=full` to
+repository is `https://kwatch.dev/charts`, and the `v1.0.0` release ships
+chart `1.0.0`. `helm upgrade` with your existing values from `v0.10.x` works.
+The default `rbac.mode` is `least-privilege`; pass `--set rbac.mode=full` to
 watch custom resources and kinds added later. The chart rejects unknown
 values, so compare your values file with the chart's `values.yaml` before
 upgrading. Chart values are listed in the
@@ -92,7 +102,14 @@ upgrading. Chart values are listed in the
 
 ## Rolling back
 
-Run the installer again and choose to install the earlier release. `v0.10.x`
-does not read the new state file, so a rollback loses only what `v1.0.0`
-learned. A Pro license ends cleanly: kwatch falls back to Community and
-detection and alerting never stop.
+When the installer replaces a `v0.10.x` install, it first saves a backup
+Secret named `kwatch-legacy-backup-<timestamp>` (it shows the exact name) with
+the old Deployment, ConfigMap and config. It keeps that Secret after the
+uninstall, so you can read your old settings from it. The installer does not
+restore a legacy install from it automatically.
+
+To go back, run the installer again and install the earlier release, then
+re-enter your notification providers using the backup as a reference.
+`v0.10.x` does not read the new state file, so a rollback loses only what
+`v1.0.0` learned. A Pro license ends cleanly: kwatch falls back to Community
+and detection and alerting never stop.

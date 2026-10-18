@@ -3,7 +3,7 @@
 Status: draft for the lead. Specs only, no production code.
 Audience: paying Pro users who are new to Kubernetes. Copy follows `MESSAGING.md`: Pro is free during early access (no prices, no "trial"), install is installer-first, licenses live only in the installer's License / Pro menu, "source available". Free tiers only (Cloudflare Workers and D1, Resend; no new paid service).
 
-**Decisions (user, final):** Resend quota is limited, so (1) silence alerts send no email: the Worker posts to a webhook the user registers, and the app shows cluster status; (2) support sends exactly one email per request, to the support inbox with Reply-To set to the user, and no confirmation email. Existing sign-in and license emails are unchanged.
+**Decisions (user, final):** Resend quota is limited, so (1) silence alerts send no email: the Worker posts to a webhook the user registers, and the app shows cluster status; (2) support sends exactly one text-only email per request, to the support inbox with Reply-To set to the user, and no confirmation email; (3) no file is ever uploaded to our API: diagnostics are saved to a file on the user's machine and attached by the user to their own email reply. Existing sign-in and license emails are unchanged.
 
 Owners: kwatch-core (Go, `kwatch test-alert`, managed ping), kwatch-web (`kwatch.sh`, `/support`), kwatch-api (Worker, D1), kwatch-app (app.kwatch.dev).
 
@@ -245,7 +245,7 @@ File `apps/web/public/kwatch.sh`, `show_supported_menu` (about lines 6694 to 671
 🧩 View capabilities
 🔑 License / Pro
 ♻️  Restore a previous configuration   (only with backups)
-🧰 Send diagnostics to support   <- spec 3 (Save diagnostics to file is inside it)
+🧰 Save diagnostics to file   <- spec 3
 🧹 Uninstall kwatch
 🚪 Exit
 ```
@@ -273,23 +273,17 @@ Installer-specific messages:
 
 ---
 
-## 3. Diagnostics for support (send or save)
+## 3. Save diagnostics to file
 
-### 3.1 Menu, flow and files
+### 3.1 Menu, flow and file
 
-Installer item `🧰 Send diagnostics to support` (placement in 2.4), shown to everyone. Its first screen offers `Send to support` (Pro) and `Save diagnostics to file` (everyone, and the way for offline clusters). Sending needs Pro; saving needs nothing.
+Installer item `🧰 Save diagnostics to file` (placement in 2.4), for everyone (Community and Pro). Nothing is uploaded: not to api.kwatch.dev, not anywhere. There is no "send" action in the installer, no Worker route, no storage. The file stays on the user's machine; the user attaches it to their reply to the support email.
 
-**Nothing is stored.** The Worker keeps no copy, no R2, no code and no uploads list. A send is one email with the bundle attached; the only thing kept is a rate-limit counter.
+The installer collects and redacts on the user's machine with their `kubectl`, shows what is included, asks to confirm, and writes one file.
 
-How sending works, so engineers build the right thing:
+File name: `kwatch-diagnostics-<cluster>-<YYYYMMDD>.tar.gz` (UTC date). `<cluster>` is `app.clusterName` if set, else the namespace; lower-case, only `a-z 0-9 -`, at most 30 characters, `cluster` if empty. Never the kubeconfig context or API server address (they can name companies or hosts). Written to the current directory, else `$HOME`. Never overwrites: if the name exists, `-2`, `-3`.
 
-1. The installer collects and redacts the bundle on the user's machine with their `kubectl`, asks for a one-line description, shows the confirm screen (3.4).
-2. On confirm it streams the file into the kwatch Pod: `kubectl -n "$NAMESPACE" exec -i "$pod" -- kwatch support-send --description "<text>" < bundle.tar.gz`. The Pod signs the request with its license instance key (same authentication as `/license/renew`), so the installer never sees the key and the user types no credentials. New subcommand: kwatch-core.
-3. `POST /support/diagnostics` on `api.kwatch.dev` checks the license, applies the limits, and sends **one** Resend email to the support inbox with the bundle attached, `reply_to` the license owner's account e-mail (3.5). It returns a reference.
-
-Saved file: `kwatch-support-YYYYMMDD-HHMMSS.tar.gz` (UTC), written to the current directory, else `$HOME`. Never overwrites (`-2` suffix). The user attaches it in the app's Get help form (4.3) or to an e-mail reply.
-
-Limits: at most 5 MB per bundle; 3 sends per day per account, shared with the Get help form (so mail quota is protected in one place).
+Size: logs default to the last 2000 lines. If the file would exceed 10 MB (a comfortable e-mail attachment), logs are cut in steps 1000, 500, 200 lines and the confirm screen says so.
 
 ### 3.2 Included
 
@@ -319,122 +313,82 @@ Pod names and namespace names stay in (needed to debug); the README says so.
 
 ### 3.4 Screens and copy
 
-**First screen** (title `diagnostics`):
+**Collecting** (screen title `diagnostics`): steps tick: `Status`, `Logs`, `Events`, `Configuration (secrets removed)`, `Checking nothing private is left`.
+
+**Confirm screen** (always shown; nothing is written before it):
 
 ```
-Send diagnostics to support
+Save diagnostics to a file
 
-  Builds a bundle of kwatch's status, logs, events and settings with every
-  secret removed, so we can see what you see.
-
-  > Send to support
-    Save diagnostics to file
-    Back
-```
-
-Community or no active key: `Send to support` is replaced by the muted line `Sending is for Pro. Saving to a file works for everyone.`
-
-**Description** (after choosing Send): `In one line, what is going wrong?` Free text, 10 to 200 characters, Enter to continue. Too short: `Please write a little more, so we know where to look.` Empty is not allowed; the line becomes the first line of the email.
-
-**Collecting**: steps tick: `Status`, `Logs`, `Events`, `Configuration (secrets removed)`, `Checking nothing private is left`.
-
-**Confirm screen** (always shown; nothing leaves the machine before it):
-
-```
-Ready to send to kwatch support
-
-  Your note       "Alerts stopped after I upgraded"
   kwatch status                    2 KB
   Last 2000 log lines             312 KB
   Events from the kwatch namespace  6 KB
   Settings, secrets removed         3 KB
   kwatch and Kubernetes versions    1 KB
                                   ------
-  Total                           324 KB   (limit 5 MB)
+  Total                           324 KB
 
 Removed: Secrets, your license key, webhook URLs, tokens, e-mail
 addresses and IP addresses.
-Sent as: one e-mail to kwatch support. kwatch keeps no copy.
-We reply to: a***@gmail.com (the e-mail on your kwatch account).
+The file stays on this computer. kwatch does not upload it.
 
-  > Send to support
+  > Save the file
     Review the files first
-    Save to a file instead
     Cancel
 ```
 
 - `Review the files first` unpacks into a temporary folder, prints `Opened at {path}. Look through it, then come back here.`, and returns to this screen. The folder is deleted when the installer exits.
-- `Cancel` removes the working files and returns to the menu with nothing sent.
-- The masked address comes from the Worker's answer to a dry check before this screen, so a no-Pro or rate-limited cluster learns this before the user does the work (see errors).
-
-**Sending**: `Sending to kwatch support`.
-
-**Sent**:
-
-```
-Sent to kwatch support. Reference KW-4F7A2C
-
-  We reply by e-mail to a***@gmail.com. Check spam if you do not see it.
-  Reply to that e-mail if you want to add anything.
-```
+- `Cancel` removes the working files and returns to the menu.
+- When logs were cut: extra line `Logs were cut to the last {n} lines to keep the file small.`
 
 **Saved**:
 
 ```
 Diagnostics saved
 
-  ./kwatch-support-20261019-142233.tar.gz   (324 KB)
+  ./kwatch-diagnostics-prod-20261019.tar.gz   (324 KB)
 
-How to get help
-  Pro:        open app.kwatch.dev, choose Get help, describe what happened
-              and attach this file.
-  Community:  open an issue at github.com/abahmed/kwatch/issues. Attach the
-              file only after you have read it; issues are public.
+Attach this file when you reply to our support email.
+No support email yet? Pro users: open app.kwatch.dev, choose Get help
+and describe what happened. We reply by e-mail.
+Community: open an issue at github.com/abahmed/kwatch/issues. Attach the
+file only after you have read it; issues are public.
 ```
 
-**Errors** (every sending failure saves the file first so the work is not lost, except the kubectl, disk and redaction-scan rows, where nothing could be built or saved; texts are exact):
+Remote shell hint, shown only when `SSH_CONNECTION` is set or no display is available (the file is on a machine the user may not be sitting at):
+
+```
+This file is on {hostname}. To copy it to your computer, run this on your
+computer:
+  scp {user}@{hostname}:{full path} .
+```
+
+Hostname and user come from the local shell. If the installer runs in a container or CI runner, the hint is `Copy it out of the container before it stops, for example with kubectl cp or docker cp.` (no command is guessed).
+
+**Errors** (texts exact):
 
 | Case | Text |
 |---|---|
 | kubectl or context missing | `kubectl is needed to collect the diagnostics and could not reach a cluster. Select a cluster first (View status shows which one).` |
-| No kwatch Pod (cannot sign) | `No kwatch Pod was found, so nothing can be sent. The diagnostics were saved to {path}; they have no logs because kwatch is not running. Attach the file in Get help at app.kwatch.dev.` |
-| Old kwatch image without `support-send` | `This kwatch version cannot send yet. Choose Upgrade kwatch, or use the saved file at {path}.` |
-| No Pro license (none, expired, revoked) | `Sending is for Pro, and this cluster has no active license. The diagnostics were saved to {path}. Community support is on GitHub: github.com/abahmed/kwatch/issues` |
-| Offline: the Pod cannot reach api.kwatch.dev | `The kwatch Pod could not reach api.kwatch.dev, so nothing was sent. The diagnostics were saved to {path}. Open app.kwatch.dev on any computer, choose Get help and attach the file. Cause: the Pod has no outbound access; check egress rules (network policy) and DNS.` |
-| Too big (over 5 MB after trimming) | `The diagnostics are {N} MB, over the 5 MB limit. Even with the logs cut to the last 200 lines they did not fit, so they were saved to {path}. Tell us what is going on in Get help and we will ask for the part we need.` Trim order before giving up: 2000, 1000, 500, 200 log lines |
-| Trimmed but fits | The confirm screen adds `Logs were cut to the last {n} lines to fit the 5 MB limit.` |
-| Rate limited (429) | `You have sent diagnostics 3 times today, which is the daily limit. They were saved to {path}. Try again tomorrow, or reply to the e-mail we already sent you.` |
-| Server error (5xx) | `kwatch support could not take it (the server returned 503). The diagnostics were saved to {path}. Try again later, or attach the file in Get help.` |
-| Support mail failed | Same as server error; the counter is refunded. |
-| Part could not be read | `Could not read events (forbidden). The diagnostics were built without them.` (also in `manifest.json` under `missing`) |
+| No kwatch Pod | `No kwatch Pod was found, so the diagnostics have no logs. Everything else was saved.` The file is still created; it states why in `manifest.json` |
+| Part could not be read | `Could not read events (forbidden). The diagnostics were saved without them.` (also in `manifest.json` under `missing`) |
 | Disk | `Could not write {path}. Free some space or run the installer from a folder you can write to.` |
-| Redaction scan hit | `A line that may hold a secret was left in {file}. Nothing was saved or sent. Please tell us in Get help.` |
+| Redaction scan hit | `A line that may hold a secret was left in {file}. Nothing was saved. Please tell us in Get help.` |
 
-### 3.5 API and email (kwatch-api)
+### 3.5 Acceptance checks
 
-- `POST /support/diagnostics`: instance-authenticated (as `/license/renew`), `multipart` or two headers plus raw body: `content-type: application/gzip`, `x-kwatch-note` (url-encoded, 10 to 200 characters), body the `.tar.gz`. Requires an active Pro license (`403 license_not_active`). Reject with `413` from `content-length` before reading and re-check while reading; validate gzip magic bytes. `202 {ref, reply_to_masked}`.
-- Dry check for the confirm screen: `POST /support/diagnostics/check` (no body) returns `204` when sending is possible, else the same `403` / `429` as above, so errors appear before the user builds the bundle.
-- Sends **one** Resend email: `to` the support inbox (`SUPPORT_INBOX`), `reply_to` the license owner's account e-mail, `from` `kwatch <noreply@mail.kwatch.dev>`, subject `[Support] Diagnostics - {ref} - {email}`, plain-text body (note, license id, plan, expiry, cluster name, kwatch version, node count, last seen, silence state), attachment `kwatch-support-....tar.gz` (Resend attachments are base64 inside the JSON request, about 6.7 MB for 5 MB, well within Worker memory).
-- No confirmation e-mail. No storage of the bundle, note or e-mail address; D1 holds only the counter `support:{accountId}` (3 per UTC day, shared with the form) and the global support budget below.
-- Global support budget: 10 sends a day carved from the 95 (Q2). Exhausted: `503` and the counter is refunded; the installer shows the server-error row.
-- Log only reference, license id, size and outcome; never the note or content.
-
-### 3.6 Acceptance checks
-
-1. Menu item is `Send diagnostics to support`, sits before Uninstall, and is read-only (`MENU_READ_ONLY=true`); its first screen offers Send and Save.
-2. The confirm screen appears every time; nothing is sent before `Send to support`; `Cancel` leaves no files behind.
-3. A cluster seeded with a fake webhook, token, license key, e-mail and IP yields a bundle where `grep -rE` finds none of them in status, logs, events, config and describe output.
+1. Menu item is `Save diagnostics to file`, sits before Uninstall, and is read-only (`MENU_READ_ONLY=true`). There is no "send" item or flow.
+2. The confirm screen appears every time; nothing is written before `Save the file`; `Cancel` leaves no files behind.
+3. A cluster seeded with a fake webhook, token, license key, e-mail and IP yields a file where `grep -rE` finds none of them in status, logs, events, config and describe output.
 4. `config.yaml` has no string value outside the allowlist or `<set>`/`<empty>`.
 5. The final scan aborts when a planted `token: abc123` is injected after redaction.
-6. No Secret is fetched in the bundle path (audit the script for `get secret`).
-7. Pro cluster: sending makes exactly one Resend call with `reply_to` the account e-mail, the bundle attached, and the note in the body; the installer prints a reference matching `KW-[2-9A-HJKMNP-Z]{6}`; the masked address matches the account.
-8. The request is signed by the Pod; the installer never reads the license key or instance secret.
-9. No R2 binding, no bundle or note in D1 or logs, no second e-mail.
-10. A 6 MB bundle is trimmed in the order above; still over 5 MB is saved with the exact text; a direct request of 5 MB + 1 byte returns `413`.
-11. The 4th send in a UTC day (installer and form combined) returns `429` and makes no Resend call; the installer shows the rate-limit text and the saved file.
-12. Offline Pod, old image, no Pod, no Pro, 5xx: each shows its exact row text and leaves a saved file.
-13. A Community cluster sees the muted `Sending is for Pro` line and saving works.
-14. The saved file name matches the pattern; a second run in the same second does not overwrite.
+6. No Secret is fetched in this path (audit the script for `get secret`).
+7. The path makes no network request except `kubectl`; no code or Worker route accepts a bundle.
+8. File name matches `kwatch-diagnostics-[a-z0-9-]{1,30}-\d{8}(-\d+)?\.tar\.gz`; it never contains the context name or API address; a second run on the same day does not overwrite.
+9. Without a kwatch Pod the file is still created and the message above is shown.
+10. A bundle over 10 MB is cut to fewer log lines and the confirm screen says so.
+11. Over SSH the scp hint is shown with the real host and full path; locally it is not.
+12. Works the same on a Community cluster (no key).
 
 ---
 
@@ -451,7 +405,7 @@ Lead: `Most questions are answered in the docs. If yours is not, here is where t
 2. `Community: open an issue`. `Community is free and supported in public on GitHub.` Button `Open an issue` to github.com/abahmed/kwatch/issues/new. Note `Issues are public. Remove anything private first.`
 3. `Pro: get help in the app`. `Signed-in Pro users send a request from app.kwatch.dev and see replies there.` Button `Open Get help` to app.kwatch.dev/help. Note `Pro is free during early access.`
 
-Before you write, a block `Help us help you`: three steps in mono-numbered list: `1 Run the installer and choose Send diagnostics to support.` `2 Check the list on screen. Secrets are removed.` `3 Or choose Save diagnostics to file and attach the file in Get help.` Link `What is in a bundle` to docs.
+Before you write, a block `Help us help you`: three steps in mono-numbered list: `1 Run the installer and choose Save diagnostics to file.` `2 Read the list on screen. Secrets are removed and nothing is uploaded.` `3 Attach the file when you reply to our support email.` Link `What is in a bundle` to docs.
 
 Honest line, no promises: `We read every request. We cannot promise a reply time during early access.`
 
@@ -470,8 +424,7 @@ Single column, labels above, no uploads, no live chat.
 - `Cluster` select of attached clusters (name, version, last seen) plus `Not sure or not installed yet`.
 - `What do you need help with?` select: `Installing kwatch`, `Alerts not arriving`, `An alert I do not understand`, `Silence alerts`, `My license`, `Something else`.
 - `Tell us what happened` textarea, 20 to 4000 characters, counter `1200 / 4000`. Placeholder `What you expected, what you saw, and what you tried.`
-- `Diagnostics file (optional)` file input, `.tar.gz` only, up to 5 MB, label help `Made with the installer: Save diagnostics to file. Secrets are removed. Nothing is uploaded until you send the request.` Shows the file name and size after choosing, with `Remove`. Errors: `That file is not a kwatch diagnostics file. Use the .tar.gz the installer saved.` / `That file is {N} MB, over the 5 MB limit.` Validated by size, extension and gzip magic bytes in the Worker. There is no other upload, no storage and no live chat; the file goes only into the one e-mail.
-- Hint: `Sent from the installer already? You do not need to attach it again. Mention the reference.`
+- Hint: `No file goes in this form. After we reply by e-mail, attach your diagnostics file to that reply. Installer: Save diagnostics to file.`
 - Button `Send request` (Ink); disabled while invalid or sending.
 
 Server adds, not editable, shown in a read-only summary row under the form (`Sent with your request: license, plan and expiry, cluster names, versions and last seen`): license id, plan, expiry, each cluster's name, version, node count, last seen and silence state, edition.
@@ -485,14 +438,14 @@ Server error: `We could not send your request. Nothing was sent. Try again, and 
 Heading `Request sent`
 Body: `We will reply by e-mail to {email}. Replies come from our support address, so check your spam folder if you do not see one.`
 Reference: `Reference KW-4F7A2C` (mono, selectable, Copy button; 6 characters from a confusion-free alphabet).
-Block `Make a support bundle while you wait`: `1 Run the installer: /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` `2 Choose Send diagnostics to support.` `3 We read your logs through the code it prints. Or save a file instead and attach it when you reply to our e-mail. Secrets are removed either way.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
+Line `When we do, reply with your diagnostics file attached.` Block `Make the diagnostics file now`: `1 Run the installer: /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` `2 Choose Save diagnostics to file.` `3 Keep the file ready. Secrets are removed and nothing is uploaded.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
 
 The page keeps the reference only in memory; refreshing returns to the empty form (no thread storage).
 
 ### 4.5 API and email (kwatch-api)
 
-- `POST /support` (session, CSRF like other account routes): `multipart/form-data`: `license`, `cluster_uuid?`, `topic`, `message`, `file?` → `202 {ref}`. The Worker verifies the license belongs to the account and is active Pro; the cluster must belong to that license.
-- Sends **one** Resend email: `to` the support inbox (Worker var `SUPPORT_INBOX`, Q1), `reply_to` the user's account e-mail, `from` the existing `kwatch <noreply@mail.kwatch.dev>`. Subject `[Support] {topic} - {ref} - {email}`; the optional file is attached to this same mail. Body: message, then a plain list of the attached facts (license id, plan, expiry, clusters with version, nodes, last seen, silence state). Plain text, no tracking.
+- `POST /support` (session, CSRF like other account routes): JSON `{license, cluster_uuid?, topic, message}` (body at most 8 KB) → `202 {ref}`. The route accepts no file or other content type (`415`). The Worker verifies the license belongs to the account and is active Pro; the cluster must belong to that license.
+- Sends **one** Resend email: `to` the support inbox (Worker var `SUPPORT_INBOX`, Q1), `reply_to` the user's account e-mail, `from` the existing `kwatch <noreply@mail.kwatch.dev>`. Subject `[Support] {topic} - {ref} - {email}`; no attachment. Body: message, then a plain list of the attached facts (license id, plan, expiry, clusters with version, nodes, last seen, silence state). Plain text, no tracking. Footer line for the person answering: `Ask them to attach their kwatch diagnostics file to the reply.`
 - Quota protection: per-account limit of 3 requests per UTC day (`rate_counters` key `support:{accountId}`), plus a global daily support budget of 10 sends carved out of the existing 95 (Q2: for example auth 55, tx 30, support 10). If the global budget is exhausted: `Support is busy right now. Please try again tomorrow or open an issue on GitHub.` (503); the counter is refunded. A failed Resend call refunds both counters and shows the server error copy.
 - No message body is stored in D1; store only `ref`, account id, time (for the rate limit and so the owner can search the inbox by reference). Privacy page says: `Requests are sent to our support inbox. We do not keep a copy in the app.` (kwatch-web updates `privacy.md`.)
 - No confirmation email, no other new email anywhere.
@@ -507,15 +460,15 @@ Real `<label>`s, errors in `aria-live="polite"` beside the field plus a summary 
 2. Signed-out `/help` redirects to sign-in and returns afterward.
 3. A user with only an expired license sees the GitHub message, not the form.
 4. A 19-character message shows the validation text and sends nothing.
-5. A valid submit with a chosen upload makes exactly one Resend call: `to` is the support inbox, `reply_to` is the user, subject contains the reference; no second call to the user.
+5. A valid submit makes exactly one Resend call: `to` is the support inbox, `reply_to` is the user, subject contains the reference; no second call to the user.
 6. The body contains the license and clusters of that account only; a license or cluster id from another account returns `403` and sends nothing.
 7. The fourth request in a UTC day returns `429` with the text above and no Resend call.
 8. Global support budget exhausted: `503` with the busy text, counters refunded.
 9. A Resend failure refunds counters and shows the server error text.
 10. The success screen shows the reference, the address, and the three bundle steps; refresh returns to the empty form.
 11. Existing sign-in, expiry and other emails behave as before (tests unchanged).
-12. With a valid `.tar.gz` of at most 5 MB, the one e-mail carries it as an attachment; a 5 MB + 1 byte file, a `.zip`, or a renamed non-gzip file is rejected with the matching copy and nothing is sent.
-13. Form and installer share the 3 per day limit.
+12. The route rejects `multipart/*` and any non-JSON body with `415`; the mail has no attachment and the form has no file input.
+13. The request makes no other network call than the single Resend send.
 14. A message containing `<script>` is sent as plain text and never rendered.
 
 ---
@@ -523,7 +476,7 @@ Real `<label>`s, errors in `aria-live="polite"` beside the field plus a summary 
 ## Open questions
 
 1. **Support inbox address:** which address is `SUPPORT_INBOX` and does it accept replies from users?
-2. **Resend budget split:** support gets 10 of the 95 daily sends and 3 per account per day. Taken from which budget (auth 60, tx 35)? Resend free limits attachment size per mail; confirm 5 MB is within the plan.
+2. **Resend budget split:** support gets 10 of the 95 daily sends and 3 per account per day. Taken from which budget (auth 60, tx 35)?
 3. **Silence alerts default:** on (recommended, announced in the installer) or opt-in?
 4. **Free-tier ceiling:** 5-minute pings cap about 340 clusters on Workers and D1 free limits. Accept, or ping every 10 minutes with a 20-minute default?
 5. **Namespace in messages:** the Next step uses `kwatch`. Should the ping carry the installed namespace so the command is exact?

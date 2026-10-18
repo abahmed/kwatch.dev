@@ -4417,6 +4417,11 @@ select_release_version() {
   local stable preview choice
   stable=$(latest_version) || return 1
   preview=$(latest_release_candidate || true)
+  # A release candidate older than the stable release (left over once the
+  # stable one ships) is not a choice worth offering.
+  if [ -n "$preview" ] && [ "$(compare_release_versions "$preview" "$stable")" != 1 ]; then
+    preview=""
+  fi
   # Until the first stable 1.x, "latest" on GitHub is a 0.x release this
   # manager cannot run. Recommending it would only lead to a refusal.
   if version_is_legacy "$stable"; then
@@ -7274,7 +7279,7 @@ uninstall_flow() {
 # entry among the Deployment overrides, which is how an upgrade -- the manifest
 # is downloaded fresh every time -- keeps it.
 # ---------------------------------------------------------------------------
-LICENSE_TRIAL_URL="https://kwatch.dev/signup?src=installer"
+LICENSE_SIGNUP_URL="https://kwatch.dev/signup?src=installer"
 LICENSE_ACCOUNT_URL="https://kwatch.dev/account"
 LICENSE_ENV_NAME="KWATCH_LICENSE_KEY"
 LICENSE_SECRET_KEY="license-key"
@@ -7583,7 +7588,7 @@ license_is_community() {
 
 community_provider_cap_message() {
   printf 'Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free during early access: %s)' \
-    "$LICENSE_TRIAL_URL"
+    "$LICENSE_SIGNUP_URL"
 }
 
 # Called when a provider is being added to a configuration that already has
@@ -7879,7 +7884,7 @@ license_install_prompt() {
     exit_expected
   key="${key//[[:space:]]/}"
   if [ -z "$key" ]; then
-    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_SIGNUP_URL"
     return 0
   fi
   license_report_key "$key" || rc=$?
@@ -7913,7 +7918,7 @@ license_show_status() {
     fi
   else
     ui_detail "  No license key is configured: this is the Community edition."
-    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_SIGNUP_URL"
   fi
   printf '\n' >&2
   text=$(kwatch_status_text || true)
@@ -7925,7 +7930,7 @@ license_show_status() {
 license_add_flow() {
   local key rc=0
   ui_heading "🔑  Add or replace the license key"
-  license_secret_exists || ui_detail "  No key yet? Get a free Pro license: $LICENSE_TRIAL_URL"
+  license_secret_exists || ui_detail "  No key yet? Get a free Pro license: $LICENSE_SIGNUP_URL"
   key=$(ask_secret_or_back "Pro license key") || {
     ui_info "↩️ Nothing was changed."
     return 0
@@ -7951,7 +7956,7 @@ license_remove_flow() {
   name=$(license_secret_name)
   if ! license_secret_exists; then
     ui_detail "  No license key is configured."
-    ui_detail "  Get a free Pro license: $LICENSE_TRIAL_URL"
+    ui_detail "  Get a free Pro license: $LICENSE_SIGNUP_URL"
     return 0
   fi
   confirm_change "🗑️ Remove the license key and return to Community." \

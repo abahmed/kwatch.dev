@@ -1,4 +1,4 @@
-import {useEffect, useState} from 'react';
+import {useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {getFreeLicense, moveLicense, replaceKey} from '../api';
 import type {License} from '../api';
@@ -16,15 +16,15 @@ function statusOf(l: License): {label: string; tone: 'ok' | 'warn' | 'bad'} {
 
 function LicenseCard({license, onChange}: {license: License; onChange: () => Promise<void>}) {
   const [revealed, setRevealed] = useState(false);
-  const [key, setKey] = useState(license.key);
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const key = newKey ?? license.key;
+  const moreRef = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const [menu, setMenu] = useState(false);
   const [dialog, setDialog] = useState<null | 'move' | 'replace'>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
   const [message, setMessage] = useState('');
-
-  useEffect(() => setKey(license.key), [license.key]);
 
   const st = statusOf(license);
   const a = license.activation;
@@ -84,10 +84,11 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
           {copied ? 'Copied' : 'Copy key'}
         </button>
         <button
+          ref={moreRef}
           type="button"
           className="btn btn-sm"
           aria-expanded={menu}
-          aria-haspopup="true"
+          aria-controls={`more-${license.lid}`}
           onClick={() => setMenu(!menu)}
         >
           More
@@ -102,7 +103,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
       )}
 
       {menu && (
-        <div className="menu license-wide" role="group" aria-label="More actions">
+        <div id={`more-${license.lid}`} className="menu license-wide" role="group" aria-label="More actions">
           {a && (
             <button
               type="button"
@@ -136,7 +137,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
       )}
 
       {dialog === 'move' && (
-        <Dialog title="Move to another cluster" onClose={() => setDialog(null)}>
+        <Dialog title="Move to another cluster" onClose={() => setDialog(null)} returnFocusRef={moreRef}>
           <p>
             A license works on one cluster at a time. Moving releases it from the current cluster. On the new
             cluster, run the installer and choose License / Pro, then Add or replace key. The new cluster takes
@@ -166,7 +167,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
         </Dialog>
       )}
       {dialog === 'replace' && (
-        <Dialog title="Replace key" onClose={() => setDialog(null)}>
+        <Dialog title="Replace key" onClose={() => setDialog(null)} returnFocusRef={moreRef}>
           <p>
             This issues a new key. <strong>The old key stops working</strong>, so update it on every cluster that
             uses it.
@@ -179,7 +180,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
               onClick={() =>
                 run(async () => {
                   const r = await replaceKey(license.lid);
-                  if (r.key) setKey(r.key);
+                  if (r.key) setNewKey(r.key);
                   setRevealed(true);
                   setMessage('New key issued. The old key no longer works.');
                 }, 'Could not replace the key. Please try again.')

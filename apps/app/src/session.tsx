@@ -31,8 +31,21 @@ export function RequireAuth({children}: {children: ReactNode}) {
   }, []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    getAccount().then(
+      (d) => {
+        if (!cancelled) setData(d);
+      },
+      (err) => {
+        if (cancelled) return;
+        if ((err as ApiError).status === 401) setUnauth(true);
+        else setError(errorMessage(err, 'Could not load your account. Please refresh.'));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (unauth) return <Navigate to="/signin" replace />;
   if (!data) {

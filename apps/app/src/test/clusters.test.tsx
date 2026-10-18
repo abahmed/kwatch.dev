@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const now = () => Math.floor(Date.now() / 1000);
 const cl = (over: Partial<Cluster>): Cluster => ({
-  name: 'prod', cluster_uuid: 'uuid-1', id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3,
+  name: 'prod', cluster_uuid: 'uuid-1', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
   last_seen: now() - 240, checkins: true, state: 'ok', ...over,
 });
 

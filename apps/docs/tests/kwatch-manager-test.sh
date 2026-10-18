@@ -683,6 +683,39 @@ if crd_keeps_stored_versions "$crd_file"; then exit 1; fi
 grep -Fq 'already stores KwatchConfig as v1beta1' <<<"$LAST_COMMAND_ERROR"
 printf '%s\n' '    - name: v1beta1' >>"$crd_file"
 crd_keeps_stored_versions "$crd_file"
+
+# KwatchConfig uses the served API version of the installed CRD, and an
+# existing namespace is not applied again.
+NAMESPACE=kwatch
+RELEASE=kwatch
+# shellcheck disable=SC2034 # read by the sourced installer
+CATALOG_VERSION=1
+SERVED_VERSIONS="v1alpha1 v1beta1"
+APPLIED="$CAPTURE_DIR/applied.yaml"
+kubectl() {
+  case "$*" in
+    *"get crd"*) printf '%s' "$SERVED_VERSIONS" ;;
+    *"get kwatchconfig"*) return 1 ;;
+    *"get namespace"*) return 0 ;;
+    *"apply -f -"*) command cat >"$APPLIED" ;;
+  esac
+}
+ensure_config_resource
+grep -Fxq 'apiVersion: kwatch.abahmed.dev/v1beta1' "$APPLIED"
+SERVED_VERSIONS="v1alpha1"
+ensure_config_resource
+grep -Fxq 'apiVersion: kwatch.abahmed.dev/v1alpha1' "$APPLIED"
+
+ns_manifest="$CAPTURE_DIR/ns-manifest.yaml"
+printf '%s\n' 'apiVersion: v1' 'kind: Namespace' 'metadata:' '  name: kwatch' \
+  '---' 'apiVersion: apps/v1' 'kind: Deployment' 'metadata:' '  name: kwatch' >"$ns_manifest"
+drop_namespace_document "$ns_manifest"
+if grep -q '^kind: Namespace$' "$ns_manifest"; then exit 1; fi
+grep -q '^kind: Deployment$' "$ns_manifest"
+kubectl() { case "$*" in *"get namespace"*) return 1 ;; esac; }
+printf '%s\n' 'kind: Namespace' >"$ns_manifest"
+drop_namespace_document "$ns_manifest"
+grep -q '^kind: Namespace$' "$ns_manifest"
 unset -f kubectl
 
 bash "$ROOT/tests/kwatch-license-test.sh"

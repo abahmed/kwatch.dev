@@ -57,7 +57,7 @@ sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 | Sessions | 30 days, or until you sign out |
 | Rate-limit counters | A few hours to a day |
 | License event log | 180 days, keyed by license ID only |
-| Telemetry ping (installation ID, version) | TELEMETRY_RETENTION_TBD |
+| Telemetry ping (installation ID, kwatch version, last seen; no IP address) | One row per installation, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
 | Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |
 
 ## How we use data and legal bases

@@ -26,6 +26,17 @@ code, .mono { font-family: var(--font-mono); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
 /* Controls */
+:root {
+  --hit: 44px;
+  --control-border: #7C828E;
+  --primary-hover: #2A2F38;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --control-border: #6B7280;
+    --primary-hover: #FFFFFF;
+  }
+}
 button { font: inherit; cursor: pointer; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
@@ -98,7 +109,7 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 /* License cards */
 .license {
   margin-top: 22px; border: 1px solid var(--line); border-radius: 10px; padding: 22px;
-  display: grid; grid-template-columns: 3fr 3fr 2fr; gap: 20px; align-items: center;
+  display: grid; grid-template-columns: 3fr 3fr; gap: 20px; align-items: center;
 }
 .license + .license { margin-top: 12px; }
 .license-name { font-weight: 600; font-size: 18px; }
@@ -109,7 +120,26 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .badge-bad { color: var(--failing); background: var(--failing-bg); }
 .license-cluster .mono { margin-top: 2px; font-size: 14px; }
 .license-cluster .body { margin: 0; }
-.license-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.license-footer { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 16px; padding-top: 18px; border-top: 1px solid var(--line); }
+.license-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.license-group-manage { margin-inline-start: auto; }
+.btn-action {
+  min-height: var(--hit); padding: 0 18px; font-size: 15px; font-weight: 500;
+  border: 1.5px solid var(--control-border); border-radius: 999px;
+  background: transparent; color: var(--text);
+}
+.btn-action.is-toggle { min-width: 112px; }
+.btn-action:hover:not(:disabled) { background: var(--surface); border-color: var(--text); }
+.btn-action:active:not(:disabled) { background: var(--line); }
+.btn-action.is-primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; min-width: 112px; }
+.btn-action.is-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-action.is-primary:active:not(:disabled) { background: var(--primary-hover); transform: translateY(1px); }
+.btn-quiet { border-color: transparent; color: var(--text-muted); padding: 0 12px; }
+.btn-quiet:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--text); text-decoration: underline; }
+.btn-quiet:active:not(:disabled) { background: transparent; color: var(--text); }
+@media (prefers-reduced-motion: no-preference) {
+  .btn-action { transition: background-color 120ms, border-color 120ms; }
+}
 .license-wide { grid-column: 1 / -1; }
 .license-wide .alert, .license-wide .notice { margin-top: 0; }
 .get-more { margin-top: 22px; }
@@ -142,8 +172,10 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
   .who { margin: 0; flex-basis: 100%; }
   .content { padding: 24px 16px; }
   .empty { grid-template-columns: 1fr; gap: 28px; }
-  .license { grid-template-columns: 1fr; }
-  .license-actions { justify-content: flex-start; }
+  .license { grid-template-columns: 1fr; padding: 16px; }
+  .license-group-key { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .license-group-manage { flex-direction: column; flex-wrap: nowrap; margin-inline-start: 0; width: 100%; }
+  .license-group-manage .btn-quiet { text-align: left; }
   .facts { grid-template-columns: 1fr; gap: 2px; }
   .facts dd { margin-bottom: 12px; }
 }

@@ -109,23 +109,33 @@ function LicenseCard({
           <p className="body">Add it with the installer: License / Pro → Add or replace key.</p>
         )}
       </div>
-      <div className="license-actions">
-        <button type="button" className="btn btn-sm" aria-pressed={revealed} disabled={busy} onClick={show}>
-          {revealed ? 'Hide key' : 'Show key'}
-        </button>
-        <button type="button" className={`btn btn-sm ${a ? '' : 'btn-signal'}`} onClick={copy}>
-          {copied ? 'Copied' : 'Copy key'}
-        </button>
-        {a && (
-          <button type="button" className="btn btn-sm" onClick={() => setDialog('move')}>
-            Move to another cluster
+      <div className="license-footer" role="group" aria-label="License actions">
+        <div className="license-group license-group-key" role="group" aria-label="Key actions">
+          <button type="button" className="btn-action is-primary" onClick={copy}>
+            {copied ? 'Copied' : 'Copy key'}
           </button>
-        )}
-        {license.status !== 'revoked' && (
-          <button type="button" className="btn btn-sm" onClick={() => setDialog('replace')}>
-            Replace key
+          <button
+            type="button"
+            className="btn-action is-toggle"
+            disabled={busy}
+            aria-busy={busy && !revealed ? true : undefined}
+            onClick={show}
+          >
+            {busy && !revealed ? 'Showing…' : revealed ? 'Hide key' : 'Show key'}
           </button>
-        )}
+        </div>
+        <div className="license-group license-group-manage" role="group" aria-label="Manage license">
+          {a && (
+            <button type="button" className="btn-action" onClick={() => setDialog('move')}>
+              Move to another cluster
+            </button>
+          )}
+          {license.status !== 'revoked' && (
+            <button type="button" className="btn-action btn-quiet" onClick={() => setDialog('replace')}>
+              Replace key
+            </button>
+          )}
+        </div>
       </div>
 
       {(error || message) && (

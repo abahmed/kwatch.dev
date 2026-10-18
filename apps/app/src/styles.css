@@ -112,13 +112,6 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .license-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .license-wide { grid-column: 1 / -1; }
 .license-wide .alert, .license-wide .notice { margin-top: 0; }
-.menu { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; max-width: 560px; }
-.menu-item {
-  display: grid; gap: 2px; text-align: left; background: none; border: 0; color: var(--text);
-  padding: 12px 14px; border-radius: 6px;
-}
-.menu-item:hover { background: var(--bg); }
-.menu-title { font-weight: 600; }
 .get-more { margin-top: 22px; }
 
 /* Account */

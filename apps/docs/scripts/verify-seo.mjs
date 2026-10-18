@@ -122,6 +122,13 @@ for (const file of indexablePages) {
   if (route !== '/' && !jsonLd.some((block) => block.includes('"@type":"BreadcrumbList"'))) {
     fail(`${route} lacks BreadcrumbList structured data`);
   }
+  if (route.startsWith('/guides/')) {
+    for (const type of ['HowTo', 'FAQPage']) {
+      if (!jsonLd.some((block) => block.includes(`"@type":"${type}"`))) {
+        fail(`${route} lacks ${type} structured data`);
+      }
+    }
+  }
   if (title && title.length > 80) fail(`${route} title is longer than 80 characters`);
   if (!hasTag(html, 'meta', (tag) => /\bname="twitter:card"/i.test(tag))) {
     fail(`${route} lacks a twitter:card`);

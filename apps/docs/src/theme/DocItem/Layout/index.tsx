@@ -31,10 +31,35 @@ export default function LayoutWrapper(props: Props): ReactNode {
   const keywords = frontMatter.keywords;
   if (keywords && keywords.length) article.keywords = keywords.join(', ');
 
+  const howto = frontMatter.howto as {name: string; step: unknown[]} | undefined;
+  const faq = frontMatter.faq as [string, string][] | undefined;
+  const howToData = howto && {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: howto.name,
+    description: metadata.description,
+    step: howto.step,
+  };
+  const faqData = faq && {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: {'@type': 'Answer', text: a},
+    })),
+  };
+
   return (
     <>
       <Head>
         <script type="application/ld+json">{JSON.stringify(article)}</script>
+        {howToData && (
+          <script type="application/ld+json">{JSON.stringify(howToData)}</script>
+        )}
+        {faqData && (
+          <script type="application/ld+json">{JSON.stringify(faqData)}</script>
+        )}
       </Head>
       <Layout {...props} />
     </>

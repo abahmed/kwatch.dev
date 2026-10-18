@@ -3288,6 +3288,19 @@ migrate_legacy_telemetry() {
   esac
 }
 
+# Applying a CRD that drops a version the cluster already stores objects in
+# is rejected by the API server with a raw error. Check first.
+crd_keeps_stored_versions() {
+  local crd_file="$1" stored v
+  stored=$(kubectl get crd kwatchconfigs.kwatch.abahmed.dev \
+    -o 'jsonpath={.status.storedVersions[*]}' 2>/dev/null || true)
+  for v in $stored; do
+    grep -Eq "^    - name: $v\$" "$crd_file" && continue
+    LAST_COMMAND_ERROR="This release cannot manage a cluster that already stores KwatchConfig as $v; choose a newer release."
+    return 1
+  done
+}
+
 ensure_config_resource() {
   if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
     kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
@@ -3331,6 +3344,7 @@ ensure_crd() {
   verify_release_file "$version" deploy/crd.yaml "$tmp" ||
     die "${LAST_COMMAND_ERROR:-the CRD for $version could not be verified}"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
+  crd_keeps_stored_versions "$tmp" || die "$LAST_COMMAND_ERROR"
   with_loading "Applying CRD" \
     kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" \
     >/dev/null || die "could not apply the CRD for $version"
@@ -6019,6 +6033,7 @@ apply_manifests() {
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
   verify_release_file "$version" deploy/crd.yaml "$crd_tmp" || return 1
+  crd_keeps_stored_versions "$crd_tmp" || return 1
   with_loading "Applying CRD" kubectl apply -f "$crd_tmp" >/dev/null ||
     return 1
   with_loading "Waiting for CRD readiness" kubectl wait \

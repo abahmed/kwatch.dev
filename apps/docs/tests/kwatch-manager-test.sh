@@ -675,6 +675,16 @@ grep -Fq 'cosign signature' <<<"$LAST_COMMAND_ERROR"
 unset -f curl cosign
 eval "$real_have_command"
 
+# A release whose CRD lacks a stored version is refused before applying.
+crd_file="$CAPTURE_DIR/old-crd.yaml"
+printf '%s\n' 'spec:' '  versions:' '    - name: v1alpha1' >"$crd_file"
+kubectl() { printf '%s' "v1alpha1 v1beta1"; }
+if crd_keeps_stored_versions "$crd_file"; then exit 1; fi
+grep -Fq 'already stores KwatchConfig as v1beta1' <<<"$LAST_COMMAND_ERROR"
+printf '%s\n' '    - name: v1beta1' >>"$crd_file"
+crd_keeps_stored_versions "$crd_file"
+unset -f kubectl
+
 bash "$ROOT/tests/kwatch-license-test.sh"
 bash "$ROOT/tests/kwatch-license-apply-test.sh"
 echo "kwatch manager secret test passed"

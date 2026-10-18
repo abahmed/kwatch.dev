@@ -115,4 +115,26 @@ describe('/licenses', () => {
     await user.click(screen.getByRole('button', {name: 'Move license'}));
     expect(await screen.findByRole('alert')).toHaveTextContent('No moves left');
   });
+
+  it('closes the More panel on Escape and returns focus, and on an outside click', async () => {
+    mockApi({'GET /account': {body: account({licenses: [license()]})}});
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    const more = await screen.findByRole('button', {name: 'More'});
+    await user.click(more);
+    expect(screen.getByRole('group', {name: 'More actions'})).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('group', {name: 'More actions'})).not.toBeInTheDocument();
+    expect(more).toHaveFocus();
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(more);
+    expect(screen.getByRole('group', {name: 'More actions'})).toBeInTheDocument();
+    await user.click(document.body);
+    expect(screen.queryByRole('group', {name: 'More actions'})).not.toBeInTheDocument();
+
+    await user.click(more);
+    await user.click(screen.getByRole('group', {name: 'More actions'}));
+    expect(screen.getByRole('group', {name: 'More actions'})).toBeInTheDocument();
+  });
 });

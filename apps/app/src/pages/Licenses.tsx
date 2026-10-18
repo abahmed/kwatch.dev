@@ -1,9 +1,9 @@
 import {useState} from 'react';
 import type {ReactNode} from 'react';
-import {getFreeLicense, moveLicense, replaceKey} from '../api';
+import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '../api';
 import type {License} from '../api';
 import {Dialog, usePageTitle} from '../components';
-import {fmtAgo, fmtDate, maskKey, plural} from '../format';
+import {fmtAgo, fmtDate, plural} from '../format';
 import {errorMessage, LimitNotice} from '../messages';
 import {useSession} from '../session';
 
@@ -14,10 +14,19 @@ function statusOf(l: License): {label: string; tone: 'ok' | 'warn' | 'bad'} {
   return {label: l.status, tone: 'bad'};
 }
 
-function LicenseCard({license, onChange}: {license: License; onChange: () => Promise<void>}) {
-  const [revealed, setRevealed] = useState(false);
-  const [newKey, setNewKey] = useState<string | null>(null);
-  const key = newKey ?? license.key;
+function LicenseCard({
+  license,
+  onChange,
+  initialKey = null,
+}: {
+  license: License;
+  onChange: () => Promise<void>;
+  initialKey?: string | null;
+}) {
+  // The full key lives only here while shown. Hide and unmount drop it.
+  const [fullKey, setFullKey] = useState<string | null>(initialKey);
+  const shownKey = fullKey ?? displayKey(license);
+  const revealed = fullKey !== null;
   const [copied, setCopied] = useState(false);
   const [dialog, setDialog] = useState<null | 'move' | 'replace'>(null);
   const [busy, setBusy] = useState(false);
@@ -27,7 +36,33 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
   const st = statusOf(license);
   const a = license.activation;
 
+  async function show() {
+    if (revealed) {
+      setFullKey(null);
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      setFullKey((await revealKey(license.lid)).key);
+    } catch (err) {
+      setError(errorMessage(err, 'Could not load the key. Please try again.'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function copy() {
+    setError('');
+    let key = fullKey;
+    if (key === null) {
+      try {
+        key = (await revealKey(license.lid)).key;
+      } catch (err) {
+        setError(errorMessage(err, 'Could not load the key. Please try again.'));
+        return;
+      }
+    }
     try {
       await navigator.clipboard.writeText(key);
       setCopied(true);
@@ -59,7 +94,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
           Pro <span className={`badge badge-${st.tone}`}>{st.label}</span>
         </p>
         <p className="mono small muted key">
-          {revealed ? key : maskKey(key)} · {license.status === 'expired' ? 'expired' : 'ends'} {fmtDate(license.expires_at)}
+          {shownKey} · {license.status === 'expired' ? 'expired' : 'ends'} {fmtDate(license.expires_at)}
         </p>
       </div>
       <div className="license-cluster">
@@ -75,7 +110,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
         )}
       </div>
       <div className="license-actions">
-        <button type="button" className="btn btn-sm" aria-pressed={revealed} onClick={() => setRevealed(!revealed)}>
+        <button type="button" className="btn btn-sm" aria-pressed={revealed} disabled={busy} onClick={show}>
           {revealed ? 'Hide key' : 'Show key'}
         </button>
         <button type="button" className={`btn btn-sm ${a ? '' : 'btn-signal'}`} onClick={copy}>
@@ -144,8 +179,7 @@ function LicenseCard({license, onChange}: {license: License; onChange: () => Pro
               onClick={() =>
                 run(async () => {
                   const r = await replaceKey(license.lid);
-                  if (r.key) setNewKey(r.key);
-                  setRevealed(true);
+                  setFullKey(r.key ?? null);
                   setMessage('New key issued. The old key no longer works.');
                 }, 'Could not replace the key. Please try again.')
               }
@@ -167,6 +201,7 @@ export default function Licenses() {
   const {data, reload} = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
+  const [trialKey, setTrialKey] = useState<{lid: string; key: string} | null>(null);
   const free = data.trials;
   const empty = data.licenses.length === 0;
   const where = free?.scope === 'organization' && free.domain ? free.domain : '';
@@ -175,7 +210,8 @@ export default function Licenses() {
     setBusy(true);
     setError('');
     try {
-      await getFreeLicense();
+      const r = await getFreeLicense();
+      if (r.license && r.key) setTrialKey({lid: r.license.lid, key: r.key});
       await reload();
     } catch (err) {
       setError(errorMessage(err, 'Could not create the license. Please try again.', free?.limit));
@@ -225,7 +261,12 @@ export default function Licenses() {
           </div>
           {error && <div className="alert" role="alert">{error}</div>}
           {data.licenses.map((l) => (
-            <LicenseCard key={l.lid} license={l} onChange={reload} />
+            <LicenseCard
+              key={l.lid}
+              license={l}
+              onChange={reload}
+              initialKey={trialKey?.lid === l.lid ? trialKey.key : null}
+            />
           ))}
           {empty && !data.trial_available && free && (
             <LimitNotice scope={free.scope} domain={free.domain} limit={free.limit} />

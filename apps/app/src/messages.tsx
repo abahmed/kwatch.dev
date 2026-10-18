@@ -44,7 +44,11 @@ export function errorMessage(err: unknown, fallback: string, limit?: number): Re
     case 'regenerate_limit':
       return 'You can replace keys 3 times a day. Try again tomorrow.';
     case 'revoked':
-      return 'This license was revoked, so its key cannot be replaced.';
+      return 'This license was revoked, so its key is no longer available.';
+    case 'not_found':
+      return 'We could not find that license. Reload the page and try again.';
+    case 'rate_limited':
+      return 'Too many key requests. Please wait a minute and try again.';
     case 'disposable_email':
       return 'Disposable email addresses are not accepted. Please use a permanent address.';
     case 'invalid_email':

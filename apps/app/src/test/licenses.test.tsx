@@ -43,11 +43,10 @@ describe('/licenses', () => {
         body: account({
           trial_available: false,
           trials: {used: 2, limit: 2, scope: 'organization', domain: 'acme.com'},
-          licenses: [license(), license({lid: 'lic_2', activation: null, key: 'KW1-zzzzzzzzzzzzzzzzzzzzzzzz-b81Lmp'})],
+          licenses: [license(), license({lid: 'lic_2', activation: null, key_masked: 'KW1-••••••b81Lmp'})],
         }),
       },
     });
-    const user = userEvent.setup();
     renderAt('/licenses');
     expect(await screen.findByText('Free Pro clusters: 2 of 2 used · acme.com')).toBeInTheDocument();
     const first = screen.getByRole('region', {name: 'License lic_1'});
@@ -55,11 +54,78 @@ describe('/licenses', () => {
     expect(within(first).getByText('active')).toBeInTheDocument();
     expect(within(first).getByText(/7c1e04ab · v1.0.0 · 6 nodes/)).toBeInTheDocument();
     expect(within(first).getByText(/last check 2 h ago/)).toBeInTheDocument();
-    await user.click(within(first).getByRole('button', {name: 'Show key'}));
-    expect(within(first).getByText(/KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk/)).toBeInTheDocument();
     const second = screen.getByRole('region', {name: 'License lic_2'});
     expect(within(second).getByText('not activated')).toBeInTheDocument();
     expect(screen.queryByRole('button', {name: 'Get a free Pro license'})).not.toBeInTheDocument();
+  });
+
+  it('shows the key on demand and forgets it on hide', async () => {
+    const {calls} = mockApi({
+      'GET /account': {body: account({licenses: [license()]})},
+      'POST /account/licenses/lic_1/key': {body: {lid: 'lic_1', key: 'KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk'}},
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    const card = await screen.findByRole('region', {name: 'License lic_1'});
+    expect(calls.some((c) => c.key.endsWith('/key'))).toBe(false);
+    await user.click(within(card).getByRole('button', {name: 'Show key'}));
+    expect(await within(card).findByText(/KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk/)).toBeInTheDocument();
+    await user.click(within(card).getByRole('button', {name: 'Hide key'}));
+    expect(card.textContent).not.toContain('abcdefghijkl');
+    expect(card.textContent).toContain('KW1-••••••f3a9Qk');
+  });
+
+  it('copies without revealing', async () => {
+    const writeText = vi.fn(async () => {});
+    mockApi({
+      'GET /account': {body: account({licenses: [license()]})},
+      'POST /account/licenses/lic_1/key': {body: {lid: 'lic_1', key: 'KW1-fullkey'}},
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    const card = await screen.findByRole('region', {name: 'License lic_1'});
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(writeText);
+    await user.click(within(card).getByRole('button', {name: 'Copy key'}));
+    expect(await within(card).findByRole('button', {name: 'Copied'})).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith('KW1-fullkey');
+    expect(card.textContent).not.toContain('fullkey');
+  });
+
+  it('maps key reveal errors', async () => {
+    mockApi({
+      'GET /account': {body: account({licenses: [license()]})},
+      'POST /account/licenses/lic_1/key': {status: 429, body: {error: 'rate_limited'}},
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    await user.click(await screen.findByRole('button', {name: 'Show key'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many key requests');
+  });
+
+  it('falls back to masking a legacy full key', async () => {
+    mockApi({'GET /account': {body: account({licenses: [license({key_masked: undefined, key: 'KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk'})]})}});
+    renderAt('/licenses');
+    const card = await screen.findByRole('region', {name: 'License lic_1'});
+    expect(card.textContent).toContain('KW1-••••••f3a9Qk');
+    expect(card.textContent).not.toContain('abcdefgh');
+  });
+
+  it('shows the new free license key once', async () => {
+    let created = false;
+    mockApi({
+      'GET /account': () => ({body: account({licenses: created ? [license()] : []})}),
+      'POST /account/trial': () => {
+        created = true;
+        return {body: {license: license(), key: 'KW1-trialfullkey'}};
+      },
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    await user.click(await screen.findByRole('button', {name: 'Get a free Pro license'}));
+    const card = await screen.findByRole('region', {name: 'License lic_1'});
+    expect(card).toHaveTextContent('KW1-trialfullkey');
+    await user.click(within(card).getByRole('button', {name: 'Hide key'}));
+    expect(card).not.toHaveTextContent('trialfullkey');
   });
 
   it('moves a license to another cluster', async () => {

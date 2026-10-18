@@ -28,7 +28,7 @@ export const license = (over: Partial<License> = {}): License => ({
   status: 'active',
   issued_at: 1_700_000_000,
   expires_at: 1_800_000_000,
-  key: 'KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk',
+  key_masked: 'KW1-••••••f3a9Qk',
   activation: {cluster: '7c1e04ab', first_seen: 1_700_000_000, last_renew: Math.floor(Date.now() / 1000) - 7200, kwatch_version: '1.0.0', node_count: 6},
   transfers_left: 2,
   ...over,

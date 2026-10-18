@@ -8222,20 +8222,18 @@ testalert_flow() {
     ui_pause
     return 0
   fi
-  # A bare run lists the configured names only on an unknown --provider, so ask
-  # for them that way and offer a choice when there is more than one.
+  # `--provider ?` prints the configured provider names, one per line.
   while IFS= read -r name; do
+    name="${name//[[:space:]]/}"
     [ -n "$name" ] && names+=("$name")
-  done < <(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert --provider "?" 2>&1 |
-    sed -n 's/^[[:space:]]*Configured providers:[[:space:]]*//p' | tr ',' '\n' |
-    sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  done < <(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert --provider "?" 2>/dev/null || true)
   count=${#names[@]}
   if [ "$count" -gt 1 ]; then
     choice=$(ui_select 0 "All providers" "${names[@]}") || return 0
     [ "$choice" = 0 ] || args=(--provider "${names[$((choice - 1))]}")
   fi
   ui_busy "Sending the test alert"
-  out=$(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert ${args[@]+"${args[@]}"} 2>&1) || status=$?
+  out=$(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert --from installer ${args[@]+"${args[@]}"} 2>&1) || status=$?
   ui_busy_done
   if printf '%s' "$out" | grep -qi 'unknown command'; then
     ui_warn "This kwatch version does not have test-alert yet. Choose Upgrade kwatch, then try again."

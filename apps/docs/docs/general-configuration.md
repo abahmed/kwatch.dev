@@ -41,7 +41,7 @@ Secrets and applies changes to the managed workload. It can also enable a
 
 kwatch comes in two editions, Community and Pro. Settings and sections marked
 <span className="kw-pro">Pro</span> only take effect with a Pro license; Pro is free during
-early access. See [Community vs Pro](/editions). The default `rbac.mode: full` and
+early access. See [Community vs Pro](/editions). The chart's default `rbac.mode: least-privilege` and
 the other install defaults are described in [Production readiness](/operations/production-readiness).
 
 Sensitive strings must use an exact `${file:/absolute/path}` reference to read
@@ -224,7 +224,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
 |:---|---|
 | `healthCheck.enabled` | ✅ Health endpoints (default: true) |
 | `healthCheck.port` | Port to serve health on (default: 8060) |
-| `healthCheck.statusEndpoint` <span className="kw-pro">Pro</span> | Serve the read-only `/status` view (default: false; `/status` is 404 otherwise). Needs `healthCheck.enabled`. Not available in `KwatchConfig` |
+| `healthCheck.statusEndpoint` | Serve the read-only `/status` view (default: false; `/status` is 404 otherwise). Needs `healthCheck.enabled`. Not available in `KwatchConfig` |
 
 **Endpoints:**
 - `GET /healthz` — ✅ Liveness
@@ -237,13 +237,15 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
   or a Pod still waiting for the state lock, can pass the rolling-update probe.
 - `GET /health` — JSON containing overall status, state lock status, component
   states, and bounded degradation reasons.
-- `GET /status` <span className="kw-pro">Pro</span> — only with `healthCheck.statusEndpoint: true` (404 otherwise). 🔎 What is wrong right now, read-only: open incidents,
+- `GET /status` — only with `healthCheck.statusEndpoint: true` (404 otherwise). 🔎 What is wrong right now, read-only: open incidents,
   control plane, upgrade readiness, zone health and what
-  kwatch cannot see. Plain text; add `?format=json` for JSON (the JSON format answers `402` with `{"error":"pro_required"}` in the Community edition; the text format and an "Edition" section stay). It uses no new
+  kwatch cannot see. Plain text in both editions; add `?format=json` for JSON <span className="kw-pro">Pro</span> (the JSON format answers `402` with `{"error":"pro_required"}` in Community). It uses no new
   RBAC and writes nothing. It shows object names (workloads, nodes, PDBs,
   webhooks) to anyone who can reach the health port, so keep that port
-  inside the cluster; the chart's NetworkPolicy admits it from any source by
-  default, so narrow it with a policy of your own. It never shows
+  inside the cluster and read it through
+  `kubectl port-forward deploy/kwatch 8060:8060`. The chart's optional
+  NetworkPolicy (off by default) limits the port to the release namespace,
+  `networkPolicy.kubeletCIDRs` and `networkPolicy.healthIngressFrom`. It never shows
   Secret values.
 - `GET /metrics` — 📊 Prometheus-format metrics. It does not require Prometheus to be
   installed. Every series has a production writer; labels are a fixed, bounded set.
@@ -254,6 +256,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
 | `kwatch_incidents_open` | gauge | none | Incidents not yet resolved |
 | `kwatch_investigations_total` | counter | `result` = `done`, `skipped`, `late`, `timeout` | Announcement investigations (log excerpts and similar evidence) by outcome |
 | `kwatch_unexplained_total` | counter | `kind` = `event`, `incident` | Failures kwatch could not explain: Warning events whose reason it has no entry for, and incidents whose cause is not clear; the reasons are in /status |
+| `kwatch_edition_rebuilds_total` | counter | `result` = `success`, `retry`, `failed` | In-process rebuilds after a license edition change: success once the new generation serves, retry per transient step retry, failed when a rebuild gave up and the process exits |
 | `kwatch_panics_recovered_total` | counter | `stage` = `detector`, `incident`, `compose`, `announce` | Panics contained on the decision path; the affected entity or area is skipped for that pass and monitoring continues |
 | `kwatch_delivery_notifications_total` | counter | none | Notification attempts |
 | `kwatch_delivery_dropped_total` | counter | none | Notifications no provider accepted: dead-lettered, failed with no fallback left, dropped by a full queue, or dropped before delivery started |
@@ -455,8 +458,8 @@ kwatch never needs write access to monitored workloads. The chart value
 
 | Mode | What it grants |
 |:---|---|
-| `full` (default) | `list` and `watch` on every resource in every API group, so any built-in kind and any CRD, including ones installed later, can be watched |
-| `least-privilege` | An explicit `list`/`watch` set for the kinds kwatch understands. Kinds outside it are reported as `permission_denied` in `/health` coverage, detectors that need them stay silent, and custom resources are not covered |
+| `full` (the raw `deploy.yaml`; opt in with `--set rbac.mode=full`) | `list` and `watch` on every resource in every API group, so any built-in kind and any CRD, including ones installed later, can be watched |
+| `least-privilege` (chart default) | An explicit `list`/`watch` set for the kinds kwatch understands. Kinds outside it are reported as `permission_denied` in `/health` coverage, detectors that need them stay silent, and custom resources are not covered |
 
 In both modes:
 
@@ -484,11 +487,11 @@ In both modes:
 **Secrets: the trade-off.** Watching Secrets is on by default, so by
 default kwatch's ServiceAccount can read every Secret in the cluster. The
 chart prints a warning after install and kwatch logs one INFO line at
-startup while Secrets are watched. `rbac.mode: least-privilege` alone does
+startup while Secrets are watched. `rbac.mode: least-privilege` (the chart default) alone does
 not remove the access; only `watch.secrets: false` does. It lets kwatch
 notice that a Pod references a missing Secret, that a changed Secret
 (by value hash, never by value) may explain a restart, and that a
-certificate Secret has expired. The cost is RBAC: the default chart
+certificate Secret has expired. The cost is RBAC: the default Secret
 grant lets the kwatch ServiceAccount `list` and `watch` Secrets in every
 namespace, so anyone who can run code as that account, or who can read its
 token, can read Secret values through the API. kwatch itself keeps only
@@ -579,7 +582,7 @@ lease, and a key extended on the server keeps working past its own expiry.
 | `license.key` | The license key. Use `${KWATCH_LICENSE_KEY}`; the `KWATCH_LICENSE_KEY` variable wins over the file. The key is never logged, only the masked license ID |
 
 kwatch keeps its instance key in the Secret `kwatch-license-instance` in its
-own namespace (the chart's RBAC names that one Secret). `/status` shows a
+own namespace (the chart grants `get` and `update` on that one Secret, in both RBAC modes). `/status` shows a
 License section, notices go to your alert providers once per change (license
 ending at 14 and 3 days, grace, Pro disabled with the reason, Pro enabled),
 and the installer's **License / Pro** menu shows the state. Removing the key

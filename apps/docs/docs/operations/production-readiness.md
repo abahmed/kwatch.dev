@@ -31,7 +31,7 @@ Initial targets for normal cluster conditions, not guarantees: readiness within 
 | `/availabilityz` | Deployment availability, used for rolling updates. Not monitoring readiness. |
 | `/health` | JSON with overall status, state lock status, component states, coverage and bounded reason codes. |
 | `/metrics` | Prometheus metrics with bounded labels. |
-| `/status` <span className="kw-pro">Pro</span> | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents. Plain text; JSON needs Pro. |
+| `/status` | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents. Plain text in both editions; JSON is <span className="kw-pro">Pro</span>. |
 
 kwatch serves no other endpoints: there are no profiling or test-alert endpoints. `/status` lists object names to anyone who can reach the health port, so keep that port inside the cluster and read it with `kubectl port-forward`. Health responses carry safe reason codes, not raw errors. The full reason vocabulary is in [General configuration](/general-configuration#-health-reasons).
 
@@ -63,7 +63,7 @@ Delivery uses bounded per-provider queues, retries for failures that can succeed
 
 For production installations, review:
 
-- the read-only ClusterRole and `rbac.mode` (`full` by default, `least-privilege` optional), see [RBAC and deployment security](/operations/rbac-and-security);
+- the read-only ClusterRole and `rbac.mode` (`least-privilege` by default; `full` is opt-in with `--set rbac.mode=full`), see [RBAC and deployment security](/operations/rbac-and-security);
 - the state volume: `ReadWriteOnce` block storage, never NFS or `ReadWriteMany`;
 - a 60-second termination grace period, probes, and resource requests and limits;
 - non-root execution, read-only root filesystem, dropped capabilities and the `RuntimeDefault` seccomp profile (the shipped manifests set these);

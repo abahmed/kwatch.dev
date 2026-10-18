@@ -47,7 +47,7 @@ KWATCH_LICENSE_KEY=YOUR_KEY \
 ## How activation works
 
 On start, kwatch sends the license service a hashed cluster id, its version and
-the node count, then renews periodically. The first successful check binds the
+the node count, then renews daily. The first successful check binds the
 key to that cluster. Nothing else about your cluster is sent.
 
 ## Offline use
@@ -114,5 +114,5 @@ The license state appears in the `/status` output:
 
 ## What is sent
 
-A hashed cluster id, kwatch version and node count. See the
+A hashed cluster id, kwatch version, node count and the instance public key. See the
 [privacy policy](https://kwatch.dev/privacy).

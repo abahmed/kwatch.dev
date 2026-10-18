@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
         'installation',
         'kwatch-manager',
         'kwatch-sh',
+        'upgrading',
       ],
     },
     {

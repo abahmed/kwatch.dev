@@ -120,6 +120,22 @@ The key is kept across upgrades and travels with configuration backups. See
 - Optional TLS monitoring is enabled only after you approve its Secret access.
 - Uninstall preserves the CRD, configuration resource, backups, and namespace.
 
+## 🔎 What the installer verifies
+
+The installer downloads release files over HTTPS, so TLS protects the
+connection. It uses `curl -f`, so an HTTP error stops the run instead of
+applying an error page. It accepts only release tags that match a strict
+pattern (`vX.Y.Z` or `vX.Y.Z-rc.N`), and it fetches the manifests, such as
+`deploy/deploy.yaml` and the CRD, from the GitHub tag of that release.
+
+It does **not** verify checksums or signatures. To check the image yourself,
+run `cosign verify ghcr.io/abahmed/kwatch:<tag>`; see
+[Release integrity](/release-integrity) for the checksums, SBOMs and provenance.
+
+Installs made by the installer use the raw `deploy.yaml`, which has
+`rbac.mode` `full`. The Helm chart defaults to `least-privilege`; see
+[RBAC and deployment security](/operations/rbac-and-security).
+
 ## 🧪 Version-aware settings
 
 The manager loads the configuration, feature, and guided-provider catalogs for

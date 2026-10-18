@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import BenefitIcon from '../components/BenefitIcon.astro';
 
 const failures = ['CrashLoopBackOff', 'OOMKilled', 'ImagePullBackOff', 'NodeNotReady', 'FailedScheduling', 'CertificateExpiring', 'PVC Pending', 'WebhookTimeout', 'RolloutStuck', 'CronJob missed'];
 
@@ -25,22 +26,33 @@ const catches = [
 ];
 
 const glossary = [
-  ['Pod', 'The smallest thing Kubernetes runs: one or more containers that run your app.'],
-  ['Node', 'A machine (physical or virtual) that pods run on.'],
-  ['Namespace', 'A named section of a cluster, often one per team or environment.'],
-  ['CrashLoopBackOff', 'An app starts, crashes, and Kubernetes keeps restarting it with longer waits in between.'],
-  ['OOMKilled', 'An app used more memory than it was allowed, so it was stopped (out of memory).'],
+  ['Cluster', 'The group of machines that runs your apps.'],
+  ['Node', 'One machine in the cluster.'],
+  ['Pod', 'A running copy of an app.'],
+  ['Namespace', 'A named area of the cluster, often one per team or app.'],
+  ['CrashLoopBackOff', 'A pod keeps starting, failing and restarting.'],
+  ['OOMKilled', 'A pod used more memory than allowed and was stopped.'],
+  ['RBAC', 'Kubernetes permissions. It decides what kwatch may read.'],
+  ['Helm', 'A package manager for Kubernetes, an alternative way to install.'],
+  ['CRD', 'A custom resource definition, an extra kind of object that a tool adds to the cluster.'],
   ['Rollout', 'Replacing the running version of an app with a new one.'],
   ['ConfigMap', 'A settings object an app reads, such as a database address.'],
   ['PDB and HPA', 'A PodDisruptionBudget limits how many copies of an app may be down at once. A HorizontalPodAutoscaler adds or removes copies as load changes.'],
-  ['RBAC', 'Role-based access control: the rules that say what a program may read or change in the cluster.'],
-  ['CRD', 'A custom resource definition: a way for add-on tools to teach Kubernetes new kinds of objects.'],
 ];
 
 const steps = [
-  ['1 — install', 'Run one command', 'The installer walks you through it and checks your cluster before it changes anything. No Kubernetes expertise needed.'],
-  ['2 — watch', 'kwatch keeps watch', 'It runs as a single pod in your cluster and notices when something breaks or changes.'],
-  ['3 — tell', 'You get one clear message', 'What broke, why, who changed it and what to do next, in Slack, Discord, email or any of 50+ other channels.'],
+  ['Step 1', 'Install', 'Run one command. It asks a few questions.'],
+  ['Step 2', 'It watches', 'kwatch runs as one small pod in your cluster and keeps a live map of what depends on what.'],
+  ['Step 3', 'You hear', 'When something breaks you get one clear message: what broke, why, and what to do.'],
+];
+
+const benefits = [
+  ['root', 'Root cause first', 'kwatch follows a failure upstream and names the one cause.'],
+  ['quiet', 'Quiet by default', 'One message, then silence until something new is true.'],
+  ['who', 'Who changed what', 'See who changed what, and when.'],
+  ['next', 'The next step', 'Every message ends with the command to run.'],
+  ['channels', '50+ channels', 'Slack, Teams, PagerDuty, email, webhooks and more.'],
+  ['data', 'Your data stays in your cluster', 'One pod. No kwatch cloud.'],
 ];
 
 const timeline = [
@@ -51,12 +63,12 @@ const timeline = [
 ];
 
 const faq = [
-  ['Do I need to be a Kubernetes expert?', 'No. The installer walks you through setup in plain questions and checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
+  ['Do I need to be a Kubernetes expert?', 'No. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
   ['What leaves my cluster?', 'Your alerts, to the channels you choose. With Pro, a daily license check sends a hashed cluster ID, the kwatch version and the node count. Separately, kwatch sends an anonymous adoption ping (hashed cluster ID and version) at most once a week; turn it off with telemetry.enabled: false. Nothing else.'],
-  ['What permissions does it need?', 'Read access to the resources it watches, granted through Kubernetes permissions (RBAC). It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
-  ['Why is Pro free?', "We want kwatch proven on real clusters before we charge anything. If that changes, you'll hear well in advance."],
+  ['What permissions does it need?', 'Read access to the resources it watches, through Kubernetes permissions (RBAC) that decide what kwatch may read. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
+  ['Why is Pro free?', "We want kwatch proven on real clusters first. If that ever changes, you will hear well in advance."],
 ];
 
 const site = 'https://kwatch.dev';
@@ -100,8 +112,8 @@ const jsonLd = [
     <div class="hero-text">
       <p class="mono-line">03:07 · #prod-alerts · 47 new messages</p>
       <h1>Fifty alerts.<br /><span class="mark">One cause.</span></h1>
-      <p class="lede">When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do next, in Slack, Discord, email and 50+ other channels.</p>
-      <p class="lede-sub">It traces every failure back to what started it, so one message replaces fifty alerts. No Kubernetes expertise needed.</p>
+      <p class="lede">When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do, in Slack, Discord, email and 50+ other channels.</p>
+      <p class="lede-sub">kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.</p>
       <div class="actions">
         <a class="btn btn-primary big" href="#install">Install free</a>
         <a class="link-strong big-link" href="#pro">Pro is free during early access →</a>
@@ -140,6 +152,9 @@ const jsonLd = [
       {steps.map(([k, h, t]) => (<li><p class="eyebrow">{k}</p><h3>{h}</h3><p>{t}</p></li>))}
     </ol>
     <p class="quick-note">The example alert above is what step 3 looks like.</p>
+    <ul class="benefits">
+      {benefits.map(([i, n, t]) => (<li><BenefitIcon name={i as 'root'} /><p class="b-name">{n}</p><p class="b-text">{t}</p></li>))}
+    </ul>
   </section>
 
   <section id="how" class="wrap section">
@@ -226,7 +241,7 @@ const jsonLd = [
 
   <section id="install" class="install on-ink">
     <div class="wrap section">
-      <h2 class="display h2-lg">Paste one line.<br /><span class="signal">Answer a few questions.</span></h2>
+      <h2 class="display h2-lg">One command, and it<br /><span class="signal">walks you through it.</span></h2>
       <div class="terminal" role="group" aria-label="Example installer session">
         <div><span class="dim">$</span> /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</div>
         <div class="gap dim">✓ Connected to <span class="bright">prod-eu-1</span></div>
@@ -234,15 +249,15 @@ const jsonLd = [
         <div class="dim">? Add a Pro license key? <span class="bright">(Enter to skip)</span></div>
         <div class="dim">✓ kwatch is running</div>
       </div>
-      <p class="install-note">The installer walks you through it and checks your cluster before it changes anything. Run it again any time to upgrade, change settings or manage your license.</p>
-      <p class="install-note">Already use Helm? Add the chart repository with <code>helm repo add kwatch https://kwatch.dev/charts</code> and follow the <a href="https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md">chart guide</a>.</p>
+      <p class="install-note">The installer checks your cluster before it changes anything. Run it again any time to upgrade, change settings or manage your license.</p>
+      <p class="install-note">Already use Helm? Use the chart instead. Add the repository with <code>helm repo add kwatch https://kwatch.dev/charts</code> and follow the <a href="https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md">chart guide</a>.</p>
     </div>
   </section>
 
   <section id="pro" class="wrap section">
     <div class="pro-head">
       <h2 class="display h2-lg">Free. And Pro is free too.</h2>
-      <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per company.</p>
+      <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per account or company. No payment details.</p>
     </div>
     <div class="editions">
       <div class="edition community">
@@ -299,6 +314,11 @@ const jsonLd = [
   .quick-steps { list-style: none; padding: 0; margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
   .quick-steps h3 { margin: 8px 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
   .quick-steps p:not(.eyebrow) { color: var(--text-soft); }
+  .benefits { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .benefits li { background: var(--bg); padding: 22px; }
+  .benefits svg { color: var(--text); }
+  .b-name { margin-top: 12px; font-weight: 600; }
+  .b-text { margin-top: 4px; font-size: 14px; color: var(--text-muted); }
   .quick-note { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
   .cell-term { margin-top: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
   .glossary { margin-top: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 20px; background: var(--bg); }
@@ -438,11 +458,13 @@ const jsonLd = [
     .catches-head, .quiet, .editions { grid-template-columns: 1fr; gap: 28px; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .quick-steps { grid-template-columns: 1fr; gap: 24px; }
+    .benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .cta-inner { padding-block: 80px; }
   }
   @media (max-width: 480px) {
     .grid { grid-template-columns: 1fr; }
     .glossary dl { grid-template-columns: 1fr; gap: 2px; }
+    .benefits { grid-template-columns: 1fr; }
     .glossary dd { margin-bottom: 10px; }
     .edition { padding: 26px 22px; }
     .terminal { padding: 20px 16px; font-size: 14px; }

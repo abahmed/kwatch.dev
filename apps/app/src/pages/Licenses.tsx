@@ -234,7 +234,7 @@ export default function Licenses() {
           <div>
             <h1 className="big">Get your free Pro license.</h1>
             <p className="lead">
-              Pro is free during early access: 3 months, renewable, one cluster per license. You can have{' '}
+              Pro is free during early access. Each license is free for 3 months and we may renew it. One license runs one cluster. You can have{' '}
               {free?.limit ?? 2}
               {where ? ` (shared across ${where})` : ''}.
             </p>

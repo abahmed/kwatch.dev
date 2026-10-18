@@ -1,6 +1,6 @@
 ---
 sidebar_position: 2
-title: All 55 kwatch alert providers for Kubernetes incidents
+title: All kwatch alert providers for Kubernetes incidents
 sidebar_label: All alert providers
 description: Complete kwatch alert provider reference generated from the current provider catalog
 keywords: [kwatch providers, Kubernetes alerts, alert integrations, webhooks, notifications]
@@ -8,7 +8,7 @@ keywords: [kwatch providers, Kubernetes alerts, alert integrations, webhooks, no
 
 # 📣 All alert providers
 
-kwatch currently supports **55 alert providers**. This page is generated from the versioned `provider-catalog.tsv` shipped with the same release as `kwatch.sh`, so the fields here are the fields the guided setup can configure.
+kwatch currently supports **50+ alert providers**. This page is generated from the versioned `provider-catalog.tsv` shipped with the same release as `kwatch.sh`, so the fields here are the fields the guided setup can configure.
 
 Use one or more blocks under `alert:`. The Community edition sends to one provider (choose it with `app.communityProvider`); Pro sends to all configured providers. Provider credentials, webhook URLs, tokens, API keys, passwords, and access tokens are **Secret-only**: mount them from a Kubernetes Secret and reference them with an exact `${file:/absolute/path}` value. Plain credentials and `${ENV_VAR}` substitutions are rejected for sensitive fields.
 

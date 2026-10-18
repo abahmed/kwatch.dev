@@ -3,7 +3,7 @@ sidebar_position: 1
 slug: /channels
 title: "Kubernetes alert channels: Slack, Discord, PagerDuty, email"
 sidebar_label: Channels
-description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 55 notification providers
+description: configure kwatch Kubernetes alerts for Slack, Discord, PagerDuty, email, webhooks, and 50+ notification channels
 keywords: [kwatch channels, Kubernetes notifications, Kubernetes alerts, Slack, Discord, PagerDuty, webhooks]
 pagination_next: channels/slack
 pagination_prev: null
@@ -11,7 +11,7 @@ pagination_prev: null
 
 # 📣 Channels
 
-kwatch can send the same clear alert to **55 providers**. Pick the place your
+kwatch can send the same clear alert to **50+ channels**. Pick the place your
 team already checks:
 
 | You want... | Try... |

@@ -1016,7 +1016,7 @@ spec:
 
 ## 🚦 Alert providers
 
-kwatch delivers to 55 alert integrations, configured under `alert:`. The Community edition
+kwatch delivers to 50+ alert integrations, configured under `alert:`. The Community edition
 sends to one provider (choose it with `app.communityProvider`); Pro sends to all configured
 providers and adds routing<span className="kw-pro">Pro</span> by scope. Retry and fallback are available per provider:
 

@@ -10,7 +10,9 @@ pagination_prev: getting-started
 
 # 🚀 Installation
 
-> 🧭 **Supported path:** use `kwatch.sh` for installation, upgrades, configuration,
+One command, and it walks you through it.
+
+> **Supported path:** use `kwatch.sh` for installation, upgrades, configuration,
 > and removal. It creates the Secret, applies the matching release resources,
 > enables the namespace security labels, and verifies the workload posture.
 > Do not apply `deploy.yaml` or `config.yaml` manually.
@@ -19,12 +21,12 @@ For the normal lifecycle, use the manager:
 
 | You want to... | Use |
 | --- | --- |
-| Try kwatch with the fewest decisions | 🧭 [Interactive manager](#-interactive-manager-recommended) |
-| Need to inspect the generated resources | 🔍 [Release artifacts](https://github.com/abahmed/kwatch/tree/main/deploy) |
-| Move from v0.10.x | ⬆️ [Upgrading to v1.0.0](/upgrading) |
-| Prefer Helm (advanced) | A short pointer in [Upgrading](/upgrading#if-you-use-helm-advanced); chart values are in the [kwatch repository](https://github.com/abahmed/kwatch/tree/main/deploy/chart) |
+| Try kwatch with the fewest decisions | [Run the installer](#-run-the-installer) |
+| Need to inspect the generated resources | [Release artifacts](https://github.com/abahmed/kwatch/tree/main/deploy) |
+| Move from v0.10.x | [Upgrading to v1.0.0](/upgrading) |
+| Already use [Helm](/glossary#helm)? | [Already use Helm?](#already-use-helm) |
 
-## ✅ Before you begin
+## 🚀 Before you begin
 
 You need:
 
@@ -39,12 +41,12 @@ kubectl cluster-info
 ```
 
 The default installation runs one small Pod with its state on a 2Gi volume
-(set `KWATCH_STORAGE=emptydir` to skip the volume). The Pod reads cluster
-resources through Kubernetes RBAC, and the manager applies the required
+(set `KWATCH_STORAGE=emptydir` to skip the volume). The [pod](/glossary#pod) reads cluster
+resources through Kubernetes [RBAC](/glossary#rbac), and the manager applies the required
 permissions. TLS monitoring needs additional Secret access and is off by
 default. Pro adds high availability with more than one replica.
 
-## 🧭 Interactive manager (recommended)
+## 🚀 Run the installer {#-run-the-installer}
 
 Run one command:
 
@@ -54,12 +56,12 @@ Run one command:
 
 The manager will:
 
-1. 🧭 Ask which Kubernetes cluster to manage.
-2. 🔎 Check the selected cluster and your permissions.
-3. 🎯 Ask where alerts should go.
-4. 🔐 Store notification credentials in a Secret.
-5. 🧱 Install the CRD and kwatch workload.
-6. ✅ Wait for kwatch to become ready.
+1. Ask which Kubernetes cluster to manage.
+2. Check the selected cluster and your permissions.
+3. Ask where alerts should go.
+4. Store notification credentials in a Secret.
+5. Install the CRD and kwatch workload.
+6. Wait for kwatch to become ready.
 
 Run the same command later to configure, upgrade, manage your license,
 check status, or uninstall.
@@ -73,12 +75,12 @@ through `kwatch.sh`; do not apply or delete the files directly.
 
 ## 🔑 Add a Pro license (optional)
 
-Community needs no key. To use Pro, which is free during early access, get a
+Community needs no key. Pro is free during early access: get a
 key on your [account page](https://app.kwatch.dev) and choose **License / Pro** then **Add or
 replace key** in the manager. A fresh install also offers it at the end. For a
 scripted run, set `KWATCH_LICENSE_KEY`. See [License](/license).
 
-## 📦 Release artifacts (inspection only)
+## 🔎 Release artifacts (inspection only)
 
 The repository contains the CRD, Deployment, RBAC, chart, and catalog files so
 that users can audit exactly what the manager applies. They are not a second
@@ -99,7 +101,7 @@ The main environment variables inside the workload are:
 | `POD_NAMESPACE` | detected from the Pod | Namespace for persisted state |
 | `GOMEMLIMIT` | based on the resource limit | Soft Go memory limit |
 
-## 🔎 Troubleshooting
+## ❓ Troubleshooting
 
 ### The pod is not ready
 
@@ -131,3 +133,22 @@ claiming that it is monitoring-ready.
 Run `kwatch lint` before applying a changed config. Use `kwatch lint --check`
 when you also want to test credentials for providers that support checks. See the [configuration
 reference](/general-configuration).
+
+## 📦 Already use Helm? {#already-use-helm}
+
+The installer is the supported path and is always first. If you already
+manage your cluster with [Helm](/glossary#helm), the chart is an alternative;
+see [Upgrading](/upgrading#if-you-use-helm-advanced) for a short pointer.
+
+<details>
+<summary>Helm details: RBAC modes, values and Secret access</summary>
+
+The chart repository is `https://kwatch.dev/charts`. The chart defaults to
+`rbac.mode: least-privilege`; pass `--set rbac.mode=full` to watch custom
+resources and kinds added later. Watching Secrets is on by default; set
+`watch.secrets: false` to remove all Secret access. Chart values are listed in
+the [chart README](https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md).
+See [RBAC and deployment security](/operations/rbac-and-security). Manage
+licenses only through the installer's **License / Pro** menu.
+
+</details>

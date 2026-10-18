@@ -579,6 +579,102 @@ if [ -n "${KWATCH_BIN:-}" ]; then
   CONFIG_FILE="$CAPTURE_DIR/config.yaml" "$KWATCH_BIN" lint --strict
 fi
 
+# Release downloads are checked against the release's SHA256SUMS.
+REL_DIR="$CAPTURE_DIR/release"
+mkdir -p "$REL_DIR"
+curl() {
+  local out="" url="" prev=""
+  for arg in "$@"; do
+    [ "$prev" = -o ] && out="$arg"
+    prev="$arg"
+    url="$arg"
+  done
+  local name="${url#"$RELEASE_DOWNLOAD_URL"/}"
+  if [ -f "$REL_DIR/$name" ]; then
+    cp "$REL_DIR/$name" "$out"
+    printf 200
+  elif [ -f "$REL_DIR/${name%%/*}/FAIL" ]; then
+    printf 500
+  else
+    printf 404
+  fi
+}
+manifest="$CAPTURE_DIR/deploy.yaml"
+printf 'kind: Deployment\n' >"$manifest"
+good_sum=$(sha256_of_file "$manifest")
+[ "${#good_sum}" -eq 64 ] || { echo "sha256_of_file gave no digest" >&2; exit 1; }
+
+mkdir -p "$REL_DIR/v1.0.0"
+printf '%s  deploy/deploy.yaml\n%s  deploy/crd.yaml\n' "$good_sum" "$good_sum" \
+  >"$REL_DIR/v1.0.0/SHA256SUMS"
+
+verify_release_file v1.0.0 deploy/deploy.yaml "$manifest" 2>/dev/null || {
+  echo "a matching checksum was rejected" >&2
+  exit 1
+}
+
+# shasum fallback when sha256sum is absent.
+real_have_command=$(declare -f have_command)
+have_command() { [ "$1" != sha256sum ] && type -P "$1" >/dev/null 2>&1; }
+verify_release_file v1.0.0 deploy/crd.yaml "$manifest" 2>/dev/null || {
+  echo "shasum fallback failed" >&2
+  exit 1
+}
+eval "$real_have_command"
+
+printf 'kind: Deployment\n# tampered\n' >"$CAPTURE_DIR/tampered.yaml"
+if verify_release_file v1.0.0 deploy/deploy.yaml "$CAPTURE_DIR/tampered.yaml" 2>/dev/null; then
+  echo "a mismatched checksum was accepted" >&2
+  exit 1
+fi
+case "$LAST_COMMAND_ERROR" in
+  *"checksum mismatch for deploy/deploy.yaml at v1.0.0"*"Nothing was applied"*) ;;
+  *) echo "mismatch message unclear: $LAST_COMMAND_ERROR" >&2; exit 1 ;;
+esac
+
+# A release with no SHA256SUMS (rc.19 and older) warns and continues when not interactive.
+warning=$(verify_release_file v1.0.0-rc.19 deploy/deploy.yaml "$manifest" 2>&1 </dev/null) || {
+  echo "a release without SHA256SUMS was refused" >&2
+  exit 1
+}
+grep -Fq 'publishes no SHA256SUMS' <<<"$warning"
+
+# A missing entry, or a failed download that is not a 404, is never skipped.
+mkdir -p "$REL_DIR/v1.0.1" "$REL_DIR/v1.0.2"
+printf '%s  deploy/other.yaml\n' "$good_sum" >"$REL_DIR/v1.0.1/SHA256SUMS"
+if verify_release_file v1.0.1 deploy/deploy.yaml "$manifest" 2>/dev/null; then
+  echo "a missing SHA256SUMS entry was accepted" >&2
+  exit 1
+fi
+: >"$REL_DIR/v1.0.2/FAIL"
+if verify_release_file v1.0.2 deploy/deploy.yaml "$manifest" 2>/dev/null; then
+  echo "a failed SHA256SUMS download was skipped" >&2
+  exit 1
+fi
+
+# cosign: skipped with a notice when absent, enforced when present.
+printf bundle >"$REL_DIR/v1.0.0/SHA256SUMS.sigstore.json"
+have_command() { [ "$1" != cosign ] && type -P "$1" >/dev/null 2>&1; }
+notice=$(verify_release_file v1.0.0 deploy/deploy.yaml "$manifest" 2>&1) || {
+  echo "missing cosign blocked verification" >&2
+  exit 1
+}
+grep -Fq 'cosign is not installed' <<<"$notice"
+have_command() { type -P "$1" >/dev/null 2>&1 || [ "$1" = cosign ]; }
+cosign() { return 0; }
+verify_release_file v1.0.0 deploy/deploy.yaml "$manifest" 2>/dev/null || {
+  echo "a valid signature was rejected" >&2
+  exit 1
+}
+cosign() { return 1; }
+if verify_release_file v1.0.0 deploy/deploy.yaml "$manifest" 2>/dev/null; then
+  echo "a bad signature was accepted" >&2
+  exit 1
+fi
+grep -Fq 'cosign signature' <<<"$LAST_COMMAND_ERROR"
+unset -f curl cosign
+eval "$real_have_command"
+
 bash "$ROOT/tests/kwatch-license-test.sh"
 bash "$ROOT/tests/kwatch-license-apply-test.sh"
 echo "kwatch manager secret test passed"

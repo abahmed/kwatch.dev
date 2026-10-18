@@ -1,6 +1,7 @@
 ---
 sidebar_position: 15
-title: Custom Webhook
+title: Send Kubernetes alerts to Custom Webhook with kwatch
+sidebar_label: Custom Webhook
 description: Send clear Kubernetes incident alerts to any custom webhook — configure endpoint and payload format for kwatch
 keywords: [kwatch, webhook, custom, kubernetes incident alerts, k8s notifications, webhook integration]
 pagination_next: null
@@ -83,3 +84,8 @@ alert:
       password: "${file:/config/webhook-password}"
     fallback: <another_provider>
 ```
+
+## Related
+
+- [Custom Webhook provider settings](/channels/provider-guides/webhook) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

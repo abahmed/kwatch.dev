@@ -1,6 +1,7 @@
 ---
 sidebar_position: 7
-title: PagerDuty
+title: Send Kubernetes alerts to PagerDuty with kwatch
+sidebar_label: PagerDuty
 description: Route clear Kubernetes incident alerts to PagerDuty — configure integration key and severity routing for kwatch
 keywords: [kwatch, pagerduty, kubernetes incident alerts, incident response, k8s monitoring]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/pagerduty.png" max-height="700px" alt="PagerDuty notification screenshot" />
 </p>
+
+## Related
+
+- [PagerDuty provider settings](/channels/provider-guides/pagerduty) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

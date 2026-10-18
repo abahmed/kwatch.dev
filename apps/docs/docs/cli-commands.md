@@ -1,6 +1,7 @@
 ---
 sidebar_position: 20
-title: CLI Commands
+title: kwatch CLI commands, environment variables and exit codes
+sidebar_label: CLI Commands
 description: kwatch command-line reference covering lint, version, replay-export, environment variables and exit codes.
 keywords: [kwatch, cli, commands, lint, version, license, replay-export, flags]
 pagination_next: null

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 16
-title: Email
+title: Send Kubernetes alerts to Email with kwatch
+sidebar_label: Email
 description: Get clear Kubernetes incident alerts via Email (SMTP) — configure SMTP server and recipients for kwatch
 keywords: [kwatch, email, smtp, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null
@@ -79,3 +80,8 @@ alert:
     port: "587"
     fallback: slack
 ```
+
+## Related
+
+- [Email provider settings](/channels/provider-guides/email) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

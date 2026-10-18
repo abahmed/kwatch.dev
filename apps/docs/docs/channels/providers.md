@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: All alert providers
+title: All 55 kwatch alert providers for Kubernetes incidents
+sidebar_label: All alert providers
 description: Complete kwatch alert provider reference generated from the current provider catalog
 keywords: [kwatch providers, Kubernetes alerts, alert integrations, webhooks, notifications]
 ---

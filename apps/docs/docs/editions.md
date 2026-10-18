@@ -1,6 +1,7 @@
 ---
 sidebar_position: 8
-title: Community vs Pro
+title: "kwatch Community vs Pro: features and early access"
+sidebar_label: Community vs Pro
 description: What kwatch Community includes, what kwatch Pro adds, and how early access licensing works.
 keywords: [kwatch Pro, kwatch Community, editions, early access, license]
 ---

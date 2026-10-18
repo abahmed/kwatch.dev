@@ -1,6 +1,7 @@
 ---
 sidebar_position: 15
-title: Heartbeat Monitor
+title: Dead man's switch heartbeat monitor for kwatch
+sidebar_label: Heartbeat Monitor
 description: configure kwatch's optional heartbeat monitor to detect when the Kubernetes monitor itself stops running
 keywords: [kwatch, kubernetes, configuration, monitor, heartbeat, deadman, healthchecks]
 pagination_next: null
@@ -78,3 +79,10 @@ heartbeatMonitor:
   interval: 60
   url: "${file:/config/heartbeat-url}"
 ```
+
+## Related
+
+- [Kubernetes failure coverage](/kubernetes-coverage): every detector and its edition
+- [General configuration](/general-configuration) and the [generated configuration reference](/reference/generated/configuration)
+- [Community vs Pro](/editions)
+- [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

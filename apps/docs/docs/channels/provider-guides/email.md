@@ -1,5 +1,6 @@
 ---
-title: Email alerts
+title: Email provider settings for kwatch Kubernetes alerts
+sidebar_label: Email alerts
 description: Configure Email Kubernetes alerts with kwatch. Required settings include From address and From password; review Secret handling and routing.
 keywords: [kwatch, Kubernetes alerts, Email, notification channel]
 ---
@@ -53,3 +54,8 @@ alert:
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
 
+## Related
+
+- [Set up Email alerts step by step](/channels/email)
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

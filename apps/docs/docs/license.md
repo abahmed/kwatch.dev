@@ -1,6 +1,7 @@
 ---
 sidebar_position: 9
-title: License
+title: "kwatch Pro license key: get, install, move, troubleshoot"
+sidebar_label: License
 description: Get, install, move and troubleshoot a kwatch Pro license key.
 keywords: [kwatch license, kwatch Pro, license key, installer, activation, grace period]
 ---

@@ -59,6 +59,24 @@ function hasTag(html, name, predicate) {
   return htmlTags(html, name).some(predicate);
 }
 
+// Every source doc must set its own description and title in front matter,
+// so no page falls back to an auto-generated snippet.
+function markdownFiles(directory) {
+  return fs.readdirSync(directory, {withFileTypes: true}).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? markdownFiles(entryPath) :
+      /\.mdx?$/.test(entry.name) ? [entryPath] : [];
+  });
+}
+for (const file of markdownFiles(path.resolve('docs'))) {
+  const front = fs.readFileSync(file, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+  const name = path.relative(process.cwd(), file);
+  const description = front.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+  if (!description) fail(`${name} has no description in its front matter`);
+  else if (description.length < 40) fail(`${name} description is too short`);
+  if (!/^title:\s*\S/m.test(front)) fail(`${name} has no title in its front matter`);
+}
+
 const sitemap = read(sitemapPath);
 const robots = read(robotsPath);
 const sitemapURLs = urlsFromSitemap(sitemap);
@@ -95,6 +113,19 @@ for (const file of indexablePages) {
     .filter((tag) => !/\balt="[^"]*"/i.test(tag));
   const noIndex = html.includes('content="noindex');
 
+  const jsonLd = [...html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([^<]+)<\/script>/g)]
+    .map((match) => match[1]);
+  const wantsType = route === '/' ? 'SoftwareApplication' : 'TechArticle';
+  if (!jsonLd.some((block) => block.includes(`"@type":"${wantsType}"`))) {
+    fail(`${route} lacks ${wantsType} structured data`);
+  }
+  if (route !== '/' && !jsonLd.some((block) => block.includes('"@type":"BreadcrumbList"'))) {
+    fail(`${route} lacks BreadcrumbList structured data`);
+  }
+  if (title && title.length > 80) fail(`${route} title is longer than 80 characters`);
+  if (!hasTag(html, 'meta', (tag) => /\bname="twitter:card"/i.test(tag))) {
+    fail(`${route} lacks a twitter:card`);
+  }
   if (!title) fail(`${route} has no non-empty title`);
   if (!description) fail(`${route} has no meta description`);
   if (!hasCanonical) fail(`${route} has no canonical URL for ${canonical}`);
@@ -124,6 +155,11 @@ for (const file of excludedPages) {
   if (sitemapURLs.has(canonical)) {
     fail(`${route} is excluded but appears in sitemap.xml`);
   }
+}
+
+const lastmods = (sitemap.match(/<lastmod>[^<]+<\/lastmod>/g) ?? []).length;
+if (lastmods !== sitemapURLs.size) {
+  fail(`sitemap has ${lastmods} lastmod entries for ${sitemapURLs.size} URLs`);
 }
 
 for (const url of sitemapURLs) {

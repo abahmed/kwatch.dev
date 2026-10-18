@@ -1,6 +1,7 @@
 ---
 sidebar_position: 16
-title: TLS Monitor
+title: Kubernetes TLS certificate expiry alerts with kwatch
+sidebar_label: TLS Monitor
 description: configure kwatch to detect expiring TLS certificates stored in Kubernetes Secrets
 keywords: [kwatch, kubernetes, configuration, monitor, tls, certificate, ssl, expiry]
 pagination_next: null
@@ -39,3 +40,10 @@ Certificate detection needs read access to `secrets`. The installer and the Helm
 
 If a Secret contains multiple certificates (e.g. both RSA and ECDSA), kwatch
 checks all of them and alerts on the earliest expiry.
+
+## Related
+
+- [Kubernetes failure coverage](/kubernetes-coverage): every detector and its edition
+- [General configuration](/general-configuration) and the [generated configuration reference](/reference/generated/configuration)
+- [Community vs Pro](/editions)
+- [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

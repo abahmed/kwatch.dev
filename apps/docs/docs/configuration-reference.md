@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
-title: Complete configuration reference
+title: Complete kwatch configuration reference
+sidebar_label: Complete configuration reference
 description: Compatibility entry point for the generated kwatch configuration reference.
 keywords: [kwatch configuration, Kubernetes monitoring settings, alert configuration]
 ---

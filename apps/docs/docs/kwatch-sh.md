@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: kwatch.sh manager reference
+title: "kwatch.sh installer reference: options and what it verifies"
+sidebar_label: kwatch.sh manager reference
 description: Install, configure, upgrade, verify, and uninstall kwatch with the interactive kwatch.sh manager.
 keywords: [kwatch.sh, Kubernetes installation, kwatch manager, Kubernetes Secrets]
 ---

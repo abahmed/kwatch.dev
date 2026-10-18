@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
-title: Microsoft Teams
+title: Send Kubernetes alerts to Microsoft Teams with kwatch
+sidebar_label: Microsoft Teams
 description: Get clear Kubernetes incident alerts in Microsoft Teams — configure webhook connector for kwatch
 keywords: [kwatch, microsoft teams, kubernetes incident alerts, k8s notifications, devops]
 pagination_next: null

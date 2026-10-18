@@ -1,6 +1,7 @@
 ---
 sidebar_position: 10
-title: Mattermost
+title: Send Kubernetes alerts to Mattermost with kwatch
+sidebar_label: Mattermost
 description: Send clear Kubernetes incident alerts to Mattermost — configure webhook integration for kwatch notifications
 keywords: [kwatch, mattermost, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/mattermost.png" max-height="700px" alt="Mattermost notification screenshot" />
 </p>
+
+## Related
+
+- [Mattermost provider settings](/channels/provider-guides/mattermost) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

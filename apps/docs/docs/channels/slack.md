@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: Slack
+title: Send Kubernetes alerts to Slack with kwatch
+sidebar_label: Slack
 description: Send clear Kubernetes incident alerts to Slack — configure webhook, channels, and severity routing for kwatch
 keywords: [kwatch, slack, kubernetes incident alerts, pod monitoring, k8s notifications, devops]
 pagination_next: null
@@ -90,3 +91,8 @@ alert:
 <p align="center">
     <img src="./../../img/slack.png" max-height="700px" alt="Slack notification screenshot" />
 </p>
+
+## Related
+
+- [Slack provider settings](/channels/provider-guides/slack) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

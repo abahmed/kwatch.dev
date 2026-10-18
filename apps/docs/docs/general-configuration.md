@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
-title: General Configuration
+title: "kwatch configuration reference: namespaces, silences, RBAC"
+sidebar_label: General Configuration
 description: Configure kwatch monitors, alert routing, silences, grouping, and Secret-backed credentials for Kubernetes incident response.
 keywords: [kwatch configuration, Kubernetes monitoring configuration, Kubernetes alerts, silences, alert routing, CRD, monitors, secrets]
 pagination_next: null

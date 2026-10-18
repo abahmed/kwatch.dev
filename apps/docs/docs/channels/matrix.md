@@ -1,6 +1,7 @@
 ---
 sidebar_position: 12
-title: Matrix
+title: Send Kubernetes alerts to Matrix with kwatch
+sidebar_label: Matrix
 description: Get clear Kubernetes incident alerts in Matrix — configure homeserver and room ID for kwatch
 keywords: [kwatch, matrix, kubernetes incident alerts, pod monitoring, k8s notifications]
 pagination_next: null
@@ -84,3 +85,8 @@ alert:
 <p align="center">
     <img src="./../../img/matrix.png" max-height="700px" alt="Matrix notification screenshot" />
 </p>
+
+## Related
+
+- [Matrix provider settings](/channels/provider-guides/matrix) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

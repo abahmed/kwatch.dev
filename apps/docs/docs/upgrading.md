@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
-title: Upgrading to v1.0.0
+title: Upgrade kwatch to v1.0.0 from v0.10.x
+sidebar_label: Upgrading to v1.0.0
 description: Upgrade a running kwatch v0.10.x install to v1.0.0 with the kwatch.sh installer, and what changes on the first start.
 keywords: [kwatch upgrade, kwatch v1.0.0, v0.10.5, release candidate, kwatch.sh, migration]
 ---

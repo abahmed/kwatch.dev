@@ -1,5 +1,6 @@
 ---
-title: Slack alerts
+title: Slack provider settings for kwatch Kubernetes alerts
+sidebar_label: Slack alerts
 description: Configure Slack Kubernetes alerts with kwatch. Choose a webhook or bot token, then review Secret handling, routing, and retries.
 keywords: [kwatch, Kubernetes alerts, Slack, notification channel]
 ---
@@ -43,3 +44,9 @@ alert:
 ```
 
 Add `routes`, `retry`, and `fallback` when you need delivery filtering or recovery. See the [channels overview](/channels) for guidance, or the [complete provider reference](/channels/providers) for the catalog-wide view.
+
+## Related
+
+- [Set up Slack alerts step by step](/channels/slack)
+- [All alert providers](/channels/providers) and [how channels work](/channels)
+- [Configuration reference](/general-configuration) and [Troubleshoot missing or delayed alerts](/operations/troubleshooting)

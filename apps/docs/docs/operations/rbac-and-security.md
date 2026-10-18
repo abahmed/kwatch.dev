@@ -1,5 +1,6 @@
 ---
-title: RBAC and deployment security
+title: kwatch RBAC permissions and Kubernetes security review
+sidebar_label: RBAC and deployment security
 description: Review Kwatch permissions, diagnostics, and pod security before production rollout.
 sidebar_position: 4
 ---

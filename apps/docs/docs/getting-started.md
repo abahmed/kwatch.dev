@@ -1,7 +1,8 @@
 ---
 sidebar_position: 1
 slug: /
-title: Getting Started
+title: "kwatch docs: Kubernetes incident monitoring and alerting"
+sidebar_label: Getting Started
 description: learn how kwatch monitors Kubernetes incidents and sends clear alerts with causes and next steps
 keywords: [kwatch, kubernetes monitoring, kubernetes alerts, pod crashes, incident diagnosis, beginner]
 pagination_next: installation

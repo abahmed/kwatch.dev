@@ -1,6 +1,7 @@
 ---
 sidebar_position: 8
-title: Zenduty
+title: Send Kubernetes alerts to Zenduty with kwatch
+sidebar_label: Zenduty
 description: Forward clear Kubernetes incident alerts to Zenduty — configure integration key for kwatch
 keywords: [kwatch, zenduty, kubernetes incident alerts, incident response, k8s monitoring]
 pagination_next: null
@@ -78,3 +79,8 @@ alert:
 <p align="center">
     <img src="./../../img/zenduty.png" max-height="700px" alt="Zenduty notification screenshot" />
 </p>
+
+## Related
+
+- [Zenduty provider settings](/channels/provider-guides/zenduty) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

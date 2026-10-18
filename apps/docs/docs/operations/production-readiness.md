@@ -1,5 +1,6 @@
 ---
-title: Production readiness
+title: "Run kwatch in production: readiness checklist"
+sidebar_label: Production readiness
 description: Operating model, health signals, memory sizing, delivery guarantees, and validation for running kwatch reliably on Kubernetes.
 sidebar_position: 1
 keywords: [kwatch, production, readiness, failover, health, persistence, Kubernetes]

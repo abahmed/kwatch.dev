@@ -1,6 +1,7 @@
 ---
 sidebar_position: 11
-title: Opsgenie
+title: Send Kubernetes alerts to Opsgenie with kwatch
+sidebar_label: Opsgenie
 description: Forward clear Kubernetes incident alerts to Opsgenie — configure API key and team routing for kwatch
 keywords: [kwatch, opsgenie, kubernetes incident alerts, incident management, k8s monitoring]
 pagination_next: null
@@ -72,3 +73,8 @@ alert:
 <p align="center">
     <img src="./../../img/opsgenie.png" max-height="700px" alt="Opsgenie notification screenshot" />
 </p>
+
+## Related
+
+- [Opsgenie provider settings](/channels/provider-guides/opsgenie) for every field
+- [All alert providers](/channels/providers) and [troubleshoot missing alerts](/operations/troubleshooting)

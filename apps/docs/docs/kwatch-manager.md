@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
-title: kwatch.sh manager
+title: "kwatch.sh installer guide: install, upgrade, uninstall"
+sidebar_label: kwatch.sh manager
 description: use the interactive kwatch.sh manager to install, configure, upgrade, and uninstall Kubernetes monitoring
 keywords: [kwatch.sh, Kubernetes installer, Kubernetes manager, kwatch upgrade, Kubernetes monitoring]
 pagination_next: null

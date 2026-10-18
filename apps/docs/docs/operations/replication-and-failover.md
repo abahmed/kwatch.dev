@@ -1,5 +1,6 @@
 ---
-title: Replication and failover
+title: kwatch replicas, standby and failover on Kubernetes
+sidebar_label: Replication and failover
 description: How kwatch runs as one replica with a state lock, what happens when its Pod or node fails, and how extra replicas wait as standbys.
 sidebar_position: 2
 ---

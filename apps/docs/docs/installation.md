@@ -1,6 +1,7 @@
 ---
 sidebar_position: 2
-title: Installation
+title: Install kwatch on Kubernetes with the kwatch.sh installer
+sidebar_label: Installation
 description: install and manage kwatch on Kubernetes with the interactive kwatch.sh manager and Secret-backed credentials
 keywords: [kwatch, kubernetes installation, kwatch.sh, Kubernetes monitoring, cluster alerts, Kubernetes Secret]
 pagination_next: kwatch-manager

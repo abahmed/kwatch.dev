@@ -213,3 +213,4 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .field-error { margin-top: 6px; font-size: 14px; color: var(--failing); }
 .help .btn { min-height: var(--hit); }
 .ref { font-family: var(--font-mono); font-size: 20px; user-select: all; }
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

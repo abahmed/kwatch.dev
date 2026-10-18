@@ -35,7 +35,7 @@ export type AccountResponse = {
   trials?: FreeInfo;
 };
 
-export type ClusterState = 'waiting' | 'ok' | 'silent' | 'off' | 'detached';
+export type ClusterState = 'waiting' | 'ok' | 'silent' | 'stopped' | 'off' | 'detached';
 
 /** GET /account/clusters row (spec pro-readiness-rc21 1.5). Times are unix seconds. */
 export type Cluster = {
@@ -48,6 +48,8 @@ export type Cluster = {
   checkins: boolean;
   state: ClusterState;
   recovered_at?: number | null;
+  /** Clean shutdown time (state 'stopped'); falls back to last_ping. Field name to confirm with kwatch-api. */
+  stopped_at?: number | null;
   quiet_seconds?: number | null;
 };
 

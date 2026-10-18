@@ -113,7 +113,7 @@ for (const file of indexablePages) {
     .filter((tag) => !/\balt="[^"]*"/i.test(tag));
   const noIndex = html.includes('content="noindex');
 
-  const jsonLd = [...html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([^<]+)<\/script>/g)]
+  const jsonLd = [...html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)]
     .map((match) => match[1]);
   const wantsType = route === '/' ? 'SoftwareApplication' : 'TechArticle';
   if (!jsonLd.some((block) => block.includes(`"@type":"${wantsType}"`))) {

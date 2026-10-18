@@ -22,11 +22,13 @@ Owners: kwatch-core (Go, `kwatch test-alert`, managed ping), kwatch-web (`kwatch
 
 ### 1.1 What it is, and what it cannot say
 
-kwatch Pro pings `api.kwatch.dev` every 10 minutes. app.kwatch.dev shows each cluster's last seen time, and marks it **silent** when nothing has been heard for 20 minutes. **Nothing is sent to anyone**: no email, no webhook, no push. The user looks at the app. (Notifications are a later decision.)
+kwatch Pro pings `api.kwatch.dev` every 15 minutes. app.kwatch.dev shows each cluster's last seen time, and marks it **silent** when nothing has been heard for 30 minutes. **Nothing is sent to anyone**: no email, no webhook, no push. The user looks at the app. (Notifications are a later decision.)
 
 A cluster that is shut down on purpose (for example a staging cluster scaled down after work hours) is **not** silent. When kwatch stops cleanly it sends a last "stopping" check-in, and the app shows the neutral state **Stopped** until the next check-in. Silent means check-ins stopped *without* a clean stop.
 
 The app must be honest about what silence means: **kwatch stopped talking.** The cluster may be fine. Three usual causes: the kwatch pod stopped, the cluster or node is down, or the cluster lost outbound access to `api.kwatch.dev`.
+
+**No high availability in v1.** kwatch runs as one pod, so one cluster has one check-in sender. If that pod is down, the cluster is Stopped or Silent; there is no second replica to take over. The app and docs must not suggest otherwise.
 
 Name in all UI: **Cluster check-ins** for the feature and **Silent** for the state (not "alerts", because nothing is sent). Never "uptime monitoring", never "we monitor your cluster", never "we will notify you".
 
@@ -46,7 +48,7 @@ They can run together. The app links the existing option: `Want a message when i
 ### 1.3 Defaults and toggle
 
 - **On by default** for an active Pro license, announced once when a key is added or moved in the installer: `Cluster check-ins are on. Turn them off in License / Pro.`
-- **Ping every 10 minutes. Silent after 20 minutes** (two missed pings). Both are fixed; no setting, no threshold control.
+- **Ping every 15 minutes. Silent after 30 minutes** (two missed pings). Both are fixed; no setting, no threshold control.
 - **Toggle:** installer, License / Pro submenu (the pod sends the ping and the installer owns config). The app shows the state read-only with `Change it in the installer: License / Pro > Cluster check-ins.`
 - **Clean stop:** on graceful shutdown (SIGTERM, within the pod's termination grace period) kwatch makes one best-effort check-in with `stopping: true`, with a 2-second limit so it never delays shutdown. A crash, OOM kill, node loss or lost network sends nothing, so those show Silent. Scaling a Deployment to zero, `kubectl delete`, and a node drain are clean stops.
 - Turning off sends one final `{"checkins": false}` ping so the app shows `Check-ins off` instead of a false silence. If that ping fails the app shows the cluster as silent until the key is removed or moved; the installer says so.
@@ -64,8 +66,8 @@ Selecting it opens:
 ```
 Cluster check-ins
 
-  kwatch checks in with api.kwatch.dev every 10 minutes. If it goes quiet
-  for 20 minutes, app.kwatch.dev shows this cluster as silent.
+  kwatch checks in with api.kwatch.dev every 15 minutes. If it goes quiet
+  for 30 minutes, app.kwatch.dev shows this cluster as silent.
   Nothing is sent to you. Sent: a hashed cluster ID, the kwatch version,
   the node count and the cluster name if you set one.
 
@@ -73,15 +75,15 @@ Cluster check-ins
     Back
 ```
 
-When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The first check-in follows within 10 minutes.` / `Cluster check-ins are off.` Failure: `Could not change Cluster check-ins: <reason>. Nothing was changed. Run the installer again after fixing it.` The item exists only with an active key (absent otherwise, not greyed).
+When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The first check-in follows within 15 minutes.` / `Cluster check-ins are off.` Failure: `Could not change Cluster check-ins: <reason>. Nothing was changed. Run the installer again after fixing it.` The item exists only with an active key (absent otherwise, not greyed).
 
 ### 1.5 Worker behaviour (contract for kwatch-api)
 
-- New route `POST /license/ping`, instance-authenticated like `/license/renew` (unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, checkins, boot_id, stopping?}`. `boot_id` is a random id made when the process starts, sent on every check-in. `204` on success. A ping within 8 minutes of the last is acknowledged without a write.
-- D1 (LICENSE_DB, migration `0006`), columns on the activation: `last_ping`, `checkins` (0/1), `boot_id`, `stopped_at` (null unless stopped), `recovered_at`, `quiet_seconds`. On each ping, in the same single `UPDATE`: if `now - last_ping` exceeded 20 minutes, set `recovered_at=now` and `quiet_seconds=now-last_ping`.
-- **Stopping check-in:** applies only when its `boot_id` equals the stored one (set by that process's earlier check-ins); it sets `stopped_at=now` and `last_ping=now`. Otherwise it is acknowledged and ignored. This matters in a rolling update: the new pod checks in before the old pod sends its stopping check-in, and the old pod's stop must not mark the cluster Stopped. Any normal check-in clears `stopped_at`; if the gap since `last_ping` exceeded 20 minutes and the cluster was not Stopped, it records `recovered_at` as before (a restart after a clean stop records nothing).
-- **No cron and no stored state.** Silent is computed on read: `stopped` when `stopped_at` is set; else `silent` when `checkins=1 AND now - last_ping > 20 min`. The existing daily cron is untouched. Nothing else calls Resend or `fetch`.
-- Free-tier budget: one cluster is 144 pings a day, so about 144 Worker requests and 144 D1 row writes. Free tier is 100k of each per day, so the ceiling is about 690 clusters. Revisit before reaching 500.
+- New route `POST /license/ping`, instance-authenticated like `/license/renew` (unversioned path). Body at most 256 bytes: `{kwatch_version, node_count, cluster_name?, checkins, boot_id, stopping?}`. `boot_id` is a random id made when the process starts, sent on every check-in. `204` on success. A ping within 12 minutes of the last is acknowledged without a write.
+- D1 (LICENSE_DB, migration `0006`), columns on the activation: `last_ping`, `checkins` (0/1), `boot_id`, `stopped_at` (null unless stopped), `recovered_at`, `quiet_seconds`. On each ping, in the same single `UPDATE`: if `now - last_ping` exceeded 30 minutes, set `recovered_at=now` and `quiet_seconds=now-last_ping`.
+- **Stopping check-in:** applies only when its `boot_id` equals the stored one (set by that process's earlier check-ins); it sets `stopped_at=now` and `last_ping=now`. Otherwise it is acknowledged and ignored. This matters in a rolling update: the new pod checks in before the old pod sends its stopping check-in, and the old pod's stop must not mark the cluster Stopped. Any normal check-in clears `stopped_at`; if the gap since `last_ping` exceeded 30 minutes and the cluster was not Stopped, it records `recovered_at` as before (a restart after a clean stop records nothing).
+- **No cron and no stored state.** Silent is computed on read: `stopped` when `stopped_at` is set; else `silent` when `checkins=1 AND now - last_ping > 30 min`. The existing daily cron is untouched. Nothing else calls Resend or `fetch`.
+- Free-tier budget: one cluster is 96 pings a day, so about 96 Worker requests and 96 D1 row writes. Free tier is 100k of each per day, so the ceiling is about 1,040 clusters. Revisit before reaching 800.
 - A released, revoked or removed activation is never shown as silent (`Not attached`).
 - `GET /account/clusters` (session): per cluster `{name, id_short, license, version, nodes, last_ping, checkins, state, recovered_at?, quiet_seconds?}` with `state` one of `waiting`, `ok`, `stopped`, `silent`, `off`, `detached`; plus `stopped_at` when stopped.
 
@@ -90,14 +92,14 @@ When off the first row reads `Turn on`. Success: `Cluster check-ins are on. The 
 | State | Pill | Last seen | Detail line |
 |---|---|---|---|
 | Healthy | `Checking in` | `4 minutes ago` | |
-| Waiting | `Waiting` | `Not yet` | `Add the key in the installer, then wait up to 10 minutes.` |
+| Waiting | `Waiting` | `Not yet` | `Add the key in the installer, then wait up to 15 minutes.` |
 | Stopped | `Stopped since 18:30 UTC` (neutral, no red) | `Yesterday 18:30` | `kwatch was stopped cleanly, for example by scaling it down. It cannot send alerts while stopped. It shows Checking in again when it starts.` |
-| Silent | `Silent since 14:02 UTC` | `38 minutes ago` | `kwatch stopped talking. Your apps may be fine, but kwatch cannot alert you while it is silent. Run kubectl -n kwatch get pods.` |
-| Back (24h) | `Back at 14:41 UTC` | `Just now` | `Silent for 39 minutes. Anything that broke in that time may not have been reported.` |
+| Silent | `Silent since 14:32 UTC` | `312 minutes ago` | `kwatch stopped talking. Your apps may be fine, but kwatch cannot alert you while it is silent. Run kubectl -n kwatch get pods.` |
+| Back (24h) | `Back at 14:55 UTC` | `Just now` | `Silent for 53 minutes. Anything that broke in that time may not have been reported.` |
 | Check-ins off | `Check-ins off` | `Not tracked` | `Turn them on in the installer: License / Pro > Cluster check-ins.` |
 | Released or revoked | `Not attached` | | |
 
-`Stopped since` is the time of the stopping check-in. `Silent since` is the last ping time plus 20 minutes. Stopped is never red and never counts as a problem. If it stays stopped for more than 7 days the detail line adds ` If this is not planned, check the cluster.` Pills pair a word with colour: silent uses failing #E5484D, back uses resolved #2F80ED, the rest neutral. `kwatch` is the installer's default namespace; if the ping later carries the namespace, use it.
+`Stopped since` is the time of the stopping check-in. `Silent since` is the last ping time plus 30 minutes. Stopped is never red and never counts as a problem. If it stays stopped for more than 7 days the detail line adds ` If this is not planned, check the cluster.` Pills pair a word with colour: silent uses failing #E5484D, back uses resolved #2F80ED, the rest neutral. `kwatch` is the installer's default namespace; if the ping later carries the namespace, use it.
 
 ### 1.7 App screen (new page `/clusters`, nav item "Clusters")
 
@@ -105,27 +107,27 @@ Table on desktop, stacked cards under 640px. Columns: Cluster (name, short id in
 
 Under the table, one quiet panel:
 
-- Heading `How this works`; body `kwatch checks in every 10 minutes. After 20 minutes without a check-in we mark the cluster silent here. We do not send messages. Want one? kwatch can ping a monitor you own.` (link to the docs page for `heartbeatMonitor`).
-- Empty state (no cluster attached): `No clusters yet. Add a key in the installer (License / Pro > Add or replace key) and it appears here within 10 minutes.`
+- Heading `How this works`; body `kwatch checks in every 15 minutes. After 30 minutes without a check-in we mark the cluster silent here. We do not send messages. Want one? kwatch can ping a monitor you own.` (link to the docs page for `heartbeatMonitor`).
+- Empty state (no cluster attached): `No clusters yet. Add a key in the installer (License / Pro > Add or replace key) and it appears here within 15 minutes.`
 - Loading: skeleton rows with `aria-busy`. Error: `Could not load your clusters. Reload the page; if it keeps failing, use Get help.`
 
 Dark mode: dark status colours with the same words; focus ring Ink in light, #F2F3F0 in dark.
 
 ### 1.8 Acceptance checks
 
-1. A pod pinging every 10 minutes is never shown silent; stopping it shows `silent` at 20 minutes plus, with the correct "Silent since" time, computed with no cron running.
-2. A restart that pings again within 20 minutes is never silent.
-3. A ping after a gap over 20 minutes sets `Back at` and the quiet duration, shown for 24 hours.
+1. A pod pinging every 15 minutes is never shown silent; stopping it shows `silent` at 30 minutes plus, with the correct "Silent since" time, computed with no cron running.
+2. A restart that pings again within 30 minutes is never silent.
+3. A ping after a gap over 30 minutes sets `Back at` and the quiet duration, shown for 24 hours.
 4. Turning off in the installer sends the final ping; the cluster shows `Check-ins off` and never `silent`.
 5. Revoked license or released cluster shows `Not attached`.
-6. A second ping within 8 minutes causes no D1 write.
+6. A second ping within 12 minutes causes no D1 write.
 7. No code path in this feature sends email, calls a webhook, or reads or stores a notification URL; the Worker config has no new cron.
 8. `GET /account/clusters` returns only the account's own clusters.
 9. The installer and `/pro` list exactly what is sent: hashed cluster id, version, node count, optional cluster name. Core confirms against the payload.
 10. The existing `heartbeatMonitor` tests pass untouched.
 11. A graceful stop (SIGTERM) sends one `stopping` check-in within 2 seconds and never delays shutdown by more than that; the app then shows `Stopped since {time}` with the neutral pill and the exact text, never `Silent`, even after hours.
 12. The next normal check-in after a stop shows `Checking in` and records no `Back at` or quiet duration.
-13. `kill -9`, OOM kill, node loss or blocked egress send no `stopping` check-in and show `Silent` after 20 minutes.
+13. `kill -9`, OOM kill, node loss or blocked egress send no `stopping` check-in and show `Silent` after 30 minutes.
 14. Rolling update: a new pod checks in, then the old pod sends `stopping` with the old `boot_id`; the cluster stays `Checking in` (the stopping check-in is ignored).
 15. A cluster stopped for over 7 days shows the extra sentence.
 16. Every state in 1.6 renders with its exact text, at 320px and in dark mode, and passes axe with no serious issues.
@@ -452,7 +454,7 @@ Real `<label>`s, errors in `aria-live="polite"` beside the field plus a summary 
 ## Open questions
 
 1. **Resend budget split:** support gets 10 of the 95 daily sends and 3 per account per day. Taken from which budget (auth 60, tx 35)?
-2. **Check-ins free-tier ceiling:** 10-minute pings cap about 690 clusters on Workers and D1 free limits. Fine for early access; who revisits it and at what number?
+2. **Check-ins free-tier ceiling:** 15-minute pings cap about 1,040 clusters on Workers and D1 free limits. Fine for early access; who revisits it and at what number?
 3. **Namespace in messages:** the next step in the app uses `kwatch`. Should the ping carry the installed namespace so the command is exact?
 4. **Test alert and paging providers:** can each resolve a test event? Otherwise exclude them from "all providers".
 5. **Redaction source of truth:** one Go list in `internal/redact` called through the pod (`kwatch redact`), or a shell subset?

@@ -54,8 +54,8 @@ Other things to know:
   The `ignore*` lists still work but are deprecated; use
   [silences](/general-configuration#-silences--advanced-suppression).
 - `alert.line` (LINE Notify) is ignored; the service was shut down.
-- Telemetry is on by default and can be turned off with `telemetry.enabled: false`
-  under **Edit settings**. The update check is controlled by
+- Community sends no telemetry. With an active Pro license, telemetry can be turned off with
+  `telemetry.enabled: false` under **Edit settings**. The update check is controlled by
   `upgrader.disableUpdateCheck`. See [General configuration](/general-configuration#-minimal-adoption-telemetry).
 - Open the cluster port 10250 to the nodes if you run a NetworkPolicy: kwatch reads
   node stats directly from each kubelet.

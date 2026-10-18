@@ -192,7 +192,8 @@ automatic settings migration is attempted. Editing providers lists the current
 providers and preserves providers you did not edit unless you explicitly
 confirm removal.
 
-Telemetry is a normal `telemetry.enabled` setting under **Edit settings**. It
+Telemetry runs only with an active Pro license; Community sends nothing. It is a
+normal `telemetry.enabled` setting under **Edit settings**. It
 is not asked during installation or provider configuration; fresh installs use
 the catalog default and upgrades preserve the existing value.
 

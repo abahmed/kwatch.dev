@@ -112,7 +112,7 @@ sent. Drops are counted by `kwatch_delivery_outbox_dropped_total` and
 
 ## Telemetry, update check and heartbeat
 
-- **Adoption telemetry** sends a two-field pseudonymous heartbeat to
+- **Adoption telemetry** (Pro only; Community sends nothing) sends a two-field pseudonymous heartbeat to
   `https://api.kwatch.dev` at most every 7 days. Disable it with
   `telemetry.enabled: false`. See [General configuration](/general-configuration#-minimal-adoption-telemetry).
 - **License client** (Pro) activates a key against `https://api.kwatch.dev`,

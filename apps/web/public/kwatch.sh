@@ -8176,7 +8176,7 @@ checkins_flow() {
   ui_heading "Cluster check-ins"
   ui_detail "  kwatch checks in with api.kwatch.dev every 15 minutes. If it goes quiet"
   ui_detail "  for 30 minutes, app.kwatch.dev shows this cluster as silent."
-  ui_detail "  Nothing is sent to you. Sent: a hashed cluster ID, the kwatch version,"
+  ui_detail "  Nothing is sent to you. Sent: a random or hashed installation ID, the kwatch version,"
   ui_detail "  the node count and the cluster name if you set one."
   state=$(checkins_state)
   if [ "$state" = on ]; then

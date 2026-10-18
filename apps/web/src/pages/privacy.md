@@ -42,9 +42,9 @@ Community edition too, and contains no personal data. Turn it off with
 
 ## Cluster check-ins (Pro only)
 
-With an active Pro license, kwatch pings `api.kwatch.dev` every 10 minutes so
+With an active Pro license, kwatch pings `api.kwatch.dev` every 15 minutes so
 app.kwatch.dev can show when a cluster last checked in and mark it silent after
-20 minutes. The ping sends the kwatch version, the node count, the namespace and
+30 minutes. The ping sends the kwatch version, the node count, the namespace and
 the cluster name if you set one. Nothing is sent to you. The Community edition
 sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 

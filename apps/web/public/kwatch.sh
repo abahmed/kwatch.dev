@@ -3301,6 +3301,32 @@ crd_keeps_stored_versions() {
   done
 }
 
+# Releases that ship v1beta1 mark v1alpha1 deprecated, and kubectl warns on
+# every write to it. Older CRDs serve only v1alpha1, so ask the installed CRD
+# which version it serves; the fields written below are the same in both.
+config_api_version() {
+  local served
+  served=$(kubectl get crd kwatchconfigs.kwatch.abahmed.dev \
+    -o 'jsonpath={.spec.versions[?(@.served==true)].name}' 2>/dev/null || true)
+  case " $served " in
+    *" v1beta1 "*) printf '%s' kwatch.abahmed.dev/v1beta1 ;;
+    *) printf '%s' kwatch.abahmed.dev/v1alpha1 ;;
+  esac
+}
+
+# The installer creates the namespace itself, without the annotation that
+# `kubectl apply` merges against, so applying the release's Namespace document
+# onto it prints a warning. Drop that document when the namespace exists.
+drop_namespace_document() {
+  local manifest="$1"
+  kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || return 0
+  awk 'function flush() { if (!skip) printf "%s", buf; buf = ""; skip = 0 }
+    /^---[[:space:]]*$/ { flush(); buf = $0 "\n"; next }
+    /^kind: Namespace[[:space:]]*$/ { skip = 1 }
+    { buf = buf $0 "\n" }
+    END { flush() }' "$manifest" >"$manifest.ns" && mv "$manifest.ns" "$manifest"
+}
+
 ensure_config_resource() {
   if kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" >/dev/null 2>&1; then
     kubectl -n "$NAMESPACE" annotate kwatchconfig "$RELEASE" \
@@ -3310,8 +3336,10 @@ ensure_config_resource() {
       app.kubernetes.io/managed-by=kwatch.sh --overwrite >/dev/null 2>&1 || true
     return 0
   fi
+  local api_version
+  api_version=$(config_api_version)
   kubectl -n "$NAMESPACE" apply -f - <<EOF >/dev/null
-apiVersion: kwatch.abahmed.dev/v1alpha1
+apiVersion: $api_version
 kind: KwatchConfig
 metadata:
   name: $RELEASE
@@ -6050,6 +6078,7 @@ apply_manifests() {
     return 1
   fi
   rewrite_release_names "$tmp" "$version"
+  drop_namespace_document "$tmp"
   ensure_config_volume_readable "$tmp"
   apply_storage_mode_to_manifest "$tmp" || {
     LAST_COMMAND_ERROR="the state volume could not be written into the manifest"

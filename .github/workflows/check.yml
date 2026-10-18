@@ -122,3 +122,6 @@ jobs:
           test -s apps/web/dist/charts/index.yaml
           test -s apps/web/dist/_redirects
           test -s apps/web/dist/_headers
+
+      - name: Check redirects and sitemap
+        run: yarn seo:verify:web

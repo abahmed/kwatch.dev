@@ -77,11 +77,13 @@ img, svg { max-width: 100%; }
   line-height: 1.3;
 }
 .btn-solid { background: var(--ink); color: #fff; }
-.btn-solid:hover { color: #fff; background: #000; }
+.btn-solid:hover, .btn-solid:focus-visible { color: #fff; background: #000; }
+.btn-solid:focus-visible { outline-color: var(--ink); }
 .btn-primary { background: var(--text); color: var(--bg); }
-.btn-primary:hover { color: var(--bg); opacity: .88; }
+.btn-primary:hover, .btn-primary:focus-visible { color: var(--bg); }
+.btn-primary:hover { opacity: .88; }
 .btn-line { border-color: var(--text); color: var(--text); }
-.btn-line:hover { background: var(--text); color: var(--bg); }
+.btn-line:hover, .btn-line:focus-visible { background: var(--text); color: var(--bg); }
 .link-strong { font-weight: 600; text-underline-offset: 4px; }
 
 .sr-only {
@@ -89,4 +91,7 @@ img, svg { max-width: 100%; }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-.on-ink a:hover, .on-signal a:hover { color: inherit; }
+/* Plain links keep the section colour on hover. Buttons are excluded: this
+   rule is more specific than .btn-solid:hover and used to turn the label the
+   same colour as the black button behind it. */
+.on-ink a:not(.btn):hover, .on-signal a:not(.btn):hover { color: inherit; }

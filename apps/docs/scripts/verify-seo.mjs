@@ -113,7 +113,7 @@ for (const file of indexablePages) {
     .filter((tag) => !/\balt="[^"]*"/i.test(tag));
   const noIndex = html.includes('content="noindex');
 
-  const jsonLd = [...html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([^<]+)<\/script>/g)]
+  const jsonLd = [...html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)]
     .map((match) => match[1]);
   const wantsType = route === '/' ? 'SoftwareApplication' : 'TechArticle';
   if (!jsonLd.some((block) => block.includes(`"@type":"${wantsType}"`))) {
@@ -121,6 +121,13 @@ for (const file of indexablePages) {
   }
   if (route !== '/' && !jsonLd.some((block) => block.includes('"@type":"BreadcrumbList"'))) {
     fail(`${route} lacks BreadcrumbList structured data`);
+  }
+  if (route.startsWith('/guides/')) {
+    for (const type of ['HowTo', 'FAQPage']) {
+      if (!jsonLd.some((block) => block.includes(`"@type":"${type}"`))) {
+        fail(`${route} lacks ${type} structured data`);
+      }
+    }
   }
   if (title && title.length > 80) fail(`${route} title is longer than 80 characters`);
   if (!hasTag(html, 'meta', (tag) => /\bname="twitter:card"/i.test(tag))) {

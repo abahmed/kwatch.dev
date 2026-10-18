@@ -4,6 +4,7 @@ set -euo pipefail
 BASE_URL="https://raw.githubusercontent.com/abahmed/kwatch"
 RELEASES_URL="https://api.github.com/repos/abahmed/kwatch/releases/latest"
 RELEASES_LIST_URL="https://api.github.com/repos/abahmed/kwatch/releases?per_page=30"
+RELEASE_DOWNLOAD_URL="https://github.com/abahmed/kwatch/releases/download"
 DEFAULT_NAMESPACE="kwatch"
 DEFAULT_RELEASE="kwatch"
 CATALOG_VERSION=1
@@ -3327,6 +3328,8 @@ ensure_crd() {
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$tmp" ||
     die "could not download the CRD for $version"
+  verify_release_file "$version" deploy/crd.yaml "$tmp" ||
+    die "${LAST_COMMAND_ERROR:-the CRD for $version could not be verified}"
   grep -q '^kind: CustomResourceDefinition$' "$tmp" || die "downloaded CRD for $version is invalid"
   with_loading "Applying CRD" \
     kubectl apply --server-side --field-manager=kwatch-manager -f "$tmp" \
@@ -4403,6 +4406,95 @@ latest_release_candidate() {
       sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
   )
   return 1
+}
+
+have_command() { type -P "$1" >/dev/null 2>&1; }
+
+# Prints the SHA-256 of a file with whichever tool the system has (GNU
+# coreutils or the macOS/BSD shasum).
+sha256_of_file() {
+  local file="$1" out
+  if have_command sha256sum; then
+    out=$(sha256sum "$file") || return 1
+  elif have_command shasum; then
+    out=$(shasum -a 256 "$file") || return 1
+  else
+    return 1
+  fi
+  printf '%s' "${out%% *}"
+}
+
+# Checks a file downloaded from a release tag against the release's signed
+# SHA256SUMS ("<sha256>  <repo path>" lines for deploy/deploy.yaml and
+# deploy/crd.yaml). Returns 0 when the file is verified, or when the release
+# predates SHA256SUMS and the operator accepts that. Returns 1 with
+# LAST_COMMAND_ERROR set on a mismatch, a missing entry, a failed signature
+# or when the checksums cannot be fetched: those are never skipped.
+verify_release_file() {
+  local version="$1" repo_path="$2" file="$3"
+  local sums bundle code expected actual
+  sums=$(mktemp) || return 1
+  bundle=$(mktemp) || { rm -f "$sums"; return 1; }
+  code=$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 10 \
+    -o "$sums" -w '%{http_code}' \
+    "$RELEASE_DOWNLOAD_URL/$version/SHA256SUMS" 2>/dev/null) || code=000
+  case "$code" in
+    200) ;;
+    404)
+      rm -f "$sums" "$bundle"
+      ui_warn "⚠️ $version publishes no SHA256SUMS, so $repo_path cannot be verified."
+      ui_detail "   Releases from v1.0.0-rc.20 on are checksummed; older ones are not."
+      if [ -t 0 ] && ! confirm_action "Continue without verification" "n"; then
+        LAST_COMMAND_ERROR="download of $repo_path for $version was not verified and you declined to continue"
+        return 1
+      fi
+      return 0
+      ;;
+    *)
+      rm -f "$sums" "$bundle"
+      LAST_COMMAND_ERROR="could not fetch SHA256SUMS for $version (HTTP $code); refusing to apply an unverified $repo_path"
+      return 1
+      ;;
+  esac
+  expected=$(awk -v path="$repo_path" \
+    '$2 == path || $2 == "*" path { print $1; exit }' "$sums")
+  if [[ ! "$expected" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    rm -f "$sums" "$bundle"
+    LAST_COMMAND_ERROR="SHA256SUMS for $version has no valid entry for $repo_path"
+    return 1
+  fi
+  if have_command cosign; then
+    code=$(curl -sSL --retry 3 --retry-delay 2 --connect-timeout 10 \
+      -o "$bundle" -w '%{http_code}' \
+      "$RELEASE_DOWNLOAD_URL/$version/SHA256SUMS.sigstore.json" \
+      2>/dev/null) || code=000
+    if [ "$code" = 200 ]; then
+      if ! cosign verify-blob --bundle "$bundle" \
+        --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+        --certificate-identity-regexp='^https://github.com/abahmed/kwatch/.github/workflows/publish.yml@' \
+        "$sums" >/dev/null 2>&1; then
+        rm -f "$sums" "$bundle"
+        LAST_COMMAND_ERROR="the cosign signature on SHA256SUMS for $version did not verify"
+        return 1
+      fi
+    else
+      ui_warn "⚠️ No signature was published for SHA256SUMS of $version; checking SHA-256 only."
+    fi
+  else
+    ui_detail "ℹ️ cosign is not installed, so the SHA256SUMS signature was not checked (SHA-256 only)."
+  fi
+  rm -f "$sums" "$bundle"
+  actual=$(sha256_of_file "$file") || {
+    LAST_COMMAND_ERROR="sha256sum or shasum is required to verify $repo_path"
+    return 1
+  }
+  if [ "$(printf '%s' "$actual" | tr 'A-F' 'a-f')" != \
+    "$(printf '%s' "$expected" | tr 'A-F' 'a-f')" ]; then
+    LAST_COMMAND_ERROR="checksum mismatch for $repo_path at $version: expected $expected, got $actual. Nothing was applied."
+    return 1
+  fi
+  ui_detail "🔐 Verified $repo_path ($version) against SHA256SUMS."
+  return 0
 }
 
 release_catalog_available() {
@@ -5926,6 +6018,7 @@ apply_manifests() {
   with_loading "Downloading CRD for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/crd.yaml" -o "$crd_tmp" || return 1
+  verify_release_file "$version" deploy/crd.yaml "$crd_tmp" || return 1
   with_loading "Applying CRD" kubectl apply -f "$crd_tmp" >/dev/null ||
     return 1
   with_loading "Waiting for CRD readiness" kubectl wait \
@@ -5936,6 +6029,7 @@ apply_manifests() {
   with_loading "Downloading deployment for $version" curl -fsSL --location \
     --retry 3 --retry-delay 2 --connect-timeout 10 \
     "$BASE_URL/$version/deploy/deploy.yaml" -o "$tmp" || return 1
+  verify_release_file "$version" deploy/deploy.yaml "$tmp" || return 1
   if ! grep -q '^kind: Deployment$' "$tmp"; then
     LAST_COMMAND_ERROR="Downloaded deployment manifest for $version does not contain a Deployment."
     return 1

@@ -129,9 +129,33 @@ applying an error page. It accepts only release tags that match a strict
 pattern (`vX.Y.Z` or `vX.Y.Z-rc.N`), and it fetches the manifests, such as
 `deploy/deploy.yaml` and the CRD, from the GitHub tag of that release.
 
-It does **not** verify checksums or signatures. To check the image yourself,
-run `cosign verify ghcr.io/abahmed/kwatch:<tag>`; see
-[Release integrity](/release-integrity) for the checksums, SBOMs and provenance.
+From `v1.0.0-rc.20` on, every release publishes a `SHA256SUMS` file with the
+checksums of `deploy/deploy.yaml` and `deploy/crd.yaml`. Before it applies
+either file, the installer downloads `SHA256SUMS` for the selected tag and
+compares it with the file it fetched (using `sha256sum` or `shasum -a 256`).
+A mismatch, a missing entry, or a failed download of `SHA256SUMS` stops the
+install with a message, and nothing is applied.
+
+If `cosign` is installed and the release publishes `SHA256SUMS.sigstore.json`,
+the installer also verifies the signature against the release workflow's
+identity. Without `cosign` it prints a notice and checks the SHA-256 only. You
+can run the same check by hand:
+
+```bash
+cosign verify-blob --bundle SHA256SUMS.sigstore.json \
+  --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp='^https://github.com/abahmed/kwatch/.github/workflows/publish.yml@' \
+  SHA256SUMS
+```
+
+Releases older than `v1.0.0-rc.20`, including `v0.10.5`, have no `SHA256SUMS`.
+For those the installer warns that the files cannot be verified and asks you
+to confirm in an interactive terminal; without a terminal it warns and
+continues. The `deploy.yaml` image is pinned by tag, not by digest. To check the
+image yourself, run `cosign verify ghcr.io/abahmed/kwatch:<tag>`; see
+[Release integrity](/release-integrity) for the checksums, SBOMs and
+provenance. The release catalogs the manager reads (configuration, feature and
+provider) are not covered by `SHA256SUMS`.
 
 Installs made by the installer use the raw `deploy.yaml`, which has
 `rbac.mode` `full`. The Helm chart defaults to `least-privilege`; see

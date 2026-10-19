@@ -9,3 +9,6 @@ export const SITE_URL = 'https://kwatch.dev';
 export const DOCS_URL = 'https://docs.kwatch.dev';
 export const CONTACT_URL = 'mailto:hello@kwatch.dev';
 export const ISSUES_URL = 'https://github.com/abahmed/kwatch/issues/new';
+
+/** kwatch checks in every ~30 min (+/-2); a cluster is Inactive after this many minutes without one. */
+export const INACTIVE_AFTER_MINUTES = 60;

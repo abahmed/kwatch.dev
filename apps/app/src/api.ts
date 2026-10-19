@@ -50,6 +50,7 @@ export type Cluster = {
   checkins: boolean;
   state: ClusterState;
   silent_since?: number | null;
+  inactive_since?: number | null;
   stopped_since?: number | null;
   recovered_at?: number | null;
   quiet_seconds?: number | null;

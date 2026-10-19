@@ -1,11 +1,10 @@
 import {useEffect, useState} from 'react';
-import {Navigate, Route, Routes, useSearchParams} from 'react-router-dom';
+import {Navigate, Route, Routes, useLocation, useSearchParams} from 'react-router-dom';
 import {getAccount} from './api';
 import type {ApiError} from './api';
 import {Shell} from './components';
 import {RequireAuth} from './session';
 import Account from './pages/Account';
-import Clusters from './pages/Clusters';
 import Help from './pages/Help';
 import Licenses from './pages/Licenses';
 import NotFound from './pages/NotFound';
@@ -58,6 +57,12 @@ function LegacySignup() {
   return <Navigate to={`/signin${q ? `?${q}` : ''}`} replace />;
 }
 
+/** The clusters page merged into the licenses page. Query and hash are kept. */
+function ClustersRedirect() {
+  const {search, hash} = useLocation();
+  return <Navigate to={`/licenses${search}${hash}`} replace />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -72,7 +77,7 @@ export default function App() {
         }
       >
         <Route path="/licenses" element={<Licenses />} />
-        <Route path="/clusters" element={<Clusters />} />
+        <Route path="/clusters" element={<ClustersRedirect />} />
         <Route path="/help" element={<Help />} />
         <Route path="/account" element={<Account />} />
       </Route>

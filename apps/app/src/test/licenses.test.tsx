@@ -1,9 +1,18 @@
 import {screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
+import type {Cluster} from '../api';
 import {account, license, mockApi, renderAt} from './helpers';
 
 afterEach(() => vi.unstubAllGlobals());
+
+const now = () => Math.floor(Date.now() / 1000);
+const cl = (over: Partial<Cluster> = {}): Cluster => ({
+  name: 'prod', cluster_uuid: 'uuid-1', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
+  last_seen: now() - 240, checkins: true, state: 'ok', ...over,
+});
+const withClusters = (clusters: Cluster[], licenses = [license()]) =>
+  mockApi({'GET /account': {body: account({licenses})}, 'GET /account/clusters': {body: {clusters}}});
 
 describe('/licenses', () => {
   it('shows the empty state and never says trial', async () => {
@@ -46,23 +55,26 @@ describe('/licenses', () => {
           licenses: [license(), license({lid: 'lic_2', activation: null, key_masked: 'KW1-••••••b81Lmp'})],
         }),
       },
+      'GET /account/clusters': {body: {clusters: [cl({})]}},
     });
     renderAt('/licenses');
-    expect(await screen.findByText('Free Pro clusters: 2 of 2 used · acme.com')).toBeInTheDocument();
-    const first = screen.getByRole('region', {name: 'License lic_1'});
+    expect(await screen.findByText(/free Pro licenses used · acme.com/)).toHaveTextContent('2 of 2 free Pro licenses used · acme.com');
+    const first = await screen.findByRole('region', {name: 'License lic_1'});
     expect(within(first).getByText(/KW1-••••••f3a9Qk/)).toBeInTheDocument();
     expect(within(first).getByText('active')).toBeInTheDocument();
-    expect(within(first).getByText(/7c1e04ab · v1.0.0 · 6 nodes/)).toBeInTheDocument();
-    expect(within(first).getByText(/last check 2 h ago/)).toBeInTheDocument();
+    expect(within(first).getByText(/Free during early access · ends/)).toBeInTheDocument();
+    expect(within(await screen.findByRole('group', {name: 'Cluster for license lic_1'})).getByText('prod')).toBeInTheDocument();
     const second = screen.getByRole('region', {name: 'License lic_2'});
-    expect(within(second).getByText('not activated')).toBeInTheDocument();
+    expect(within(second).getByText(/Not attached yet/)).toBeInTheDocument();
+    expect(within(second).queryByRole('button', {name: 'Move to another cluster'})).toBeNull();
     expect(screen.queryByRole('button', {name: 'Get a free Pro license'})).not.toBeInTheDocument();
   });
 
   it('orders actions Copy, Show, Move, Replace with no toggle state or Signal', async () => {
-    mockApi({'GET /account': {body: account({licenses: [license()]})}});
+    withClusters([cl()]);
     renderAt('/licenses');
     const card = await screen.findByRole('region', {name: 'License lic_1'});
+    await within(card).findByText('Active');
     const names = within(card).getAllByRole('button').map((b) => b.textContent);
     expect(names).toEqual(['Copy key', 'Show key', 'Move to another cluster', 'Replace key']);
     expect(within(card).getByRole('group', {name: 'Key actions'})).toBeInTheDocument();
@@ -157,6 +169,7 @@ describe('/licenses', () => {
   it('moves a license to another cluster', async () => {
     const { calls } = mockApi({
       'GET /account': {body: account({licenses: [license()]})},
+      'GET /account/clusters': {body: {clusters: [cl()]}},
       'POST /account/licenses/lic_1/transfer': {body: {ok: true, released: true, transfers_left: 1}},
     });
     const user = userEvent.setup();
@@ -195,6 +208,7 @@ describe('/licenses', () => {
   it('shows the move limit message', async () => {
     mockApi({
       'GET /account': {body: account({licenses: [license()]})},
+      'GET /account/clusters': {body: {clusters: [cl()]}},
       'POST /account/licenses/lic_1/transfer': {status: 429, body: {error: 'transfer_limit'}},
     });
     const user = userEvent.setup();
@@ -202,5 +216,107 @@ describe('/licenses', () => {
     await user.click(await screen.findByRole('button', {name: 'Move to another cluster'}));
     await user.click(screen.getByRole('button', {name: 'Move license'}));
     expect(await screen.findByRole('alert')).toHaveTextContent('No moves left');
+  });
+
+  it('maps states: ok and back are Active, silent Inactive, stopped, off, waiting', async () => {
+    const t = Date.UTC(2026, 9, 1, 13, 42) / 1000;
+    const ls = ['a', 'b', 'c', 'd', 'e', 'f'].map((x, i) => license({lid: `lic_${x}`, issued_at: 1_700_000_000 + i}));
+    withClusters(
+      [
+        cl({license: 'lic_a', state: 'ok'}),
+        cl({license: 'lic_b', state: 'back', recovered_at: now() - 60}),
+        cl({license: 'lic_c', state: 'silent', last_seen: t, silent_since: t + 3600}),
+        cl({license: 'lic_d', state: 'stopped', stopped_since: Date.UTC(2026, 9, 1, 18, 5) / 1000}),
+        cl({license: 'lic_e', state: 'off'}),
+        cl({license: 'lic_f', state: 'waiting', last_seen: null}),
+        cl({license: 'lic_f', state: 'detached', id_short: 'zzzz'}),
+      ],
+      ls,
+    );
+    renderAt('/licenses');
+    expect(await screen.findAllByText('Active')).toHaveLength(2);
+    expect(screen.getAllByText('Active', {selector: '.pill'})[0].className).toMatch(/pill-active/);
+    expect(screen.getByText('Inactive since 14:42 UTC')).toBeInTheDocument();
+    expect(screen.getByText(/kwatch cannot alert you while it is inactive/)).toBeInTheDocument();
+    expect(screen.getByText('Stopped at 18:05 UTC').className).toMatch(/pill-stopped/);
+    expect(screen.getByText('Check-ins off')).toBeInTheDocument();
+    expect(screen.getByText('Waiting')).toBeInTheDocument();
+    expect(screen.getByText('Last check-in 13:42 UTC')).toBeInTheDocument();
+    expect(screen.queryByText(/Not attached$/)).toBeNull();
+    expect(screen.queryByText('zzzz')).toBeNull();
+  });
+
+  it('prefers inactive_since over silent_since', async () => {
+    const t = Date.UTC(2026, 9, 1, 13, 42) / 1000;
+    withClusters([cl({state: 'silent', last_seen: t, silent_since: t + 3600, inactive_since: t + 3660})]);
+    renderAt('/licenses');
+    expect(await screen.findByText('Inactive since 14:43 UTC')).toBeInTheDocument();
+  });
+
+  it('sorts Inactive, Stopped, Waiting/off, Active, newest first', async () => {
+    const ls = [
+      license({lid: 'lic_act_old', issued_at: 100}),
+      license({lid: 'lic_act_new', issued_at: 200}),
+      license({lid: 'lic_stop', issued_at: 150}),
+      license({lid: 'lic_wait', issued_at: 120}),
+      license({lid: 'lic_exp', status: 'expired', issued_at: 50}),
+      license({lid: 'lic_sil', issued_at: 10}),
+    ];
+    withClusters(
+      [
+        cl({license: 'lic_act_old'}),
+        cl({license: 'lic_act_new'}),
+        cl({license: 'lic_stop', state: 'stopped', stopped_since: now() - 100}),
+        cl({license: 'lic_wait', state: 'waiting', last_seen: null}),
+        cl({license: 'lic_sil', state: 'silent', silent_since: now() - 100}),
+      ],
+      ls,
+    );
+    renderAt('/licenses');
+    await screen.findAllByText('Active');
+    const order = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
+    expect(order).toEqual(['License lic_exp', 'License lic_sil', 'License lic_stop', 'License lic_wait', 'License lic_act_new', 'License lic_act_old']);
+    expect(screen.getByText(/This license ended on/)).toBeInTheDocument();
+  });
+
+  it('keeps the license when clusters fail and retries', async () => {
+    let fail = true;
+    mockApi({
+      'GET /account': {body: account({licenses: [license()]})},
+      'GET /account/clusters': () => (fail ? {status: 500, body: {}} : {body: {clusters: [cl()]}}),
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    expect(await screen.findByText('Cluster status unavailable. Try again.')).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'License lic_1'})).toBeInTheDocument();
+    expect(screen.queryByText(/Not attached yet/)).toBeNull();
+    fail = false;
+    await user.click(screen.getByRole('button', {name: 'Try again'}));
+    expect(await screen.findByText('Active', {selector: '.pill'})).toBeInTheDocument();
+  });
+
+  it('offers another license while under the limit, with no Signal', async () => {
+    withClusters([cl()]);
+    const {container} = renderAt('/licenses');
+    const b = await screen.findByRole('button', {name: 'Get another free Pro license'});
+    expect(b.className).not.toMatch(/signal/);
+    expect(container.querySelector('.btn-signal')).toBeNull();
+  });
+
+  it('refresh reloads clusters', async () => {
+    const {calls} = withClusters([]);
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    await user.click(await screen.findByRole('button', {name: 'Refresh'}));
+    await screen.findByRole('region', {name: 'License lic_1'});
+    expect(calls.filter((c) => c.key === 'GET /account/clusters').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('/clusters redirects to /licenses and the nav has one item', async () => {
+    withClusters([cl()]);
+    renderAt('/clusters');
+    expect(await screen.findByRole('heading', {name: 'Licenses'})).toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: 'Clusters'})).toBeNull();
+    expect(screen.getAllByRole('link', {name: 'Licenses'})).toHaveLength(1);
   });
 });

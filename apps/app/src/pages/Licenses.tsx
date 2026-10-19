@@ -28,7 +28,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   const prev = useRef(pill);
   const [announce, setAnnounce] = useState('');
   useEffect(() => {
-    if (prev.current !== pill && pill) setAnnounce(`Cluster status: ${pill}`);
+    if (prev.current && pill && prev.current !== pill) setAnnounce(`Cluster status: ${pill}`);
     prev.current = pill;
   }, [pill]);
   const ended = license.status === 'expired' ? (

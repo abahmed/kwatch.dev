@@ -1,4 +1,4 @@
-import {useCallback, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import type {ReactNode} from 'react';
 import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '../api';
 import type {Cluster, License} from '../api';
@@ -23,6 +23,14 @@ type ClusterState = {cluster?: Cluster; loading: boolean; failed: boolean; retry
 function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   const {cluster: c} = cs;
   const label = `Cluster for license ${license.lid}`;
+  // Announce only a state change after the first render (for example after Refresh).
+  const pill = c ? clusterView(c).pill : '';
+  const prev = useRef(pill);
+  const [announce, setAnnounce] = useState('');
+  useEffect(() => {
+    if (prev.current !== pill && pill) setAnnounce(`Cluster status: ${pill}`);
+    prev.current = pill;
+  }, [pill]);
   const ended = license.status === 'expired' ? (
     <p className="small cluster-ended">
       This license ended on {fmtDate(license.expires_at)}. kwatch is on Community; alerts still work.
@@ -42,7 +50,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
     const v = clusterView(c);
     body = (
       <>
-        <div className="cluster-grid" aria-live="polite">
+        <div className="cluster-grid">
           <div className="cluster-name">
             <div>{c.name || 'Unnamed cluster'}</div>
             <div className="mono cluster-id">{c.id_short}</div>
@@ -74,6 +82,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   return (
     <div className="license-cluster" role="group" aria-label={label}>
       <p className="mono cluster-label">Cluster</p>
+      {announce && <div role="status" className="sr-only">{announce}</div>}
       {ended}
       {body}
     </div>

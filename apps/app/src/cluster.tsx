@@ -8,25 +8,21 @@ const INACTIVE_AFTER = INACTIVE_AFTER_MINUTES * 60;
 export type ClusterView = {
   tone: 'active' | 'inactive' | 'stopped' | 'waiting' | 'off';
   pill: string;
-  /** "Last check-in 14:00 UTC", empty when not tracked. */
-  lastCheckin: string;
-  /** "Inactive after 15:00", shown only while Active. */
-  inactiveAfter?: string;
+  /** Unix time of the last check-in, 0 when not tracked. */
+  lastCheckin: number;
   detail?: ReactNode;
 };
-
-const hhmm = (unix: number) => fmtUtcTime(unix).replace(' UTC', '');
 
 /** Maps an API cluster to the pills of the licenses-and-clusters spec. */
 export function clusterView(c: Cluster): ClusterView {
   const last = c.last_seen ?? 0;
-  const lastCheckin = last ? `Last check-in ${fmtUtcTime(last)}` : '';
+  const lastCheckin = last;
   switch (c.state) {
     case 'off':
       return {
         tone: 'off',
         pill: 'Check-ins off',
-        lastCheckin: '',
+        lastCheckin: 0,
         detail: 'Check-ins are off for this cluster.',
       };
     case 'stopped':
@@ -40,7 +36,7 @@ export function clusterView(c: Cluster): ClusterView {
       return {
         tone: 'waiting',
         pill: 'Waiting',
-        lastCheckin: '',
+        lastCheckin: 0,
         detail: 'Add the key in the installer. It appears here after the cluster’s first check-in.',
       };
     case 'silent':
@@ -60,7 +56,6 @@ export function clusterView(c: Cluster): ClusterView {
         tone: 'active',
         pill: 'Active',
         lastCheckin,
-        inactiveAfter: last ? `Inactive after ${hhmm(last + INACTIVE_AFTER)}` : undefined,
       };
   }
 }

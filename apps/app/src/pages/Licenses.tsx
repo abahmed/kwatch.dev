@@ -4,7 +4,7 @@ import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '..
 import type {Cluster, License} from '../api';
 import {clusterRank, clusterView, Pill} from '../cluster';
 import {Dialog, usePageTitle} from '../components';
-import {fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
+import {fmtCheckinAgo, fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
 import {errorMessage, LimitNotice} from '../messages';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
@@ -14,6 +14,15 @@ export const MIN_REFRESH_MS = 400;
 const REFRESH_ERROR = 'Could not refresh. Check your connection and try again.';
 
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
+
+function LastCheckin({unix}: {unix: number}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return <span title={fmtUtcFull(unix)}>Last check-in {fmtCheckinAgo(unix, now)}</span>;
+}
 
 function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'} {
   if (l.status === 'active') return {label: 'active', tone: 'neutral'};
@@ -60,10 +69,9 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
           </div>
           <div className="cluster-state">
             <Pill view={v} />
-            {v.inactiveAfter && <div className="mono cluster-sub">{v.inactiveAfter}</div>}
           </div>
           <div className="mono cluster-sub cluster-last">
-            {v.lastCheckin && <span title={c.last_seen ? fmtUtcFull(c.last_seen) : undefined}>{v.lastCheckin}</span>}
+            {v.lastCheckin > 0 && <LastCheckin unix={v.lastCheckin} />}
           </div>
           <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
           <div className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</div>

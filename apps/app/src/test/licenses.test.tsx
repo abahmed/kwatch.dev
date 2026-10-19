@@ -1,7 +1,8 @@
-import {screen, within} from '@testing-library/react';
+import {act, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import type {Cluster} from '../api';
+import {fmtCheckinAgo} from '../format';
 import {account, license, mockApi, renderAt} from './helpers';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -241,9 +242,33 @@ describe('/licenses', () => {
     expect(screen.getByText('Stopped at 18:05 UTC').className).toMatch(/pill-stopped/);
     expect(screen.getByText('Check-ins off')).toBeInTheDocument();
     expect(screen.getByText('Waiting')).toBeInTheDocument();
-    expect(screen.getByText('Last check-in 13:42 UTC')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Last check-in /).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Inactive after/)).toBeNull();
     expect(screen.queryByText(/Not attached$/)).toBeNull();
     expect(screen.queryByText('zzzz')).toBeNull();
+  });
+
+  it('shows relative last check-in, keeps the UTC tooltip and refreshes every minute', async () => {
+    vi.useFakeTimers({shouldAdvanceTime: true, toFake: ['Date', 'setInterval', 'clearInterval']});
+    try {
+      const t = Math.floor(Date.now() / 1000);
+      withClusters([cl({last_seen: t - 20 * 60})]);
+      renderAt('/licenses');
+      const el = await screen.findByText('Last check-in 20 min ago');
+      expect(el).toHaveAttribute('title', expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d UTC$/));
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(screen.getByText('Last check-in 21 min ago')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('formats check-in ages', () => {
+    const n = 1_000_000 * 1000;
+    expect(fmtCheckinAgo(1_000_000 - 30, n)).toBe('just now');
+    expect(fmtCheckinAgo(1_000_000 - 3 * 3600, n)).toBe('3 h ago');
+    expect(fmtCheckinAgo(1_000_000 - 86400, n)).toBe('1 day ago');
+    expect(fmtCheckinAgo(1_000_000 - 2 * 86400, n)).toBe('2 days ago');
   });
 
   it('prefers inactive_since over silent_since', async () => {

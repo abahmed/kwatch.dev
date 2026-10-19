@@ -43,7 +43,7 @@ decode_checks() {
   assert_eq "$(license_json_field "$payload" max)" 1 "max"
   assert_eq "$(license_json_field "$payload" acc)" '>>>???' "acc"
   license_inspect "$VALID_KEY" || fail "valid key was rejected"
-  assert_eq "$LICENSE_PLAN" pro "inspected plan"
+  assert_eq "$LICENSE_PLAN" Pro "inspected plan"
   assert_eq "$LICENSE_DAYS_LEFT" 30 "days left"
 }
 decode_checks

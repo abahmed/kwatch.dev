@@ -38,3 +38,8 @@ export function fmtUtcTime(unix: number): string {
 export function fmtUtcFull(unix: number): string {
   return `${new Date(unix * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
+
+/** "Last refreshed just now", "Last refreshed 2 min ago". */
+export function fmtRefreshed(updatedAtMs: number, nowMs = Date.now()): string {
+  return `Last refreshed ${fmtAgo(updatedAtMs / 1000, nowMs)}`;
+}

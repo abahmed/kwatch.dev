@@ -13,8 +13,10 @@ export function useClusters() {
     try {
       const r = await getClusters();
       setState({clusters: r.clusters ?? [], failed: false, nowMs: Date.now()});
+      return true;
     } catch {
       setState((s) => ({...s, failed: true, nowMs: Date.now()}));
+      return false;
     }
   }, []);
 

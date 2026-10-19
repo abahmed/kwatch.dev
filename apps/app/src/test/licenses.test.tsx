@@ -317,7 +317,10 @@ describe('/licenses', () => {
     const user = userEvent.setup();
     renderAt('/licenses');
     const status = await screen.findByText('Last refreshed just now');
-    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).not.toHaveAttribute('aria-live');
+    const sr = document.querySelector('.sr-only[aria-live="polite"]') as HTMLElement;
+    expect(sr).toHaveAttribute('aria-live', 'polite');
+    expect(sr).toBeEmptyDOMElement();
     expect(status).toHaveAttribute('title', expect.stringMatching(/UTC$/));
     await user.click(screen.getByRole('button', {name: 'Refresh'}));
     const busy = screen.getByRole('button', {name: /Refreshing/});
@@ -326,6 +329,7 @@ describe('/licenses', () => {
     expect(document.querySelector('div[aria-busy="true"] [aria-label="License lic_1"]')).not.toBeNull();
     expect(await screen.findByRole('button', {name: 'Refresh'})).toBeEnabled();
     expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(document.querySelector('.sr-only[aria-live]')).toHaveTextContent('Refreshed');
   });
 
   it('refresh error shows an alert and keeps the old timestamp', async () => {
@@ -338,7 +342,9 @@ describe('/licenses', () => {
     renderAt('/licenses');
     await screen.findByText('Last refreshed just now');
     await user.click(screen.getByRole('button', {name: 'Refresh'}));
-    expect(await screen.findByText('Could not refresh. Please try again.')).toBeInTheDocument();
+    expect(await screen.findAllByText('Could not refresh. Check your connection and try again.')).toHaveLength(2);
+    expect(document.querySelector('.sr-only[aria-live]')).toHaveTextContent('Could not refresh');
+    expect(screen.getAllByText(/Could not refresh/)).toHaveLength(2);
     expect(screen.getByText('Last refreshed just now')).toBeInTheDocument();
     expect(screen.getByRole('region', {name: 'License lic_1'})).toBeInTheDocument();
   });

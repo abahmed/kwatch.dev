@@ -11,6 +11,7 @@ import {useClusters} from '../useClusters';
 import {DOCS_URL} from '../config';
 
 export const MIN_REFRESH_MS = 400;
+const REFRESH_ERROR = 'Could not refresh. Check your connection and try again.';
 
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
 
@@ -287,6 +288,7 @@ export default function Licenses() {
   }, [reload, reloadClusters]);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [announce, setAnnounce] = useState('');
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 30_000);
@@ -295,12 +297,16 @@ export default function Licenses() {
   // Manual refresh: busy state stays up for at least MIN_REFRESH_MS so it registers.
   async function refresh() {
     setRefreshing(true);
+    setRefreshFailed(false);
+    setAnnounce('');
     try {
       const [results] = await Promise.all([
         Promise.all([reload(), reloadClusters()]),
         new Promise((r) => setTimeout(r, MIN_REFRESH_MS)),
       ]);
-      setRefreshFailed(results.some((ok) => !ok));
+      const failed = results.some((ok) => !ok);
+      setRefreshFailed(failed);
+      setAnnounce(failed ? REFRESH_ERROR : 'Refreshed');
     } finally {
       setRefreshing(false);
     }
@@ -370,9 +376,10 @@ export default function Licenses() {
                   {where ? ` · ${where}` : ''}
                 </span>
               )}
-              <span className="small muted" aria-live="polite" title={fmtUtcFull(updatedAt / 1000)}>
+              <span className="small muted" title={fmtUtcFull(updatedAt / 1000)}>
                 {fmtRefreshed(updatedAt, Math.max(tick, updatedAt))}
               </span>
+              <span className="sr-only" aria-live="polite">{announce}</span>
               <button
                 type="button"
                 className="link small"
@@ -387,7 +394,7 @@ export default function Licenses() {
           </div>
           {error && <div className="alert" role="alert">{error}</div>}
           {refreshFailed && !refreshing && (
-            <div className="alert" role="alert">Could not refresh. Please try again.</div>
+            <div className="alert">{REFRESH_ERROR}</div>
           )}
           <div aria-busy={refreshing}>
           {sorted.map((l) => (

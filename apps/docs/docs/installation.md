@@ -44,7 +44,7 @@ The default installation runs one small Pod with its state on a 2Gi volume
 (set `KWATCH_STORAGE=emptydir` to skip the volume). The [pod](/glossary#pod) reads cluster
 resources through Kubernetes [RBAC](/glossary#rbac), and the manager applies the required
 permissions. TLS monitoring needs additional Secret access and is off by
-default. Pro adds high availability with more than one replica.
+default. kwatch runs as one pod; there is no high availability in v1.
 
 ## 🚀 Run the installer {#-run-the-installer}
 
@@ -122,11 +122,10 @@ curl http://localhost:8060/readyz
 ```
 
 `/healthz` should return a successful liveness response. `/readyz` returns a
-successful response only for an active leader whose required state, sources,
-and informer caches are ready; a standby or a leader still restoring state is
-expected to be not ready. `/availabilityz` is an internal Deployment probe: it
-allows an elected standby to remain available during a rolling update without
-claiming that it is monitoring-ready.
+successful response only when the required state, sources, and informer caches
+are ready; a pod still restoring state is expected to be not ready.
+`/availabilityz` is an internal Deployment probe that lets a rolling update
+progress without claiming that the pod is monitoring-ready.
 
 ### Change configuration safely
 

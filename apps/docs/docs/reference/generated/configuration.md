@@ -72,6 +72,7 @@ generated: true
 | `app.hideProHints` | boolean | `false` | active | Remove the note that names what kwatch Pro adds from Community messages. |
 | `license.key` | string | `empty` | active | kwatch Pro license key; reference it as $&#123;KWATCH_LICENSE_KEY&#125;. The KWATCH_LICENSE_KEY variable wins over this setting. Empty runs the Community edition. |
 | `app.communityProvider` | string | `empty` | active | Alert provider the Community edition keeps when several are configured; empty keeps the first by name. |
+| `clusterCheckins` | boolean | `true` | active | Pro cluster check-ins: every 15 minutes kwatch tells api.kwatch.dev it is running, so app.kwatch.dev can show when the cluster goes silent. Sent: a hashed cluster ID, the kwatch version, the node count, the namespace and the cluster name if set. Ignored in the Community edition. |
 
 ## Security
 

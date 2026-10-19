@@ -77,6 +77,7 @@ const sidebars: SidebarsConfig = {
         items: [
           'operations/production-readiness',
           'operations/replication-and-failover',
+          'operations/is-kwatch-working',
           'operations/persistence-recovery',
           'operations/rbac-and-security',
           'operations/troubleshooting',
@@ -88,7 +89,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Pro',
       collapsible: false,
-      items: ['editions', 'license'],
+      items: ['editions', 'license', 'getting-help'],
     },
     {
       type: 'category',

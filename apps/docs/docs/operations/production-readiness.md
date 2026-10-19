@@ -15,7 +15,7 @@ kwatch is designed for a Kubernetes-native, single-writer operating model. Use t
 - kwatch runs **one replica** with the `Recreate` strategy.
 - With Pro, state lives in a database file on a `ReadWriteOnce` PVC mounted at `/var/lib/kwatch`. Community keeps state in memory.
 - A Kubernetes Lease is only a **lock**: it stops two processes from writing the volume at once. There is no second Pod and no kwatch self-failover; if the Pod or its node fails, Kubernetes restarts it.
-- Running several replicas (standbys that take over the lock) is part of kwatch Pro. See [Replication and failover](/operations/replication-and-failover).
+- There is no high availability in v1, in Community or Pro. See [Replication and failover](/operations/replication-and-failover) and [Is kwatch working?](/operations/is-kwatch-working).
 
 Notification delivery is at least once, not exactly once; provider retries and a restart can produce a duplicate.
 

@@ -1,0 +1,66 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Get help with kwatch" description="Where to get help with kwatch: the docs, a public GitHub issue for Community, or Get help in the app for Pro.">
+  <section class="wrap help">
+    <h1>Get help</h1>
+    <p class="lede">Most questions are answered in the docs. If yours is not, here is where to go.</p>
+
+    <div class="routes">
+      <article class="route wide">
+        <h2>Read the docs</h2>
+        <p>Install steps, what each alert means, and how to fix the usual causes.</p>
+        <a class="btn btn-primary" href="https://docs.kwatch.dev">Open the docs</a>
+        <a class="alt" href="https://docs.kwatch.dev/glossary">New to Kubernetes? Start with the glossary</a>
+      </article>
+      <article class="route">
+        <h2>Community: open an issue</h2>
+        <p>Community is free and supported in public on GitHub.</p>
+        <a class="btn btn-primary" href="https://github.com/abahmed/kwatch/issues/new">Open an issue</a>
+        <p class="note">Issues are public. Remove anything private first.</p>
+      </article>
+      <article class="route">
+        <h2>Pro: get help in the app</h2>
+        <p>Signed-in Pro users send a request from app.kwatch.dev and see replies there.</p>
+        <a class="btn btn-primary" href="https://app.kwatch.dev/help">Open Get help</a>
+        <p class="note">Pro is free during early access.</p>
+      </article>
+    </div>
+
+    <section class="prep" aria-labelledby="prep-title">
+      <h2 id="prep-title">Help us help you</h2>
+      <ol>
+        <li><span class="n">1</span><span>Run the installer and choose <code>Save diagnostics to file</code>.</span></li>
+        <li><span class="n">2</span><span>Read the list on screen. Secrets are removed and nothing is uploaded.</span></li>
+        <li><span class="n">3</span><span>Attach the file when you reply to our support email.</span></li>
+      </ol>
+      <a class="alt" href="https://docs.kwatch.dev/kwatch-sh">What is in a bundle</a>
+    </section>
+
+    <p class="honest">We read every request. We cannot promise a reply time during early access.</p>
+  </section>
+</Base>
+
+<style>
+  .help { padding-block: 64px 96px; }
+  h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 3.4vw + 28px, 76px); line-height: .95; letter-spacing: -0.045em; }
+  .lede { margin-top: 20px; font-size: 19px; color: var(--text-soft); max-width: 560px; }
+  .routes { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px; margin-top: 44px; }
+  .route { background: var(--surface); border-radius: 12px; padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+  .route.wide { grid-row: span 2; }
+  .route h2, .prep h2 { font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; }
+  .route p { color: var(--text-soft); }
+  .route .btn { margin-top: auto; min-height: 44px; }
+  .note { font-size: 14px; }
+  .alt { font-weight: 600; text-decoration: underline; padding-block: 12px; display: inline-block; }
+  .prep { margin-top: 56px; max-width: 640px; }
+  .prep ol { list-style: none; margin: 20px 0 8px; padding: 0; display: grid; gap: 14px; }
+  .prep li { display: flex; gap: 14px; align-items: baseline; }
+  .n { font-family: var(--font-mono); font-weight: 600; min-width: 1.5ch; }
+  code { font-family: var(--font-mono); font-size: .92em; }
+  .honest { margin-top: 40px; color: var(--text-muted); }
+  @media (max-width: 640px) {
+    .routes { grid-template-columns: 1fr; }
+    .route.wide { grid-row: auto; }
+  }
+</style>

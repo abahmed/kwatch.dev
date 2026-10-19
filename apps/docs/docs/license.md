@@ -55,7 +55,20 @@ key to that cluster. Nothing else about your cluster is sent.
 
 If the license service is unreachable, kwatch keeps its Pro features for up
 to 7 days from the last successful renewal: each renewal is valid for 3 days,
-followed by a 4-day grace period.
+followed by a 4-day grace period, then kwatch falls back to Community.
+
+## When a license expires
+
+Each license runs for 3 months. kwatch emails you 14 days and 3 days before it
+ends, and again when it has expired. When the license ends, Pro features switch
+off and kwatch falls back to Community: detection and alerting keep working,
+but Pro-only features (persistence, extra providers, routing and the rest of
+what is marked <span className="kw-pro">Pro</span>) stop. kwatch also logs when
+Pro turns on, when a renewal starts failing and the grace period begins, and
+when Pro turns off.
+
+To renew, sign in at [app.kwatch.dev](https://app.kwatch.dev), then run the
+installer, open **License / Pro** and choose **Add or replace key**.
 
 ## Moving to another cluster
 
@@ -108,7 +121,7 @@ The license state appears in the `/status` output:
 | `invalid` | The key is malformed or unrecognised. | Re-copy the key from your account page. |
 | `pending` | A key is present but not yet verified. | Wait for the first check; verify outbound access to `api.kwatch.dev`. |
 | `active` | License valid and renewed. | Nothing. |
-| `grace` | Renewal failing, within the grace period (up to 7 days offline). | Restore network access to `api.kwatch.dev`. |
+| `grace` | Renewal failing, within the grace period (3-day lease plus 4-day grace, up to 7 days offline). | Restore network access to `api.kwatch.dev`. |
 | `expired` | The license has expired. | Start or renew a license on your account page. |
 | `revoked` | The license was revoked. | Contact hello@kwatch.dev. |
 | `conflict` | The key is active on another cluster. | Run the installer here and choose **License / Pro**, then **Move license to this cluster**; or transfer it on your account page, or use a separate key. |

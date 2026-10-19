@@ -29,7 +29,7 @@ which can happen briefly when a node is cut off from the network and
 Kubernetes starts a replacement elsewhere. The state file is also fenced by an
 epoch counter that only the Lease holder claims. There is no second Pod and no
 kwatch self-failover; Kubernetes restarts the Pod and kwatch resumes from the
-volume. Extra replicas wait as standbys, which is part of Pro. Notification
+volume. There is no high availability in v1. Notification
 delivery is at least once, not exactly once.
 
 ## Why informer-based, not polling?

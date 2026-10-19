@@ -121,6 +121,26 @@ The key is kept across upgrades and travels with configuration backups. See
 - Optional TLS monitoring is enabled only after you approve its Secret access.
 - Uninstall preserves the CRD, configuration resource, backups, and namespace.
 
+## Full cleanup
+
+Uninstall keeps some things on purpose. To remove them as well, run these after
+the uninstall (replace `<namespace>` with yours; the default is `kwatch`):
+
+```bash
+# configuration resource and backup Secrets made by the installer
+kubectl -n <namespace> delete kwatchconfig --all
+kubectl -n <namespace> delete secret -l app.kubernetes.io/managed-by=kwatch.sh
+# state volume (incident history)
+kubectl -n <namespace> delete pvc kwatch-data
+# the namespace, then the CRD
+kubectl delete namespace <namespace>
+kubectl delete crd kwatchconfigs.kwatch.abahmed.dev
+```
+
+If you installed with Helm, `helm uninstall` leaves the CRD, the license
+instance Secret (`kwatch-license-instance`) and the PVC. Delete them the same
+way.
+
 ## 🔎 What the installer verifies
 
 The installer downloads release files over HTTPS, so TLS protects the

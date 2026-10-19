@@ -35,6 +35,28 @@ export type AccountResponse = {
   trials?: FreeInfo;
 };
 
+export type ClusterState = 'waiting' | 'ok' | 'back' | 'silent' | 'stopped' | 'off' | 'detached';
+
+/** GET /account/clusters row (kwatch-api). Times are unix seconds. */
+export type Cluster = {
+  license: string;
+  cluster_uuid: string;
+  id_short: string;
+  name: string | null;
+  namespace?: string | null;
+  version: string | null;
+  nodes: number | null;
+  last_seen: number | null;
+  checkins: boolean;
+  state: ClusterState;
+  silent_since?: number | null;
+  stopped_since?: number | null;
+  recovered_at?: number | null;
+  quiet_seconds?: number | null;
+};
+
+export type SupportRequest = {license: string; cluster_uuid?: string; topic: string; message: string};
+
 export class ApiError extends Error {
   status: number;
   code?: string;
@@ -103,3 +125,5 @@ export function displayKey(l: License): string {
   if (l.key_masked) return l.key_masked;
   return l.key ? maskKey(l.key) : '';
 }
+export const getClusters = () => apiFetch<{clusters: Cluster[]; srv_time?: number}>('/account/clusters');
+export const sendSupport = (req: SupportRequest) => apiFetch<{ref: string}>('/support', {method: 'POST', body: req});

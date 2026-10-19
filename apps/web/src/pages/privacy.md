@@ -35,10 +35,18 @@ The website does not use analytics or advertising cookies.
 ## Telemetry
 
 Telemetry is on by default. kwatch sends an anonymous adoption ping, at most
-once every 7 days, containing a hashed cluster ID and the kwatch version, so we
+once every 7 days, containing a random or hashed installation ID and the kwatch version, so we
 can see which versions are in use. It is separate from licensing, works in the
 Community edition too, and contains no personal data. Turn it off with
 `telemetry.enabled: false` or `KWATCH_TELEMETRY=false`.
+
+## Cluster check-ins (Pro only)
+
+With an active Pro license, kwatch pings `api.kwatch.dev` every 30 minutes so
+app.kwatch.dev can show when a cluster last checked in and mark it silent after
+60 minutes. The ping sends the kwatch version, the node count, the namespace and
+the cluster name if you set one. Nothing is sent to you. The Community edition
+sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 
 ## How long we keep data
 
@@ -49,6 +57,7 @@ Community edition too, and contains no personal data. Turn it off with
 | Sessions | 30 days, or until you sign out |
 | Rate-limit counters | A few hours to a day |
 | License event log | 180 days, keyed by license ID only |
+| Telemetry ping (installation ID, kwatch version, last seen; no IP address) | One row per installation, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
 | Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |
 
 ## How we use data and legal bases

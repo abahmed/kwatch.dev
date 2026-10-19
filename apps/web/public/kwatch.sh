@@ -4202,6 +4202,9 @@ configure_alert_flow() {
     die "could not restart kwatch after changing notification providers"
   fi
   ui_success "✅ Notification providers updated."
+  if ui_interactive && confirm_action "Send a test alert now" "y"; then
+    testalert_flow
+  fi
 }
 
 configure_after_install() {
@@ -6695,12 +6698,13 @@ show_supported_menu() {
   ui_screen "ready"
   local choice
   local -a actions=() labels=()
-  actions+=(status logs upgrade providers settings resources capabilities license)
+  actions+=(status logs upgrade providers testalert settings resources capabilities license)
   labels+=(
     "📊 View status"
     "📜 View recent logs"
     "⬆️  Upgrade kwatch"
     "🔌 Edit notification providers"
+    "🔔 Send test alert"
     "⚙️  Edit settings"
     "🧮 Edit Deployment resources and placement"
     "🧩 View capabilities"
@@ -6711,8 +6715,8 @@ show_supported_menu() {
     actions+=(restore)
     labels+=("♻️  Restore a previous configuration")
   fi
-  actions+=(uninstall exit)
-  labels+=("🧹 Uninstall kwatch" "🚪 Exit")
+  actions+=(diagnostics uninstall exit)
+  labels+=("🧰 Save diagnostics to file" "🧹 Uninstall kwatch" "🚪 Exit")
   if ! choice=$(ui_select 0 "${labels[@]}"); then
     MENU_EXIT=true
     return
@@ -6720,6 +6724,8 @@ show_supported_menu() {
   case "${actions[$choice]}" in
     status) status_flow; MENU_READ_ONLY=true ;;
     logs) logs_flow; MENU_READ_ONLY=true ;;
+    testalert) testalert_flow; MENU_READ_ONLY=true ;;
+    diagnostics) diagnostics_flow; MENU_READ_ONLY=true ;;
     upgrade) upgrade_flow ;;
     providers)
       require_catalog_for "provider editing"
@@ -8153,23 +8159,412 @@ license_move_flow() {
   fi
 }
 
+# Cluster check-ins: whether the Pod pings api.kwatch.dev every 30 minutes so
+# app.kwatch.dev can show the cluster as silent. Stored in the KwatchConfig
+# (spec.clusterCheckins, default on) so upgrades keep it.
+CHECKINS_CONFIG_PATH="clusterCheckins"
+
+checkins_state() {
+  case "$(config_value "$CHECKINS_CONFIG_PATH")" in
+    false) printf 'off' ;;
+    *) printf 'on' ;;
+  esac
+}
+
+checkins_flow() {
+  local state choice target reason
+  ui_heading "Cluster check-ins"
+  ui_detail "  kwatch checks in with api.kwatch.dev every 30 minutes. If it goes quiet"
+  ui_detail "  for 60 minutes, app.kwatch.dev shows this cluster as silent."
+  ui_detail "  Nothing is sent to you. Sent: a random or hashed installation ID, the kwatch version,"
+  ui_detail "  the node count and the cluster name if you set one."
+  state=$(checkins_state)
+  if [ "$state" = on ]; then
+    choice=$(ui_select 0 "Turn off" "Back") || return 0
+    target=false
+  else
+    choice=$(ui_select 0 "Turn on" "Back") || return 0
+    target=true
+  fi
+  [ "$choice" = 0 ] || return 0
+  if reason=$(patch_config_value "$CHECKINS_CONFIG_PATH" boolean "$target" 2>&1); then
+    LICENSE_FLOW_CHANGED=true
+    if [ "$target" = true ]; then
+      ui_success "Cluster check-ins are on. The first check-in follows within 30 minutes."
+    else
+      ui_success "Cluster check-ins are off."
+      ui_detail "  If the final check-in cannot reach api.kwatch.dev, app.kwatch.dev shows this"
+      ui_detail "  cluster as silent until the key is removed or moved."
+    fi
+  else
+    ui_error "Could not change Cluster check-ins: $(compact_reason "${reason:-no diagnostic was returned}"). Nothing was changed. Run the installer again after fixing it."
+  fi
+}
+
+# Runs `kwatch test-alert` in the Pod through the live delivery path.
+testalert_flow() {
+  local selector pod rc=0 out status=0 count choice
+  local -a args=() names=()
+  ui_screen "test alert"
+  selector=$(workload_selector)
+  ui_busy "Finding the kwatch Pod"
+  pod=$(select_workload_pod "$selector") || rc="$?"
+  ui_busy_done
+  [ "${rc:-0}" -ne 2 ] || return 0
+  if [ -z "$pod" ]; then
+    ui_warn "No kwatch Pod was found in namespace $NAMESPACE. Install or repair kwatch first."
+    ui_pause
+    return 0
+  fi
+  if [ "$(kubectl -n "$NAMESPACE" get pod "$pod" \
+    -o 'jsonpath={.status.containerStatuses[0].ready}' 2>/dev/null || true)" != true ]; then
+    ui_warn "The kwatch Pod is not ready yet. Wait a minute, or choose View status."
+    ui_pause
+    return 0
+  fi
+  # `--provider ?` prints the configured provider names, one per line.
+  while IFS= read -r name; do
+    name="${name//[[:space:]]/}"
+    [ -n "$name" ] && names+=("$name")
+  done < <(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert --provider "?" 2>/dev/null || true)
+  count=${#names[@]}
+  if [ "$count" -gt 1 ]; then
+    choice=$(ui_select 0 "All providers" "${names[@]}") || return 0
+    [ "$choice" = 0 ] || args=(--provider "${names[$((choice - 1))]}")
+  fi
+  ui_busy "Sending the test alert"
+  out=$(kubectl -n "$NAMESPACE" exec "$pod" -- kwatch test-alert --from installer ${args[@]+"${args[@]}"} 2>&1) || status=$?
+  ui_busy_done
+  if printf '%s' "$out" | grep -qi 'unknown command'; then
+    ui_warn "This kwatch version does not have test-alert yet. Choose Upgrade kwatch, then try again."
+  else
+    printf '%s\n' "$out" | redact_stream >&2
+  fi
+  ui_pause
+  return 0
+}
+
+# ---- Save diagnostics to file ------------------------------------------------
+# Collects on this machine with kubectl, redacts, asks, and writes one archive.
+# Nothing is uploaded. No Secret is read.
+
+DIAG_WORK=""
+DIAG_MAX_BYTES=$((10 * 1024 * 1024))
+
+diag_text_redact() {
+  sed -E 's#https?://[^[:space:]"'"'"')]+#<url>#g;
+    s#[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}#<email>#g;
+    s#KW1-[A-Za-z0-9_-]+#<redacted>#g;
+    s#([0-9]{1,3}\.){3}[0-9]{1,3}#<ip>#g;
+    s#([0-9A-Fa-f]{1,4}:){3,7}[0-9A-Fa-f]{0,4}#<ip>#g;
+    s#eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_.-]+#<redacted>#g;
+    s#AKIA[0-9A-Z]{16}#<redacted>#g' | redact_stream
+}
+
+# Prefer the Pod's own `kwatch redact` (one list for shell and Go); then the
+# shell pass on top as a floor.
+diag_redact() {
+  if [ -n "${DIAG_POD_REDACT:-}" ]; then
+    kubectl -n "$NAMESPACE" exec -i "$DIAG_POD" -- kwatch redact 2>/dev/null | diag_text_redact
+  else
+    diag_text_redact
+  fi
+}
+
+# Keeps keys, booleans, numbers and a few enum words; every other string is
+# <set> or <empty>.
+diag_config_allowlist() {
+  awk '
+    /^spec:/ { on=1; print; next }
+    on && /^[^ #]/ { exit }
+    on {
+      line=$0
+      if (match(line, /^[ -]*[A-Za-z0-9_.\/-]+:[ ]+/)) {
+        head=substr(line, 1, RLENGTH); val=substr(line, RLENGTH+1)
+        if (val ~ /^(true|false|[0-9]+([.][0-9]+)?|debug|info|warn|error|slack|discord|telegram|email|pagerduty|opsgenie|teams|webhook|mattermost|rocketchat|zulip|ntfy|gotify|googlechat|matrix|line|dingtalk|feishu|lark|sns|twilio|pushover|text|json)$/) print line
+        else if (val ~ /^(""|'"''"'|\[\]|\{\})$/) print head "<empty>"
+        else if (val ~ /^[|>]/) print head "<set>"
+        else print head "<set>"
+      } else if (match(line, /^[ ]*-[ ]+/)) {
+        head=substr(line, 1, RLENGTH); val=substr(line, RLENGTH+1)
+        if (val ~ /^(true|false|[0-9]+)$/) print line; else print head "<set>"
+      } else if (line ~ /:[ ]*$/) print line
+      else if (line ~ /^[ ]+[^ ]/) { match(line, /^[ ]+/); print substr(line, 1, RLENGTH) "<set>" }
+    }'
+}
+
+diag_deployment_clean() {
+  awk '
+    /^  managedFields:/ { skip=1; next }
+    skip && /^    / { next }
+    skip && /^  [^ ]/ { skip=0 }
+    /kubectl.kubernetes.io\/last-applied-configuration/ { next }
+    { if ($0 ~ /^[ -]*value:[ ]/) { sub(/value:.*/, "value: <set>") } print }'
+}
+
+# Final scan: any hit aborts. Prints the offending file name.
+diag_scan() {
+  local dir="$1" f hit=""
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    case "$(basename "$f")" in README.txt) continue ;; esac
+    if sed -E 's#@sha256:[0-9a-f]+##g' "$f" | grep -Eiq \
+      'https?://|@|[A-Za-z0-9+/=_-]{41,}|(token|secret|password|key)[[:space:]]*[=:][[:space:]]*[^<[:space:]]'; then
+      # Allow plain booleans and numbers after a key name.
+      if sed -E 's#@sha256:[0-9a-f]+##g' "$f" | grep -Ei \
+        'https?://|@|[A-Za-z0-9+/=_-]{41,}|(token|secret|password|key)[[:space:]]*[=:][[:space:]]*[^<[:space:]]' |
+        grep -Eiv '(token|secret|password|key)[[:space:]]*[=:][[:space:]]*(true|false|[0-9]+)[[:space:]]*$' |
+        grep -q .; then
+        hit=$(basename "$f")
+        break
+      fi
+    fi
+  done
+  [ -z "$hit" ] || { printf '%s' "$hit"; return 1; }
+  return 0
+}
+
+diag_kb() {
+  local f="$1" bytes
+  bytes=$(wc -c <"$f" 2>/dev/null | tr -d ' ')
+  printf '%s' $(((${bytes:-0} + 1023) / 1024))
+}
+
+diag_cluster_slug() {
+  local name slug
+  name=$(config_value app.clusterName)
+  [ -n "$name" ] || name="$NAMESPACE"
+  slug=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' |
+    sed -E 's/-+/-/g;s/^-//;s/-$//' | cut -c1-30 | sed -E 's/-$//')
+  printf '%s' "${slug:-cluster}"
+}
+
+diag_collect() {
+  local dir="$1" lines="$2" missing="" err
+  local deployment
+  mkdir -p "$dir"
+  ui_detail "  Status"
+  { kwatch_status_text 2>/dev/null || true; } | diag_redact >"$dir/status.txt"
+  ui_detail "  Logs"
+  if [ -n "$DIAG_POD" ]; then
+    kubectl -n "$NAMESPACE" logs "$DIAG_POD" --tail="$lines" 2>&1 | diag_redact >"$dir/logs.txt"
+    if kubectl -n "$NAMESPACE" logs "$DIAG_POD" --previous --tail="$lines" >"$dir/.prev" 2>/dev/null; then
+      diag_redact <"$dir/.prev" >"$dir/logs-previous.txt"
+    fi
+    rm -f "$dir/.prev"
+  fi
+  ui_detail "  Events"
+  if err=$(kubectl -n "$NAMESPACE" get events 2>&1 >"$dir/.events"); then
+    diag_redact <"$dir/.events" >"$dir/events.txt"
+  else
+    missing="${missing:+$missing,}\"events\""
+    DIAG_NOTES="${DIAG_NOTES}Could not read events ($(compact_reason "$err")). The diagnostics were saved without them.
+"
+  fi
+  rm -f "$dir/.events"
+  ui_detail "  Configuration (secrets removed)"
+  kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" -o yaml 2>/dev/null |
+    diag_config_allowlist >"$dir/config.yaml" || true
+  [ -s "$dir/config.yaml" ] || rm -f "$dir/config.yaml"
+  if [ -n "$DIAG_POD" ]; then
+    kubectl -n "$NAMESPACE" describe pod "$DIAG_POD" 2>/dev/null |
+      sed -E 's/^([[:space:]]+[A-Za-z0-9_.-]+):[[:space:]]+.*(<set to the key.*|[^[:space:]]+)$/\1: <set>/' |
+      awk '/^    Environment:/ {env=1; print; next} env && /^    [A-Za-z]/ {env=0} env && /^      [A-Za-z_]/ {sub(/:.*/, ": <set>")} {print}' |
+      diag_redact >"$dir/pods.txt"
+  fi
+  deployment=$(deployment_name 2>/dev/null || true)
+  if [ -n "$deployment" ]; then
+    kubectl -n "$NAMESPACE" get deployment "$deployment" -o yaml 2>/dev/null |
+      diag_deployment_clean | diag_redact >"$dir/deployment.yaml"
+  fi
+  DIAG_MISSING="$missing"
+}
+
+diag_write_manifest() {
+  local dir="$1" lines="$2" server nodes edition
+  server=$(kubectl version -o json 2>/dev/null |
+    sed -n '/serverVersion/,$p' | sed -n 's/.*"gitVersion": *"\([^"]*\)".*/\1/p' | head -1)
+  nodes=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  edition=$(kwatch_status_text 2>/dev/null | sed -n 's/^Edition:[[:space:]]*//p' | head -1)
+  {
+    printf '{\n'
+    printf '  "bundle_format": 1,\n'
+    printf '  "created_utc": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '  "installer_catalog": "%s",\n' "$(json_escape "${INSTALL_VERSION:-unknown}")"
+    printf '  "edition": "%s",\n' "$(json_escape "${edition:-unknown}")"
+    printf '  "kubernetes_server": "%s",\n' "$(json_escape "${server:-unknown}")"
+    printf '  "node_count": %s,\n' "${nodes:-0}"
+    printf '  "installer_os": "%s",\n' "$(uname -s 2>/dev/null || echo unknown)"
+    printf '  "log_lines": %s,\n' "$lines"
+    printf '  "kwatch_pod_found": %s,\n' "$([ -n "$DIAG_POD" ] && echo true || echo false)"
+    printf '  "missing": [%s]\n' "${DIAG_MISSING:-}"
+    printf '}\n'
+  } >"$dir/manifest.json"
+}
+
+diag_write_readme() {
+  cat >"$1/README.txt" <<'README'
+kwatch diagnostics
+
+This file was made on your computer by the kwatch installer. kwatch did not
+upload it. It holds recent kwatch logs, events from the kwatch namespace, the
+kwatch settings with secrets removed, and version information.
+
+Removed: Secrets, your license key, webhook URLs, tokens, e-mail addresses and
+IP addresses. Pod names and the namespace name are kept because they are needed
+to debug.
+
+Look through it before you send it. Attach it when you reply to our support
+email.
+README
+}
+
+diag_output_dir() {
+  if [ -w . ]; then printf '.'; else printf '%s' "$HOME"; fi
+}
+
+diagnostics_flow() {
+  local selector lines logs_cut=false dir out_dir slug date_s name n=1 file
+  local total_kb size choice scan_hit review
+  ui_screen "diagnostics"
+  command -v kubectl >/dev/null 2>&1 || {
+    ui_error "kubectl is needed to collect the diagnostics and could not reach a cluster. Select a cluster first (View status shows which one)."
+    ui_pause
+    return 0
+  }
+  if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+    ui_error "kubectl is needed to collect the diagnostics and could not reach a cluster. Select a cluster first (View status shows which one)."
+    ui_pause
+    return 0
+  fi
+  selector=$(workload_selector)
+  DIAG_POD=$(kubectl -n "$NAMESPACE" get pods -l "$selector" \
+    -o 'jsonpath={.items[0].metadata.name}' 2>/dev/null || true)
+  DIAG_POD_REDACT=""
+  DIAG_NOTES=""
+  if [ -n "$DIAG_POD" ] &&
+    printf 'x' | kubectl -n "$NAMESPACE" exec -i "$DIAG_POD" -- kwatch redact >/dev/null 2>&1; then
+    DIAG_POD_REDACT=1
+  fi
+  DIAG_WORK=$(mktemp -d 2>/dev/null) || { ui_error "Could not write a working folder. Free some space and try again."; ui_pause; return 0; }
+  dir="$DIAG_WORK/bundle"
+  lines=2000
+  ui_busy "Collecting"
+  ui_busy_done
+  diag_collect "$dir" "$lines"
+  for n in 1000 500 200; do
+    size=$(du -sk "$dir" | awk '{print $1*1024}')
+    [ "${size:-0}" -le "$DIAG_MAX_BYTES" ] && break
+    logs_cut=true
+    lines=$n
+    diag_collect "$dir" "$lines"
+  done
+  [ -n "$DIAG_POD" ] || DIAG_NOTES="${DIAG_NOTES}No kwatch Pod was found, so the diagnostics have no logs. Everything else was saved.
+"
+  diag_write_readme "$dir"
+  diag_write_manifest "$dir" "$lines"
+  ui_detail "  Checking nothing private is left"
+  if scan_hit=$(diag_scan "$dir"); then :; else
+    ui_error "A line that may hold a secret was left in $scan_hit. Nothing was saved. Please tell us in Get help."
+    rm -rf "$DIAG_WORK"; DIAG_WORK=""
+    ui_pause
+    return 0
+  fi
+  while true; do
+    total_kb=0
+    ui_heading "Save diagnostics to a file"
+    ui_detail "  kwatch status                    $(diag_kb "$dir/status.txt") KB"
+    ui_detail "  Last $lines log lines            $(diag_kb "$dir/logs.txt") KB"
+    ui_detail "  Events from the kwatch namespace  $(diag_kb "$dir/events.txt") KB"
+    ui_detail "  Settings, secrets removed         $(diag_kb "$dir/config.yaml") KB"
+    ui_detail "  kwatch and Kubernetes versions    $(diag_kb "$dir/manifest.json") KB"
+    total_kb=$(du -sk "$dir" | awk '{print $1}')
+    ui_detail "  Total                            ~${total_kb} KB"
+    printf '\n' >&2
+    ui_detail "Removed: Secrets, your license key, webhook URLs, tokens, e-mail"
+    ui_detail "addresses and IP addresses."
+    ui_detail "The file stays on this computer. kwatch does not upload it."
+    [ "$logs_cut" != true ] || ui_detail "Logs were cut to the last $lines lines to keep the file small."
+    [ -z "$DIAG_NOTES" ] || ui_warn "$DIAG_NOTES"
+    choice=$(ui_select 0 "Save the file" "Review the files first" "Cancel") || choice=2
+    case "$choice" in
+      1)
+        review="$DIAG_WORK/review"
+        rm -rf "$review"; cp -R "$dir" "$review"
+        ui_info "Opened at $review. Look through it, then come back here."
+        ui_pause
+        ;;
+      0) break ;;
+      *)
+        rm -rf "$DIAG_WORK"; DIAG_WORK=""
+        ui_info "Nothing was saved."
+        return 0
+        ;;
+    esac
+  done
+  out_dir=$(diag_output_dir)
+  slug=$(diag_cluster_slug)
+  date_s=$(date -u +%Y%m%d)
+  name="kwatch-diagnostics-$slug-$date_s"
+  file="$out_dir/$name.tar.gz"
+  n=2
+  while [ -e "$file" ]; do
+    file="$out_dir/$name-$n.tar.gz"
+    n=$((n + 1))
+  done
+  if ! tar -czf "$file" -C "$dir" . 2>/dev/null; then
+    ui_error "Could not write $file. Free some space or run the installer from a folder you can write to."
+    rm -rf "$DIAG_WORK"; DIAG_WORK=""
+    ui_pause
+    return 0
+  fi
+  size=$(wc -c <"$file" | tr -d ' ')
+  rm -rf "$DIAG_WORK"; DIAG_WORK=""
+  ui_heading "Diagnostics saved"
+  ui_detail "  $file   ($(((size + 1023) / 1024)) KB)"
+  printf '\n' >&2
+  ui_detail "Attach this file when you reply to our support email."
+  ui_detail "No support email yet? Pro users: open app.kwatch.dev, choose Get help"
+  ui_detail "and describe what happened. We reply by e-mail."
+  ui_detail "Community: open an issue at github.com/abahmed/kwatch/issues. Attach the"
+  ui_detail "file only after you have read it; issues are public."
+  if [ -f /.dockerenv ] || [ -n "${KUBERNETES_SERVICE_HOST:-}" ] || [ -n "${CI:-}" ]; then
+    printf '\n' >&2
+    ui_detail "Copy it out of the container before it stops, for example with kubectl cp or docker cp."
+  elif [ -n "${SSH_CONNECTION:-}" ]; then
+    local full host
+    full="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+    host=$(hostname 2>/dev/null || echo host)
+    printf '\n' >&2
+    ui_detail "This file is on $host. To copy it to your computer, run this on your"
+    ui_detail "computer:"
+    ui_detail "  scp ${USER:-user}@$host:$full ."
+  fi
+  ui_pause
+  return 0
+}
+
 license_flow() {
   local choice
   LICENSE_FLOW_CHANGED=false
   LICENSE_COMMUNITY_CACHE=""
   while true; do
     ui_screen "license / pro"
-    choice=$(ui_select 0 \
-      "📋 Show license status" \
-      "🔑 Add or replace key" \
-      "🚚 Move license to this cluster" \
-      "🗑️  Remove key" \
-      "↩️  Back") || break
-    case "$choice" in
-      0) license_show_status; ui_pause ;;
-      1) license_add_flow; ui_pause ;;
-      2) license_move_flow || true; ui_pause ;;
-      3) license_remove_flow; ui_pause ;;
+    local -a lacts=(status) llabels=("📋 Show license status")
+    # Only with an active key: absent otherwise, not greyed.
+    if license_secret_exists; then
+      lacts+=(checkins)
+      llabels+=("📡 Cluster check-ins: $(checkins_state)   (change)")
+    fi
+    lacts+=(add move remove back)
+    llabels+=("🔑 Add or replace key" "🚚 Move license to this cluster" "🗑️  Remove key" "↩️  Back")
+    choice=$(ui_select 0 "${llabels[@]}") || break
+    case "${lacts[$choice]}" in
+      status) license_show_status; ui_pause ;;
+      checkins) checkins_flow; ui_pause ;;
+      add) license_add_flow; ui_pause ;;
+      move) license_move_flow || true; ui_pause ;;
+      remove) license_remove_flow; ui_pause ;;
       *) break ;;
     esac
   done

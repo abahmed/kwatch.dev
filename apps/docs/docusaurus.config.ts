@@ -4,6 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const logo = {
   alt: 'kwatch',
+  href: 'https://kwatch.dev',
   src: 'img/junction.svg',
   srcDark: 'img/junction-dark.svg',
 };
@@ -103,11 +104,6 @@ const config: Config = {
         {to: '/', label: 'Docs', position: 'right'},
         {href: 'https://kwatch.dev/pro', label: 'Pro', position: 'right'},
         {href: 'https://kwatch.dev/support', label: 'Get help', position: 'right'},
-        {
-          href: 'https://github.com/abahmed/kwatch',
-          label: 'GitHub',
-          position: 'right',
-        },
         {
           href: 'https://app.kwatch.dev',
           label: 'Sign in',

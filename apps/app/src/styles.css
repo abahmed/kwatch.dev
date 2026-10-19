@@ -26,20 +26,9 @@ code, .mono { font-family: var(--font-mono); }
 .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 
 /* Controls */
-:root {
-  --hit: 44px;
-  --control-border: #7C828E;
-  --primary-hover: #2A2F38;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --control-border: #6B7280;
-    --primary-hover: #FFFFFF;
-  }
-}
 button { font: inherit; cursor: pointer; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+:focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-offset); }
 .btn {
   background: transparent; color: var(--text);
   border: 1.5px solid var(--line); border-radius: 999px;

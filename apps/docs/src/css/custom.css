@@ -1,7 +1,7 @@
 /* kwatch docs theme. Colour and font tokens come from @kwatch/brand.
    Light or dark follows prefers-color-scheme (see tokens.css); Docusaurus
    mirrors the OS setting onto [data-theme], which we map to Infima below. */
-@import './fonts.css';
+@import '../../../../packages/brand/fonts.css';
 @import '../../../../packages/brand/tokens.css';
 
 :root {

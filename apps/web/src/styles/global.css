@@ -1,16 +1,7 @@
 /* Site-wide styles. Colour and font tokens come from @kwatch/brand. */
 :root {
-  /* Derived from the brand tokens */
-  --text-soft: #3A404B;
-  --ink: #0E1116;       /* surfaces that stay dark in both modes */
-  --ink-text: #ECEDEA;
-  --ink-muted: #9AA0AA;
-  --ink-line: #2A2E35;
   --max: 1280px;
   --gutter: 24px;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --text-soft: #C3C7CE; }
 }
 @media (max-width: 640px) {
   :root { --gutter: 16px; }
@@ -34,8 +25,8 @@ code { font-family: var(--font-mono); }
 img, svg { max-width: 100%; }
 
 :focus-visible {
-  outline: 3px solid var(--text);
-  outline-offset: 3px;
+  outline: var(--focus-width) solid var(--text);
+  outline-offset: var(--focus-offset);
   border-radius: 4px;
 }
 .on-ink :focus-visible, .on-signal :focus-visible { outline-color: currentColor; }

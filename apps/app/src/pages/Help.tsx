@@ -80,8 +80,8 @@ function Sent({email, refId}: {email: string; refId: string}) {
           <li>Keep the file ready. Secrets are removed and nothing is uploaded.</li>
         </ol>
       </section>
-      <Link className="btn" style={{display: 'inline-block', marginTop: 18, textDecoration: 'none'}} to="/clusters">
-        Back to clusters
+      <Link className="btn" style={{display: 'inline-block', marginTop: 18, textDecoration: 'none'}} to="/licenses">
+        Back to licenses
       </Link>
     </div>
   );

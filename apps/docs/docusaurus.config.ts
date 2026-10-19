@@ -5,6 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const logo = {
   alt: 'kwatch',
   href: 'https://kwatch.dev',
+  target: '_self',
   src: 'img/junction.svg',
   srcDark: 'img/junction-dark.svg',
 };

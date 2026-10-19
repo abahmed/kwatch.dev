@@ -43,3 +43,13 @@ export function fmtUtcFull(unix: number): string {
 export function fmtRefreshed(updatedAtMs: number, nowMs = Date.now()): string {
   return `Last refreshed ${fmtAgo(updatedAtMs / 1000, nowMs)}`;
 }
+
+/** "just now", "20 min ago", "3 h ago", "2 days ago". */
+export function fmtCheckinAgo(unix: number, nowMs = Date.now()): string {
+  const s = Math.max(0, Math.floor(nowMs / 1000 - unix));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  const d = Math.floor(s / 86400);
+  return `${d} ${d === 1 ? 'day' : 'days'} ago`;
+}

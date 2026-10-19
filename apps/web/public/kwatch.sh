@@ -7526,6 +7526,8 @@ license_inspect() {
   LICENSE_DAYS_LEFT=""
   LICENSE_PAYLOAD=$(license_payload_json "$key") || return 1
   LICENSE_PLAN=$(license_json_field "$LICENSE_PAYLOAD" plan || true)
+  # Every license, the legacy "trial" plan included, is Pro to the operator.
+  case "$LICENSE_PLAN" in trial|pro) LICENSE_PLAN="Pro" ;; esac
   LICENSE_EXP=$(license_json_field "$LICENSE_PAYLOAD" exp || true)
   [[ "$LICENSE_EXP" =~ ^[0-9]+$ ]] || return 1
   now=$(license_now)

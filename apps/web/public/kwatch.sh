@@ -150,7 +150,7 @@ fi
 
 # The tab title is the only place the step in progress is visible while the
 # window sits in the background, and a cluster name in the tab is what stops a
-# second window being mistaken for this one. OSC 2 sets it on xterm, iTerm2,
+# second window being mistaken for this one. OSC 0 sets the window and tab title on xterm, iTerm2,
 # Terminal.app, kitty, Alacritty, WezTerm and tmux; OSC 22/23 push the
 # terminal's own title and pop it back on exit, so the shell's prompt title
 # returns. Terminals that do not implement them ignore both silently. Skipped
@@ -167,7 +167,7 @@ fi
 
 ui_set_title() {
   [ "$UI_TITLE" = true ] || return 0
-  printf '\033]2;%s\007' "$*" >&2
+  printf '\033]0;%s\007' "$*" >&2
 }
 
 # Name the cluster in the tab for the whole session, and the step while one is

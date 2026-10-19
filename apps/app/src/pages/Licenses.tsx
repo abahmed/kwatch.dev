@@ -4,11 +4,13 @@ import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '..
 import type {Cluster, License} from '../api';
 import {clusterRank, clusterView, Pill} from '../cluster';
 import {Dialog, usePageTitle} from '../components';
-import {fmtDate, fmtUtcFull, plural} from '../format';
+import {fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
 import {errorMessage, LimitNotice} from '../messages';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
 import {DOCS_URL} from '../config';
+
+export const MIN_REFRESH_MS = 400;
 
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
 
@@ -277,12 +279,32 @@ function LicenseCard({
 
 export default function Licenses() {
   usePageTitle('Licenses');
-  const {data, reload} = useSession();
+  const {data, reload, updatedAt} = useSession();
   const cl = useClusters();
   const reloadClusters = cl.reload;
   const reloadAll = useCallback(async () => {
     await Promise.all([reload(), reloadClusters()]);
   }, [reload, reloadClusters]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  // Manual refresh: busy state stays up for at least MIN_REFRESH_MS so it registers.
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      const [results] = await Promise.all([
+        Promise.all([reload(), reloadClusters()]),
+        new Promise((r) => setTimeout(r, MIN_REFRESH_MS)),
+      ]);
+      setRefreshFailed(results.some((ok) => !ok));
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
   const [trialKey, setTrialKey] = useState<{lid: string; key: string} | null>(null);
@@ -348,12 +370,26 @@ export default function Licenses() {
                   {where ? ` · ${where}` : ''}
                 </span>
               )}
-              <button type="button" className="link small" onClick={() => void reloadAll()}>
-                Refresh
+              <span className="small muted" aria-live="polite" title={fmtUtcFull(updatedAt / 1000)}>
+                {fmtRefreshed(updatedAt, Math.max(tick, updatedAt))}
+              </span>
+              <button
+                type="button"
+                className="link small"
+                disabled={refreshing}
+                aria-busy={refreshing || undefined}
+                onClick={() => void refresh()}
+              >
+                {refreshing && <span className="spinner" aria-hidden="true" />}
+                {refreshing ? 'Refreshing…' : 'Refresh'}
               </button>
             </div>
           </div>
           {error && <div className="alert" role="alert">{error}</div>}
+          {refreshFailed && !refreshing && (
+            <div className="alert" role="alert">Could not refresh. Please try again.</div>
+          )}
+          <div aria-busy={refreshing}>
           {sorted.map((l) => (
             <LicenseCard
               key={l.lid}
@@ -368,6 +404,7 @@ export default function Licenses() {
               initialKey={trialKey?.lid === l.lid ? trialKey.key : null}
             />
           ))}
+          </div>
           {empty && !data.trial_available && free && (
             <LimitNotice scope={free.scope} domain={free.domain} limit={free.limit} />
           )}

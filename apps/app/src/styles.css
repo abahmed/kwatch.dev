@@ -211,3 +211,12 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .help .btn { min-height: var(--hit); }
 .ref { font-family: var(--font-mono); font-size: 20px; user-select: all; }
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.link:disabled { color: var(--text-muted); text-decoration: none; cursor: default; }
+.spinner {
+  display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: kw-spin 700ms linear infinite;
+}
+@keyframes kw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }

@@ -312,6 +312,37 @@ describe('/licenses', () => {
     expect(calls.filter((c) => c.key === 'GET /account/clusters').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('refresh shows a busy state, then Last refreshed', async () => {
+    withClusters([]);
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    const status = await screen.findByText('Last refreshed just now');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveAttribute('title', expect.stringMatching(/UTC$/));
+    await user.click(screen.getByRole('button', {name: 'Refresh'}));
+    const busy = screen.getByRole('button', {name: /Refreshing/});
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    expect(document.querySelector('div[aria-busy="true"] [aria-label="License lic_1"]')).not.toBeNull();
+    expect(await screen.findByRole('button', {name: 'Refresh'})).toBeEnabled();
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+
+  it('refresh error shows an alert and keeps the old timestamp', async () => {
+    let n = 0;
+    mockApi({
+      'GET /account': () => (++n === 1 ? {body: account({licenses: [license()]})} : {status: 500, body: {}}),
+      'GET /account/clusters': {body: {clusters: []}},
+    });
+    const user = userEvent.setup();
+    renderAt('/licenses');
+    await screen.findByText('Last refreshed just now');
+    await user.click(screen.getByRole('button', {name: 'Refresh'}));
+    expect(await screen.findByText('Could not refresh. Please try again.')).toBeInTheDocument();
+    expect(screen.getByText('Last refreshed just now')).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'License lic_1'})).toBeInTheDocument();
+  });
+
   it('/clusters redirects to /licenses and the nav has one item', async () => {
     withClusters([cl()]);
     renderAt('/clusters');

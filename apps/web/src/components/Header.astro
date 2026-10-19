@@ -1,6 +1,6 @@
 ---
 import Logo from './Logo.astro';
-interface Props { current?: 'pro' | 'none'; minimal?: boolean }
+interface Props { current?: 'pro' | 'support' | 'none'; minimal?: boolean }
 const { current = 'none', minimal = false } = Astro.props;
 ---
 <header class="site-header" class:list={{ minimal }}>
@@ -9,12 +9,11 @@ const { current = 'none', minimal = false } = Astro.props;
     {!minimal && (
       <>
         <nav aria-label="Main">
-          <a href="/#how">How it works</a>
-          <a href="/#catches">What it catches</a>
-          <a href="/pro" aria-current={current === 'pro' ? 'page' : undefined}>Pro</a>
           <a href="https://docs.kwatch.dev">Docs</a>
+          <a href="/pro" aria-current={current === 'pro' ? 'page' : undefined}>Pro</a>
+          <a href="/support" aria-current={current === 'support' ? 'page' : undefined}>Get help</a>
+          <a href="https://app.kwatch.dev">Sign in</a>
         </nav>
-        <a class="btn btn-line signin" href="https://app.kwatch.dev">Sign in</a>
       </>
     )}
   </div>
@@ -28,13 +27,11 @@ const { current = 'none', minimal = false } = Astro.props;
     font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: -0.05em;
   }
   nav { display: flex; flex-wrap: wrap; gap: 8px 26px; font-size: 15px; flex: 1 1 auto; }
-  nav a { color: var(--text-soft); text-decoration: none; }
+  nav a { color: var(--text-muted); text-decoration: none; }
   nav a:hover { color: var(--text); text-decoration: underline; }
   nav a[aria-current='page'] { color: var(--text); font-weight: 600; }
-  .signin { font-size: 15px; padding: 10px 18px; }
   @media (max-width: 640px) {
     .inner { gap: 12px 16px; }
     nav { order: 3; flex-basis: 100%; }
-    .signin { margin-left: auto; }
   }
 </style>

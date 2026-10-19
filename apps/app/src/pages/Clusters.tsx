@@ -93,8 +93,7 @@ function lastSeenCell(c: Cluster, v: View) {
 
 export default function Clusters() {
   usePageTitle('Clusters');
-  const {clusters, failed, reload} = useClusters();
-  const nowMs = Date.now();
+  const {clusters, failed, nowMs, reload} = useClusters();
 
   return (
     <>

@@ -2,26 +2,31 @@ import {useCallback, useEffect, useState} from 'react';
 import {getClusters} from './api';
 import type {Cluster} from './api';
 
+type State = {clusters: Cluster[] | null; failed: boolean; nowMs: number};
+
 /** Loads the account's clusters; reloads when the tab regains focus. No polling. */
 export function useClusters() {
-  const [clusters, setClusters] = useState<Cluster[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [state, setState] = useState<State>({clusters: null, failed: false, nowMs: 0});
 
   const load = useCallback(async () => {
     try {
-      setClusters((await getClusters()).clusters ?? []);
-      setFailed(false);
+      const r = await getClusters();
+      setState({clusters: r.clusters ?? [], failed: false, nowMs: Date.now()});
     } catch {
-      setFailed(true);
+      setState((s) => ({...s, failed: true, nowMs: Date.now()}));
     }
   }, []);
 
   useEffect(() => {
-    void load();
-    const onFocus = () => void load();
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    const first = () => void load();
+    // Deferred so the first load is not a synchronous setState in the effect body.
+    const t = setTimeout(first, 0);
+    window.addEventListener('focus', first);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('focus', first);
+    };
   }, [load]);
 
-  return {clusters, failed, reload: load};
+  return {clusters: state.clusters, failed: state.failed, nowMs: state.nowMs, reload: load};
 }

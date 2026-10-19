@@ -92,7 +92,7 @@ export default function Help() {
   const {data} = useSession();
   const {clusters} = useClusters();
   const email = data.account.email;
-  const now = Math.floor(Date.now() / 1000);
+  const [now] = useState(() => Math.floor(Date.now() / 1000));
   const pro = data.licenses.filter((l) => l.status === 'active' && l.expires_at > now);
 
   const [lid, setLid] = useState('');

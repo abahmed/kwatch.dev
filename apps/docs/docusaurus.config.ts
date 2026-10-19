@@ -1,9 +1,11 @@
-import {themes as prismThemes} from 'prism-react-renderer';
+import {kwatchPrismTheme} from './src/prism-theme';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const logo = {
   alt: 'kwatch',
+  href: 'https://kwatch.dev',
+  target: '_self',
   src: 'img/junction.svg',
   srcDark: 'img/junction-dark.svg',
 };
@@ -100,12 +102,9 @@ const config: Config = {
       logo: logo,
       items: [
         {type: 'search', position: 'left'},
-        {href: 'https://kwatch.dev', label: 'kwatch.dev', position: 'right'},
-        {
-          href: 'https://github.com/abahmed/kwatch',
-          label: 'GitHub',
-          position: 'right',
-        },
+        {to: '/', label: 'Docs', position: 'right'},
+        {href: 'https://kwatch.dev/pro', label: 'Pro', position: 'right'},
+        {href: 'https://kwatch.dev/support', label: 'Get help', position: 'right'},
         {
           href: 'https://app.kwatch.dev',
           label: 'Sign in',
@@ -114,50 +113,19 @@ const config: Config = {
         },
       ],
     },
-    /*
-    announcementBar: {
-      id: 'supportus',
-      backgroundColor: '#0b8df5',
-      textColor: 'white',
-      isCloseable: false,
-      content: '⭐️ We\'re working on SAAS version of kwatch that provides User interface, optimized notifications, more details about crashes, and more. you can join <a href="https://join.kwatch.dev">the waitlist</a>! ⭐️',
-    },*/
     footer: {
       style: 'light',
-      links: [
-        {
-          title: 'Get started',
-          items: [
-            {label: 'Installation', to: '/installation'},
-            {label: 'Configuration', to: '/general-configuration'},
-            {label: 'Channels', to: '/channels'},
-            {label: 'CLI commands', to: '/cli-commands'},
-          ],
-        },
-        {
-          title: 'Project',
-          items: [
-            {label: 'kwatch.dev', href: 'https://kwatch.dev'},
-            {label: 'GitHub', href: 'https://github.com/abahmed/kwatch'},
-            {label: 'Discord', href: 'https://discord.gg/kzJszdKmJ7'},
-            {label: 'Contributing', to: '/contributing'},
-          ],
-        },
-        {
-          title: 'Account and legal',
-          items: [
-            {label: 'Pro', href: 'https://kwatch.dev/pro'},
-            {label: 'Sign in', href: 'https://app.kwatch.dev'},
-            {label: 'Privacy', href: 'https://kwatch.dev/privacy'},
-            {label: 'Terms', href: 'https://kwatch.dev/terms'},
-          ],
-        },
-      ],
-      copyright: `Copyright © ${new Date().getFullYear()} kwatch`,
+      copyright:
+        'kwatch · source available under ELv2' +
+        ' <a href="/">Docs</a>' +
+        ' <a href="https://github.com/abahmed/kwatch">GitHub</a>' +
+        ' <a href="https://kwatch.dev/support">Get help</a>' +
+        ' <a href="https://kwatch.dev/privacy">Privacy</a>' +
+        ' <a href="https://kwatch.dev/terms">Terms</a>',
     },
     prism: {
-      theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      theme: kwatchPrismTheme,
+      darkTheme: kwatchPrismTheme,
     },
   } satisfies Preset.ThemeConfig,
 };

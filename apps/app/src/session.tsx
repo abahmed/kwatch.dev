@@ -4,6 +4,7 @@ import {Navigate} from 'react-router-dom';
 import {ApiError, getAccount} from './api';
 import type {AccountResponse} from './api';
 import {errorMessage} from './messages';
+import {useRefreshOnReturn} from './useRefreshOnReturn';
 
 type Session = {data: AccountResponse; reload: () => Promise<void>};
 const Ctx = createContext<Session | null>(null);
@@ -46,6 +47,9 @@ export function RequireAuth({children}: {children: ReactNode}) {
       cancelled = true;
     };
   }, []);
+
+  // Quiet: the page keeps its content while the account reloads.
+  useRefreshOnReturn(() => void reload());
 
   if (unauth) return <Navigate to="/signin" replace />;
   if (!data) {

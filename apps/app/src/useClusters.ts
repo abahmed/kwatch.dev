@@ -1,10 +1,11 @@
 import {useCallback, useEffect, useState} from 'react';
 import {getClusters} from './api';
 import type {Cluster} from './api';
+import {useRefreshOnReturn} from './useRefreshOnReturn';
 
 type State = {clusters: Cluster[] | null; failed: boolean; nowMs: number};
 
-/** Loads the account's clusters; reloads when the tab regains focus. No polling. */
+/** Loads the account's clusters; reloads quietly when the person returns to the tab. No polling. */
 export function useClusters() {
   const [state, setState] = useState<State>({clusters: null, failed: false, nowMs: 0});
 
@@ -18,15 +19,11 @@ export function useClusters() {
   }, []);
 
   useEffect(() => {
-    const first = () => void load();
     // Deferred so the first load is not a synchronous setState in the effect body.
-    const t = setTimeout(first, 0);
-    window.addEventListener('focus', first);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('focus', first);
-    };
+    const t = setTimeout(() => void load(), 0);
+    return () => clearTimeout(t);
   }, [load]);
+  useRefreshOnReturn(() => void load());
 
   return {clusters: state.clusters, failed: state.failed, nowMs: state.nowMs, reload: load};
 }

@@ -16,7 +16,6 @@ const TOPICS: [string, string][] = [
   ['installing', 'Installing kwatch'],
   ['alerts_not_arriving', 'Alerts not arriving'],
   ['alert_unclear', 'An alert I do not understand'],
-  ['checkins', 'Cluster check-ins'],
   ['license', 'My license'],
   ['other', 'Something else'],
 ];
@@ -108,7 +107,7 @@ export default function Help() {
   if (sentRef) return <Sent email={email} refId={sentRef} />;
 
   const license = pro.find((l) => l.lid === lid) ?? pro.find((l) => l.activation) ?? pro[0];
-  const mine: Cluster[] = (clusters ?? []).filter((c) => c.license === license.lid && c.state !== 'detached');
+  const mine: Cluster[] = (clusters ?? []).filter((c) => c.license === license.lid);
   const len = message.trim().length;
   const tooShort = len < MIN;
   const tooLong = message.length > MAX;

@@ -2,7 +2,7 @@ import {act, screen, within} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import type {Cluster} from '../api';
-import {fmtCheckinAgo} from '../format';
+import {fmtLastSeenAgo} from '../format';
 import {account, license, mockApi, renderAt} from './helpers';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -10,7 +10,7 @@ afterEach(() => vi.unstubAllGlobals());
 const now = () => Math.floor(Date.now() / 1000);
 const cl = (over: Partial<Cluster> = {}): Cluster => ({
   cluster_uuid: 'uuid-1', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
-  last_seen: now() - 240, checkins: true, state: 'ok', ...over,
+  last_seen: now() - 240, ...over,
 });
 const withClusters = (clusters: Cluster[], licenses = [license()]) =>
   mockApi({'GET /account': {body: account({licenses})}, 'GET /account/clusters': {body: {clusters}}});
@@ -75,7 +75,7 @@ describe('/licenses', () => {
     withClusters([cl()]);
     renderAt('/licenses');
     const card = await screen.findByRole('region', {name: 'License lic_1'});
-    await within(card).findByText('Active');
+    await within(card).findByText('7c1e04ab');
     const names = within(card).getAllByRole('button').map((b) => b.textContent);
     expect(names).toEqual(['Copy key', 'Show key', 'Move to another cluster', 'Replace key']);
     expect(within(card).getByRole('group', {name: 'Key actions'})).toBeInTheDocument();
@@ -219,88 +219,62 @@ describe('/licenses', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No moves left');
   });
 
-  it('maps states: ok and back are Active, silent Inactive, stopped, off, waiting', async () => {
-    const t = Date.UTC(2026, 9, 1, 13, 42) / 1000;
-    const ls = ['a', 'b', 'c', 'd', 'e', 'f'].map((x, i) => license({lid: `lic_${x}`, issued_at: 1_700_000_000 + i}));
-    withClusters(
-      [
-        cl({license: 'lic_a', state: 'ok'}),
-        cl({license: 'lic_b', state: 'back', recovered_at: now() - 60}),
-        cl({license: 'lic_c', state: 'silent', last_seen: t, silent_since: t + 3600}),
-        cl({license: 'lic_d', state: 'stopped', stopped_since: Date.UTC(2026, 9, 1, 18, 5) / 1000}),
-        cl({license: 'lic_e', state: 'off'}),
-        cl({license: 'lic_f', state: 'waiting', last_seen: null}),
-        cl({license: 'lic_f', state: 'detached', id_short: 'zzzz'}),
-      ],
-      ls,
-    );
+  it('shows version, nodes and last seen, with no status pill or check-in copy', async () => {
+    withClusters([cl(), cl({license: 'lic_x', id_short: 'zzzz', version: null, nodes: null})], [license(), license({lid: 'lic_x', issued_at: 5})]);
     renderAt('/licenses');
-    expect(await screen.findAllByText('Active')).toHaveLength(2);
-    expect(screen.getAllByText('Active', {selector: '.pill'})[0].className).toMatch(/pill-active/);
-    expect(screen.getByText('Inactive since 14:42 UTC')).toBeInTheDocument();
-    expect(screen.getByText(/kwatch cannot alert you while it is inactive/)).toBeInTheDocument();
-    expect(screen.getByText('Stopped at 18:05 UTC').className).toMatch(/pill-stopped/);
-    expect(screen.getByText('Check-ins off')).toBeInTheDocument();
-    expect(screen.getByText('Waiting')).toBeInTheDocument();
-    expect(screen.getAllByText(/^Last check-in /).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/Inactive after/)).toBeNull();
-    expect(screen.queryByText(/Not attached$/)).toBeNull();
-    expect(screen.queryByText('zzzz')).toBeNull();
+    expect(await screen.findByText('7c1e04ab')).toHaveClass('mono');
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument();
+    expect(screen.getByText('3 nodes')).toBeInTheDocument();
+    expect(screen.getAllByText(/^Last seen /).length).toBe(2);
+    expect(screen.queryByText(/Inactive|Stopped|Waiting|check-in/i)).toBeNull();
+    expect(screen.getByRole('link', {name: /dead man.s switch/})).toHaveAttribute('href', 'https://docs.kwatch.dev/heartbeat-monitor-configuration');
+    expect(screen.getByText(/a daily Pro license check reach kwatch.dev/)).toBeInTheDocument();
   });
 
-  it('shows relative last check-in, keeps the UTC tooltip and refreshes every minute', async () => {
+  it('shows relative last seen, keeps the UTC tooltip and refreshes every minute', async () => {
     vi.useFakeTimers({shouldAdvanceTime: true, toFake: ['Date', 'setInterval', 'clearInterval']});
     try {
       const t = Math.floor(Date.now() / 1000);
       withClusters([cl({last_seen: t - 20 * 60})]);
       renderAt('/licenses');
-      const el = await screen.findByText('Last check-in 20 min ago');
+      const el = await screen.findByText('Last seen 20 min ago');
       expect(el).toHaveAttribute('title', expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d UTC$/));
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-      expect(screen.getByText('Last check-in 21 min ago')).toBeInTheDocument();
+      expect(screen.getByText('Last seen 21 min ago')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('formats check-in ages', () => {
+  it('formats last-seen ages', () => {
     const n = 1_000_000 * 1000;
-    expect(fmtCheckinAgo(1_000_000 - 30, n)).toBe('just now');
-    expect(fmtCheckinAgo(1_000_000 - 3 * 3600, n)).toBe('3 h ago');
-    expect(fmtCheckinAgo(1_000_000 - 86400, n)).toBe('1 day ago');
-    expect(fmtCheckinAgo(1_000_000 - 2 * 86400, n)).toBe('2 days ago');
+    expect(fmtLastSeenAgo(1_000_000 - 30, n)).toBe('just now');
+    expect(fmtLastSeenAgo(1_000_000 - 3 * 3600, n)).toBe('3 h ago');
+    expect(fmtLastSeenAgo(1_000_000 - 86400, n)).toBe('1 day ago');
+    expect(fmtLastSeenAgo(1_000_000 - 2 * 86400, n)).toBe('2 days ago');
   });
 
-  it('prefers inactive_since over silent_since', async () => {
-    const t = Date.UTC(2026, 9, 1, 13, 42) / 1000;
-    withClusters([cl({state: 'silent', last_seen: t, silent_since: t + 3600, inactive_since: t + 3660})]);
+  it('uses srv_time to correct clock skew', async () => {
+    const t = now();
+    mockApi({
+      'GET /account': {body: account({licenses: [license()]})},
+      'GET /account/clusters': {body: {clusters: [cl({last_seen: t - 600})], srv_time: t + 3600}},
+    });
     renderAt('/licenses');
-    expect(await screen.findByText('Inactive since 14:43 UTC')).toBeInTheDocument();
+    expect(await screen.findByText('Last seen 1 h ago')).toBeInTheDocument();
   });
 
-  it('sorts Inactive, Stopped, Waiting/off, Active, newest first', async () => {
+  it('sorts non-active licenses first, then newest first', async () => {
     const ls = [
-      license({lid: 'lic_act_old', issued_at: 100}),
-      license({lid: 'lic_act_new', issued_at: 200}),
-      license({lid: 'lic_stop', issued_at: 150}),
-      license({lid: 'lic_wait', issued_at: 120}),
+      license({lid: 'lic_old', issued_at: 100}),
+      license({lid: 'lic_new', issued_at: 200}),
       license({lid: 'lic_exp', status: 'expired', issued_at: 50}),
-      license({lid: 'lic_sil', issued_at: 10}),
     ];
-    withClusters(
-      [
-        cl({license: 'lic_act_old'}),
-        cl({license: 'lic_act_new'}),
-        cl({license: 'lic_stop', state: 'stopped', stopped_since: now() - 100}),
-        cl({license: 'lic_wait', state: 'waiting', last_seen: null}),
-        cl({license: 'lic_sil', state: 'silent', silent_since: now() - 100}),
-      ],
-      ls,
-    );
+    withClusters([cl({license: 'lic_old'}), cl({license: 'lic_new'})], ls);
     renderAt('/licenses');
-    await screen.findAllByText('Active');
+    await screen.findAllByText('7c1e04ab');
     const order = screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'));
-    expect(order).toEqual(['License lic_exp', 'License lic_sil', 'License lic_stop', 'License lic_wait', 'License lic_act_new', 'License lic_act_old']);
+    expect(order).toEqual(['License lic_exp', 'License lic_new', 'License lic_old']);
     expect(screen.getByText(/This license ended on/)).toBeInTheDocument();
   });
 
@@ -317,7 +291,7 @@ describe('/licenses', () => {
     expect(screen.queryByText(/Not attached yet/)).toBeNull();
     fail = false;
     await user.click(screen.getByRole('button', {name: 'Try again'}));
-    expect(await screen.findByText('Active', {selector: '.pill'})).toBeInTheDocument();
+    expect(await screen.findByText('7c1e04ab')).toBeInTheDocument();
   });
 
   it('offers another license while under the limit, with no Signal', async () => {

@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const base = {
   'GET /account': {body: account({licenses: [license()]})},
   'GET /account/clusters': {
-    body: {clusters: [{id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3, last_seen: Math.floor(Date.now() / 1000) - 60, checkins: true, state: 'ok'}]},
+    body: {clusters: [{id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3, last_seen: Math.floor(Date.now() / 1000) - 60}]},
   },
 };
 const text = 'The alerts never arrive in Slack since upgrading.';

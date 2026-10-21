@@ -1,10 +1,9 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import type {ReactNode} from 'react';
 import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '../api';
 import type {Cluster, License} from '../api';
-import {clusterRank, clusterView, Pill} from '../cluster';
 import {Dialog, usePageTitle} from '../components';
-import {fmtCheckinAgo, fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
+import {fmtLastSeenAgo, fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
 import {errorMessage, LimitNotice} from '../messages';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
@@ -15,13 +14,13 @@ const REFRESH_ERROR = 'Could not refresh. Check your connection and try again.';
 
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
 
-function LastCheckin({unix}: {unix: number}) {
+function LastSeen({unix, skewMs}: {unix: number; skewMs: number}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
-  return <span title={fmtUtcFull(unix)}>Last check-in {fmtCheckinAgo(unix, now)}</span>;
+  return <span title={fmtUtcFull(unix)}>Last seen {fmtLastSeenAgo(unix, now + skewMs)}</span>;
 }
 
 function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'} {
@@ -30,19 +29,11 @@ function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'}
   return {label: l.status, tone: 'bad'};
 }
 
-type ClusterState = {cluster?: Cluster; loading: boolean; failed: boolean; retry: () => void};
+type ClusterState = {cluster?: Cluster; skewMs: number; loading: boolean; failed: boolean; retry: () => void};
 
 function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   const {cluster: c} = cs;
   const label = `Cluster for license ${license.lid}`;
-  // Announce only a state change after the first render (for example after Refresh).
-  const pill = c ? clusterView(c).pill : '';
-  const prev = useRef(pill);
-  const [announce, setAnnounce] = useState('');
-  useEffect(() => {
-    if (prev.current && pill && prev.current !== pill) setAnnounce(`Cluster status: ${pill}`);
-    prev.current = pill;
-  }, [pill]);
   const ended = license.status === 'expired' ? (
     <p className="small cluster-ended">
       This license ended on {fmtDate(license.expires_at)}. kwatch is on Community; alerts still work.
@@ -59,30 +50,23 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   } else if (cs.loading) {
     body = <div className="skeleton" aria-busy="true" aria-label="Loading cluster" />;
   } else if (c) {
-    const v = clusterView(c);
     body = (
-      <>
-        <div className="cluster-grid">
-          <div className="cluster-name">
-            <div>Cluster <span className="mono cluster-id">{c.id_short}</span></div>
-          </div>
-          <div className="cluster-state">
-            <Pill view={v} />
-          </div>
-          <div className="mono cluster-sub cluster-last">
-            {v.lastCheckin > 0 && <LastCheckin unix={v.lastCheckin} />}
-          </div>
-          <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
-          <div className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</div>
-          {v.detail && <p className="cluster-detail small muted">{v.detail}</p>}
+      <div className="cluster-grid">
+        <div className="cluster-name">
+          Cluster <span className="mono cluster-id">{c.id_short}</span>
         </div>
-      </>
+        <div className="mono cluster-sub cluster-last">
+          <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
+        </div>
+        <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
+        <div className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</div>
+      </div>
     );
   } else if (license.status === 'active') {
     body = (
       <p className="small muted">
         Not attached yet. Add the key in the installer: License / Pro &gt; Add or replace key. It appears here after
-        the cluster&rsquo;s first check-in.
+        the cluster&rsquo;s first license check.
       </p>
     );
   } else {
@@ -92,7 +76,6 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   return (
     <div className="license-cluster" role="group" aria-label={label}>
       <p className="mono cluster-label">Cluster</p>
-      {announce && <div role="status" className="sr-only">{announce}</div>}
       {ended}
       {body}
     </div>
@@ -324,8 +307,8 @@ export default function Licenses() {
   const free = data.trials;
   const empty = data.licenses.length === 0;
   const byLicense = new Map<string, Cluster>();
-  for (const c of cl.clusters ?? []) if (c.state !== 'detached' && !byLicense.has(c.license)) byLicense.set(c.license, c);
-  const rank = (l: License) => (l.status !== 'active' ? 0 : clusterRank(byLicense.get(l.lid)));
+  for (const c of cl.clusters ?? []) if (!byLicense.has(c.license)) byLicense.set(c.license, c);
+  const rank = (l: License) => (l.status !== 'active' ? 0 : 1);
   const sorted = [...data.licenses].sort((a, b) => rank(a) - rank(b) || b.issued_at - a.issued_at);
   const where = free?.scope === 'organization' && free.domain ? free.domain : '';
 
@@ -412,6 +395,7 @@ export default function Licenses() {
                 cluster: byLicense.get(l.lid),
                 loading: cl.clusters === null && !cl.failed,
                 failed: cl.failed,
+                skewMs: cl.skewMs,
                 retry: () => void reloadClusters(),
               }}
               onChange={reloadAll}
@@ -431,18 +415,16 @@ export default function Licenses() {
             </div>
           )}
           {!empty && (
-            <section className="panel">
-              <h2>How check-ins work</h2>
+            <div className="small muted">
               <p>
-                kwatch checks in every 30 minutes. After 60 minutes without a check-in we mark the cluster inactive
-                here. We do not send messages. Want one?{' '}
-                <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>kwatch can ping a monitor you own.</a>
+                Want an alert if kwatch stops?{' '}
+                <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>Set up the dead man&rsquo;s switch.</a>
               </p>
-              <p className="small muted">
-                Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod
-                names, logs or events. Alerts go only to the channels you set up.
+              <p>
+                Only optional anonymous usage stats and a daily Pro license check reach kwatch.dev. Never cluster
+                names, pod names, logs or events. Alerts go only to the channels you set up.
               </p>
-            </section>
+            </div>
           )}
         </>
       )}

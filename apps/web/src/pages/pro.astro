@@ -7,9 +7,13 @@ const groups: { name: string; rows: Row[] }[] = [
   {
     name: 'DETECTION',
     rows: [
-      ['Crash loops, OOM kills, Pending pods', 'Yes', 'Yes'],
+      ['Crash loops, OOM kills, image pull and config errors', 'Yes', 'Yes'],
+      ['Pending, Unschedulable, Evicted, Failed, stuck Terminating', 'Yes', 'Yes'],
+      ['Liveness and startup probe failures', 'Yes', 'Yes'],
       ['Node NotReady', 'Yes', 'Yes, plus pressure and draining'],
-      ['Readiness, stuck rollouts, failed Jobs and CronJobs', '—', 'Yes'],
+      ['Readiness probe failures', '—', 'Yes'],
+      ['Preemption, admission rejection, grace-period kills, scheduling gates', '—', 'Yes'],
+      ['Stuck rollouts, failed Jobs and CronJobs', '—', 'Yes'],
       ['Storage, network, certificates, quota, admission', '—', 'Yes'],
       ['Control plane, custom resources, unusual events', '—', 'Yes'],
     ],
@@ -17,7 +21,8 @@ const groups: { name: string; rows: Row[] }[] = [
   {
     name: 'ANALYSIS',
     rows: [
-      ['Root cause', 'One-line headline', 'Full proof and confidence'],
+      ['Root cause', 'One-line cause', 'Full proof and confidence'],
+      ['Shared-factor causes ("node X explains N failures")', '—', 'Yes'],
       ['Recent changes and who made them', '—', 'Yes'],
       ['Affected services and log excerpts', '—', 'Yes'],
     ],
@@ -33,6 +38,8 @@ const groups: { name: string; rows: Row[] }[] = [
   {
     name: 'OPERATIONS',
     rows: [
+      ['Prometheus /metrics endpoint', '—', 'Yes'],
+      ['/status', 'Short', 'Full'],
       ['Incident history across restarts', '—', 'Yes'],
       ['Audit log, runbooks, heartbeat monitor', '—', 'Yes'],
       ['Account needed', 'No', 'Yes, email only'],
@@ -70,7 +77,7 @@ const license: [string, string][] = [
         <p class="line">Free forever. No account, no key.</p>
         <ul>
           <li>One-line root-cause headline for every failure</li>
-          <li>Crash loops, OOM kills, Pending pods, Node NotReady</li>
+          <li>Crash loops, OOM kills, Pending pods, probe failures, Node NotReady</li>
           <li>1 alert channel, with quiet-by-default noise control</li>
         </ul>
       </div>
@@ -79,6 +86,7 @@ const license: [string, string][] = [
         <p class="line">Free during early access.</p>
         <ul>
           <li>Full proof and confidence for each root cause</li>
+          <li>Readiness probes, shared-factor causes and Prometheus /metrics</li>
           <li>Recent changes and who made them</li>
           <li>Affected services and log excerpts</li>
           <li>Unlimited channels, routing, incident history, audit log</li>
@@ -141,6 +149,7 @@ const license: [string, string][] = [
         ))}
       </table>
     </div>
+    <p class="helper">Community is free forever. Pro is free during early access. In Community, Pro checks still run and show how many issues they found, by category only.</p>
   </section>
 
   <section class="data-sec" aria-labelledby="data-title">

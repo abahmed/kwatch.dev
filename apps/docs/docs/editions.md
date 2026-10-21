@@ -23,11 +23,11 @@ advance.
 | | Community | Pro |
 | --- | --- | --- |
 | Cost | Free, no account, no key | Free during early access |
-| Detection | Pod crashes, OOM kills and Pending pods; node NotReady | Adds node pressure and draining, readiness, rollouts, Jobs and CronJobs, PDBs, HPAs, storage, network, admission, certificates, quota, custom resources, control plane, probes and unusual events |
-| Analysis | Root-cause headline | Full proof, shared-factor suspects, who changed what, impact and redacted log excerpts |
+| Detection | Pod crashes, CrashLoop, OOM, image pull and config errors; Pending, Unschedulable, Evicted, Failed and stuck Terminating pods; liveness and startup probe failures; node NotReady | Adds readiness probe failures, node pressure and draining, rollouts, Jobs and CronJobs, PDBs, HPAs, storage, network, admission, certificates, quota, custom resources, control plane, probes and unusual events |
+| Analysis | One-line cause | Full proof, shared-factor suspects, who changed what, impact and redacted log excerpts |
 | Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down |
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
-| Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
+| Operations | RBAC audit, secret redaction, health, short text `/status` | Prometheus `/metrics`, severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
 
 The per-capability list is on the [Pro page](https://kwatch.dev/pro) and in the
 [generated feature reference](/reference/generated/features). Every
@@ -37,18 +37,30 @@ capability there carries its tier.
 
 Community is free forever and works without contacting any server.
 
-- **Detection** of pod crashes, OOM kills, Pending pods and restarts, and node
-  failures.
-- **Root cause** headline on every incident.
-- **Noise control**: basic deduplication, settling, and symptom merging.
-- **Scope**: namespace, reason and label filters, and silences.
+- **Detection** of pod crashes, CrashLoop, OOM kills, image pull and config
+  errors, Pending, Unschedulable, Evicted, Failed and stuck Terminating pods,
+  liveness and startup probe failures, and NotReady nodes.
+- **One-line cause** on every incident.
+- **Noise control**: deduplication, namespace filters, ignore lists and silences.
+- **A short `/status`.**
 - **One alert provider.** If you configure several, Community keeps the one in
   `app.communityProvider`, or the first by name when that is empty.
 - **State in memory.** After a restart kwatch takes a fresh baseline: existing
   failures are not re-sent, and only new or worsening ones alert.
 
-Community messages end with a short note naming what Pro adds. Set
-`app.hideProHints: true` to remove it.
+Pro-only checks still run in Community and only count. Alerts can end with
+one Pro line (a short note, or a note that Pro found a likely cause), and the
+startup message, `/status` and the installer show how many issues the Pro
+checks found, by category only: readiness probes, shared causes, preemption
+and admission, and scheduling gates. The counts are computed in your cluster
+and never leave it. Set `app.hideProHints: true` to remove the alert line, the
+cause note and the startup count; `/status` and the installer keep their
+count.
+
+These moved to Pro: readiness probe failures, shared-factor causes, the
+Prometheus `/metrics` endpoint, preemption, admission rejection, grace-period
+kills and scheduling gates. In Community the metrics endpoint is off and
+kwatch logs one line saying it is part of Pro.
 
 ## Pro
 

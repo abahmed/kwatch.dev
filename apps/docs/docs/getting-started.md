@@ -30,18 +30,18 @@ line: [cluster](/glossary#cluster), [node](/glossary#node),
 [pod](/glossary#pod), [namespace](/glossary#namespace),
 [CrashLoopBackOff](/glossary#crashloopbackoff),
 [OOMKilled](/glossary#oomkilled), [RBAC](/glossary#rbac),
-[Helm](/glossary#helm) and [CRD](/glossary#crd).
+and [CRD](/glossary#crd).
 
 ## ✨ Why kwatch
 
 | Benefit | What it means |
 | --- | --- |
-| Root cause first | kwatch follows a failure upstream and names the one cause. |
+| 🔍 Root cause first | kwatch follows a failure upstream and names the one cause. |
 | 🔒 Your data stays in your cluster | kwatch analyzes events and logs where they live. |
-| Quiet by default | One message, then silence until something new is true. |
-| Who changed what | See who changed what, and when. |
-| The next step | Every message ends with the command to run. |
-| 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |
+| 🔕 Quiet by default | One message, then silence until something new is true. |
+| 🕵️ Who changed what | See who changed what, and when. |
+| 👉 The next step | Every message ends with the command to run. |
+| 📣 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |
 
 ## ⚙️ How it works in 30 seconds
 
@@ -130,8 +130,6 @@ high availability in v1: kwatch is always one pod.
 Pro is free during early access. [Get a key](https://app.kwatch.dev), then run
 the same command again and choose **License / Pro**, then **Add or replace
 key**. See [License](/license).
-
-Already use [Helm](/glossary#helm)? See [Installation](/installation#already-use-helm).
 
 ## 🔒 Your data stays in your cluster
 

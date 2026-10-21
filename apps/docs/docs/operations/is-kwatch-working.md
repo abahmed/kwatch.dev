@@ -38,7 +38,7 @@ the first 8 characters of its ID, with a "Last seen" time. The check sends only
 the license ID, a hashed cluster ID, the kwatch version and the node count.
 
 "Last seen" is not an alert. To be told when kwatch stops, use the heartbeat
-below.
+below (<span className="kw-pro">Pro</span>).
 
 ## Your own heartbeat URL <span className="kw-pro">Pro</span>
 

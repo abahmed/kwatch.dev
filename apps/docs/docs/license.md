@@ -67,7 +67,8 @@ cluster is sent. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster as
 "Cluster" followed by the first 8 characters of its ID, with a "Last seen" time.
 
 To be told when kwatch stops, use your own
-[dead man's switch heartbeat](/heartbeat-monitor-configuration).
+[dead man's switch heartbeat](/heartbeat-monitor-configuration), a
+<span className="kw-pro">Pro</span> feature.
 
 Anonymous usage stats are separate and optional. Turn them off with
 `telemetry.enabled: false` or `KWATCH_TELEMETRY=false`. See

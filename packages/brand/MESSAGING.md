@@ -34,6 +34,18 @@ to every surface: README, home, docs, app, social cards.
 - Do not claim "nothing leaves", "air-gapped" or "offline". Do not name
   competitors. Exact wording was approved; do not reword.
 
+### What kwatch sends (canonical)
+
+Web, docs and app copy this table; do not paraphrase the facts.
+
+| What | When | Contains | Control |
+| --- | --- | --- | --- |
+| Anonymous usage stats | At most once a week | An anonymous ID derived from your cluster (a one-way hash that can't be traced back to the cluster or linked to your license) and the kwatch version | On by default; turn off with `telemetry.enabled: false` or `KWATCH_TELEMETRY=false` |
+| Pro license check | Once a day, Pro only | License ID, hashed cluster ID, kwatch version, node count | Part of Pro; Community sends none |
+
+Never sent: cluster names, namespaces, pod names, logs or events. Alerts go
+only to the channels you set up.
+
 ### Surfaces to update
 
 - [ ] kwatch README: benefits list order; 🔒 heading and bold line in the data

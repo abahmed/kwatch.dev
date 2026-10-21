@@ -21,7 +21,7 @@ exception is the anonymous telemetry ping described below.
 | --- | --- | --- |
 | Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a license about to expire) |
 | Session cookie (`kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
-| License usage: hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
+| License usage: license ID, hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
 | Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |
 | IP address | Any request to `api.kwatch.dev` | Rate limiting and abuse prevention. The last IP that activated or renewed a license is kept on its activation record |
@@ -35,7 +35,7 @@ The website does not use analytics or advertising cookies.
 ## Telemetry
 
 Telemetry is on by default. kwatch sends an anonymous adoption ping, at most
-once every 7 days, containing a random or hashed installation ID and the kwatch version, so we
+once every 7 days, containing a random installation ID (a UUID) and the kwatch version, so we
 can see which versions are in use. It is separate from licensing, works in the
 Community edition too, and contains no personal data. Turn it off with
 `telemetry.enabled: false` or `KWATCH_TELEMETRY=false`.
@@ -44,8 +44,8 @@ Community edition too, and contains no personal data. Turn it off with
 
 With an active Pro license, kwatch pings `api.kwatch.dev` every 30 minutes so
 app.kwatch.dev can show when a cluster last checked in and mark it silent after
-60 minutes. The ping sends the kwatch version, the node count, the namespace and
-the cluster name if you set one. Nothing is sent to you. The Community edition
+60 minutes. The ping sends the hashed cluster ID, the license ID, the kwatch version and the node
+count. It never includes a cluster name, namespace, pod name, log or event. Nothing is sent to you. The Community edition
 sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 
 ## How long we keep data

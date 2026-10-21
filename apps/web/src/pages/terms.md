@@ -27,7 +27,9 @@ features are enabled by a license key. Releases up to and including
   [account page](https://app.kwatch.dev/account). Releasing a license on uninstall counts as a
   move.
 - A licensed kwatch renews with the license service daily and keeps Pro
-  features for up to 7 days if it cannot reach it.
+  features for up to 7 days after its last successful check-in if it cannot
+  reach it, then falls back to Community features. Monitoring and alerting
+  continue.
 - When a license expires, is revoked or cannot be renewed, kwatch falls back
   to the Community edition and keeps detecting and alerting.
 
@@ -75,7 +77,7 @@ as the Community edition.
 ## The service
 
 We aim to keep the license service available but do not guarantee it.
-Outages shorter than the 7-day offline allowance do not affect a licensed
+Outages shorter than the 7-day license grace period after the last check-in do not affect a licensed
 cluster. We may change or discontinue features of the service with reasonable
 notice.
 

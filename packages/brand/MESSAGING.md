@@ -18,8 +18,8 @@ to every surface: README, home, docs, app, social cards.
 | Emoji | Name | One-line copy |
 | --- | --- | --- |
 | 🔍 | Root cause first | kwatch follows a failure upstream and names the one cause. |
-| 🔕 | Quiet by default | One message, then silence until something new is true. |
 | 🔒 | Your data stays in your cluster | kwatch analyzes events and logs where they live. |
+| 🔕 | Quiet by default | One message, then silence until something new is true. |
 | 🕵️ | Who changed what | See who changed what, and when. |
 | 👉 | The next step | Every message ends with the command to run. |
 | 📣 | 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |

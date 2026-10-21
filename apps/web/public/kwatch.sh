@@ -8546,12 +8546,35 @@ diagnostics_flow() {
   return 0
 }
 
+# The Pro checks count from the /status text (Community only, and only when
+# healthCheck.statusEndpoint is on). Prints the two installer lines, or nothing
+# when the line is missing, the edition is not Community, or the count is zero.
+license_pro_checks_lines() {
+  local text line rest
+  text=$(kwatch_status_proxy 2>/dev/null || true)
+  [ -n "$text" ] || return 0
+  printf '%s\n' "$text" | grep -iE '^[[:space:]]*Edition[^:]*:.*community' >/dev/null || return 0
+  line=$(printf '%s\n' "$text" | grep -E '^[[:space:]]*Pro checks: [0-9]+ issues? in the last 7 days' | head -1 || true)
+  [ -n "$line" ] || return 0
+  rest="${line#*Pro checks: }"
+  rest="${rest%%. Details*}"
+  case "$rest" in
+    *' ('*')') rest="${rest/ (/: }"; rest="${rest%)}" ;;
+  esac
+  printf 'Pro checks found %s.\n' "$rest"
+  printf 'Pro is free during early access. Choose "Add or replace key" to see them.\n'
+}
+
 license_flow() {
-  local choice
+  local choice pro_lines line
   LICENSE_FLOW_CHANGED=false
   LICENSE_COMMUNITY_CACHE=""
+  pro_lines=$(license_pro_checks_lines 2>/dev/null || true)
   while true; do
     ui_screen "license / pro"
+    if [ -n "$pro_lines" ]; then
+      while IFS= read -r line; do ui_detail "  $line"; done <<<"$pro_lines"
+    fi
     local -a lacts=(status) llabels=("📋 Show license status")
     # Only with an active key: absent otherwise, not greyed.
     if license_secret_exists; then

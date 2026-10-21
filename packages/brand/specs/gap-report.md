@@ -82,7 +82,7 @@ Anything still broken is reported as its own incident.
 Show only when at least one node went not-ready during the gap (a reboot that never turned the node NotReady is not detected, so the line never says "rebooted"), appended as the
 last line of (a) or (b), before the closing sentence in (b):
 
-`Crashes on {N} node(s) that went not-ready during the gap can't be told apart, so they are not listed.`
+`Crashes on {N} node(s) that went not-ready during the gap are not listed. A quick reboot may be missed.`
 
 Use `1 node that went not-ready` / `{N} nodes that went not-ready` (pick singular or
 plural; the `(s)` above is not literal). Do not add any "not seen" line

@@ -33,7 +33,7 @@ namespace UID, and the raw UID never leaves your cluster.
 ### IP addresses
 
 We use your IP address only to prevent abuse. It is never stored with your
-account or licenses, and is deleted automatically shortly after.
+account or licenses.
 
 The website does not use analytics or advertising cookies.
 
@@ -60,7 +60,6 @@ sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 | Account, licenses and activation records | Until you delete your account |
 | Sign-in links | 15 minutes, single use |
 | Sessions | 30 days, or until you sign out |
-| Abuse-prevention records | Deleted automatically, shortly after use. |
 | License event log | 180 days, keyed by license ID only |
 | Telemetry ping (installation ID, kwatch version, last seen; no IP address) | One row per installation, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
 | Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |

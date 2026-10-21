@@ -24,7 +24,7 @@ exception is the anonymous telemetry ping described below.
 | License usage: license ID, hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
 | Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |
-| IP address | Any request to `api.kwatch.dev` | Rate limiting only. Not stored on your account; see below |
+| IP address | Any request to `api.kwatch.dev` | Rate limiting and abuse prevention only. Not stored with your account or licenses |
 
 We never receive workload names, logs, secrets, alerts or any other content
 from your cluster. The cluster ID is a one-way hash of the `kube-system`
@@ -32,11 +32,9 @@ namespace UID, and the raw UID never leaves your cluster.
 
 ### IP addresses
 
-We do not keep IP addresses on your account, licenses or sessions. Your IP
-address (for IPv6, its /64 prefix) is part of the key of the rate-limit
-counters that limit abuse of the service. Those counters hold the IP for
-windows of 1 minute to 1 day and are deleted within 2 days (telemetry abuse
-counters within 9 days).
+We use your IP address only for rate limiting and abuse prevention. It isn't
+stored with your account or licenses, and rate-limit records are deleted
+within 9 days.
 
 The website does not use analytics or advertising cookies.
 
@@ -63,7 +61,7 @@ sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 | Account, licenses and activation records | Until you delete your account |
 | Sign-in links | 15 minutes, single use |
 | Sessions | 30 days, or until you sign out |
-| Rate-limit counters (include your IP address; IPv6 as its /64 prefix) | Windows of 1 minute to 1 day, deleted within 2 days. Telemetry abuse counters are deleted within 9 days |
+| Rate-limit records (include your IP address) | Deleted within 9 days |
 | License event log | 180 days, keyed by license ID only |
 | Telemetry ping (installation ID, kwatch version, last seen; no IP address) | One row per installation, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
 | Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |

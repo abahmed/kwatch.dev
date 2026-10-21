@@ -3,7 +3,7 @@ import type {ReactNode} from 'react';
 import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '../api';
 import type {Cluster, License} from '../api';
 import {Dialog, usePageTitle} from '../components';
-import {fmtLastSeenAgo, fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
+import {isOutdated, fmtLastSeenAgo, fmtDate, fmtRefreshed, fmtUtcFull, plural} from '../format';
 import {errorMessage, LimitNotice} from '../messages';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
@@ -29,7 +29,7 @@ function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'}
   return {label: l.status, tone: 'bad'};
 }
 
-type ClusterState = {cluster?: Cluster; skewMs: number; loading: boolean; failed: boolean; retry: () => void};
+type ClusterState = {cluster?: Cluster; skewMs: number; latest: string | null; loading: boolean; failed: boolean; retry: () => void};
 
 function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   const {cluster: c} = cs;
@@ -58,7 +58,14 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
         <div className="mono cluster-sub cluster-last">
           <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
         </div>
-        <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
+        <div className="cluster-version-col">
+          <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
+          {cs.latest && isOutdated(c.version, cs.latest) && (
+            <a className="small update-available" href={`${DOCS_URL}/update`}>
+              Update available: v{cs.latest.replace(/^v/, '')}
+            </a>
+          )}
+        </div>
         <div className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</div>
       </div>
     );
@@ -396,6 +403,7 @@ export default function Licenses() {
                 loading: cl.clusters === null && !cl.failed,
                 failed: cl.failed,
                 skewMs: cl.skewMs,
+                latest: cl.latest,
                 retry: () => void reloadClusters(),
               }}
               onChange={reloadAll}

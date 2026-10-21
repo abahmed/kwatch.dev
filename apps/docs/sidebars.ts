@@ -14,6 +14,7 @@ const sidebars: SidebarsConfig = {
         'glossary',
         'kwatch-manager',
         'kwatch-sh',
+        'update',
         'upgrading',
       ],
     },

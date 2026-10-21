@@ -53,3 +53,29 @@ export function fmtLastSeenAgo(unix: number, nowMs = Date.now()): string {
   const d = Math.floor(s / 86400);
   return `${d} ${d === 1 ? 'day' : 'days'} ago`;
 }
+
+type Semver = {core: [number, number, number]; pre: string[]};
+function parseSemver(v: string | null | undefined): Semver | null {
+  const m = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec((v ?? '').trim());
+  if (!m) return null;
+  return {core: [+m[1], +m[2], +m[3]], pre: m[4] ? m[4].split('.') : []};
+}
+function cmpPre(a: string[], b: string[]): number {
+  if (!a.length || !b.length) return a.length === b.length ? 0 : a.length ? -1 : 1;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (a[i] === undefined) return -1;
+    if (b[i] === undefined) return 1;
+    const an = /^\d+$/.test(a[i]), bn = /^\d+$/.test(b[i]);
+    if (an && bn) { if (+a[i] !== +b[i]) return +a[i] < +b[i] ? -1 : 1; }
+    else if (an !== bn) return an ? -1 : 1;
+    else if (a[i] !== b[i]) return a[i] < b[i] ? -1 : 1;
+  }
+  return 0;
+}
+/** True when the cluster version is a valid semver older than the latest release. Unparseable: false. */
+export function isOutdated(version: string | null | undefined, latest: string | null | undefined): boolean {
+  const a = parseSemver(version), b = parseSemver(latest);
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) if (a.core[i] !== b.core[i]) return a.core[i] < b.core[i];
+  return cmpPre(a.pre, b.pre) < 0;
+}

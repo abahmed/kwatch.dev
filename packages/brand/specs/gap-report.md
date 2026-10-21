@@ -43,8 +43,8 @@ Changed (who is unknown, kwatch was down):
 - Node {name}: taints changed
 
 Crashed:
-- {namespace}/{pod}, container {container}: OOMKilled, {n} times
-- {namespace}/{pod}, container {container}: exit code {code}, {n} times
+- {namespace}/{pod}, container {container}: last stopped by OOMKilled, {n} restarts in total
+- {namespace}/{pod}, container {container}: last stopped with exit code {code}, {n} restarts in total
 
 Anything still broken is reported as its own incident.
 ```
@@ -57,8 +57,9 @@ Rules:
 - Cap: 10 items in total across both blocks, changes first, then crashes.
   The rest collapse into one line directly under the last block, before the
   closing sentence: `and {N} more.`
-- Count: `1 time`, `{n} times`.
+- Count: the container's total restart count, not restarts inside the gap: `1 restart in total`, `{n} restarts in total`. Only the last stop is shown.
 - Reason: `OOMKilled` or `exit code {code}`. Never both on one line.
+- Layout in Pro: the startup sentence first, a blank line, then this report, as one message.
 - Closing sentence is always shown.
 
 Example:
@@ -78,12 +79,12 @@ Anything still broken is reported as its own incident.
 
 ## (c) What can't be seen
 
-Show only when at least one node rebooted during the gap, appended as the
+Show only when at least one node went not-ready during the gap (a reboot that never turned the node NotReady is not detected, so the line never says "rebooted"), appended as the
 last line of (a) or (b), before the closing sentence in (b):
 
-`Crashes on {N} node(s) that restarted during the gap can't be told apart, so they are not listed.`
+`Crashes on {N} node(s) that went not-ready during the gap can't be told apart, so they are not listed.`
 
-Use `1 node that restarted` / `{N} nodes that restarted` (pick singular or
+Use `1 node that went not-ready` / `{N} nodes that went not-ready` (pick singular or
 plural; the `(s)` above is not literal). Do not add any "not seen" line
 otherwise: the report already states the rule of comparing before and after.
 

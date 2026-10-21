@@ -117,5 +117,5 @@ export function displayKey(l: License): string {
   if (l.key_masked) return l.key_masked;
   return l.key ? maskKey(l.key) : '';
 }
-export const getClusters = () => apiFetch<{clusters: Cluster[]; srv_time?: number}>('/account/clusters');
+export const getClusters = () => apiFetch<{clusters: Cluster[]; srv_time?: number; latest_version?: string | null}>('/account/clusters');
 export const sendSupport = (req: SupportRequest) => apiFetch<{ref: string}>('/support', {method: 'POST', body: req});

@@ -355,4 +355,31 @@ describe('/licenses', () => {
     expect(screen.queryByRole('link', {name: 'Clusters'})).toBeNull();
     expect(screen.getAllByRole('link', {name: 'Licenses'})).toHaveLength(1);
   });
+
+  describe('update available', () => {
+    const withLatest = (version: string | null, latest?: string | null) =>
+      mockApi({
+        'GET /account': {body: account({licenses: [license()]})},
+        'GET /account/clusters': {body: {clusters: [cl({version})], ...(latest === undefined ? {} : {latest_version: latest})}},
+      });
+    const run = async (version: string | null, latest?: string | null) => {
+      withLatest(version, latest);
+      renderAt('/licenses');
+      await screen.findByText('7c1e04ab');
+    };
+    it('shows a badge linking to the upgrade page when older', async () => {
+      await run('1.0.0', '1.0.3');
+      const a = await screen.findByRole('link', {name: 'Update available: v1.0.3'});
+      expect(a.getAttribute('href')).toMatch(/\/upgrading$/);
+    });
+    it('shows a badge for an rc older than the release', async () => {
+      await run('1.0.3-rc.1', '1.0.3');
+      expect(await screen.findByText('Update available: v1.0.3')).toBeInTheDocument();
+    });
+    it.each([['1.0.3', '1.0.3'], ['1.1.0', '1.0.3'], ['1.0.3', null], ['1.0.0', undefined], ['dev', '1.0.3'], [null, '1.0.3']])(
+      'shows nothing for %s vs %s', async (v, latest) => {
+        await run(v, latest);
+        expect(screen.queryByText(/Update available/)).toBeNull();
+      });
+  });
 });

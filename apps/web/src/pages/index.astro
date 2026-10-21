@@ -66,7 +66,7 @@ const faq = [
   ['Do I need to be a Kubernetes expert?', 'No. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
-  ['What leaves my cluster?', 'Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.'],
+  ['What leaves my cluster?', 'Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Usage stats go at most once a week and contain an anonymous ID derived from your cluster (a one-way hash that cannot be traced back to the cluster or linked to your license) and the kwatch version; turn them off with telemetry.enabled: false. A Pro license check goes once a day and contains the license ID, a hashed cluster ID, the kwatch version and the node count. Community sends none. Never cluster names, namespaces, pod names, logs or events. Alerts go only to the channels you set up.'],
   ['What permissions does it need?', 'Read access to the resources it watches, through Kubernetes permissions (RBAC) that decide what kwatch may read. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
   ['Why is Pro free?', "We want kwatch proven on real clusters first. If that ever changes, you will hear well in advance."],
 ];
@@ -158,6 +158,17 @@ const jsonLd = [
         <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
         <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
       </ul>
+      <div class="sends-wrap">
+      <table class="sends">
+          <caption class="sr-only">What kwatch sends to kwatch.dev</caption>
+          <thead><tr><th scope="col">What</th><th scope="col">When</th><th scope="col">Contains</th><th scope="col">Control</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Anonymous usage stats</th><td>At most once a week</td><td>An anonymous ID derived from your cluster (a one-way hash that can't be traced back to the cluster or linked to your license) and the kwatch version</td><td>On by default; turn off with <code>telemetry.enabled: false</code> or <code>KWATCH_TELEMETRY=false</code></td></tr>
+            <tr><th scope="row">Pro license check</th><td>Once a day, Pro only</td><td>License ID, hashed cluster ID, kwatch version, node count</td><td>Part of Pro; Community sends none</td></tr>
+          </tbody>
+        </table>
+        <p class="privacy-small">Never sent: cluster names, namespaces, pod names, logs or events.</p>
+      </div>
     </div>
   </section>
 
@@ -251,7 +262,7 @@ const jsonLd = [
         <div class="dim">✓ kwatch is running</div>
       </div>
       <p class="install-note">The installer checks your cluster before it changes anything. Run it again any time to upgrade, change settings or manage your license.</p>
-      <p class="install-note">Already use Helm? Use the chart instead. Add the repository with <code>helm repo add kwatch https://kwatch.dev/charts</code> and follow the <a href="https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md">chart guide</a>.</p>
+      <p class="install-note">Prefer Helm? <a href="https://docs.kwatch.dev/installation">See the chart guide.</a></p>
     </div>
   </section>
 
@@ -402,6 +413,11 @@ const jsonLd = [
   .privacy-lede { margin-top: 22px; font-size: 19px; color: var(--text-soft); }
   .privacy-small { margin-top: 14px; font-size: 15px; color: var(--text-muted); max-width: 52ch; }
   .privacy-small a { text-decoration: underline; color: var(--text); }
+  .sends-wrap { grid-column: 1 / -1; overflow-x: auto; }
+  .sends { margin-top: 20px; width: 100%; border-collapse: collapse; font-size: 14px; }
+  .sends th, .sends td { text-align: left; vertical-align: top; padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); color: var(--text-soft); font-weight: 400; }
+  .sends thead th { color: var(--text); font-weight: 600; }
+  .sends tbody th { color: var(--text); font-weight: 600; }
   .facts { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 18px; }
   .facts li { background: var(--bg); border-radius: 6px; padding: 18px 22px; }
 

@@ -70,7 +70,8 @@ the file stays valid when you upgrade.
 - **3 months, renewable.** Each license runs for 3 months from the day you
   start it, and we may renew it.
 - **Offline for up to 7 days.** kwatch renews daily. A renewal is valid for 3 days,
-  followed by a 4-day grace period, then kwatch falls back to Community.
+  followed by a 4-day grace period, then kwatch falls back to Community
+  features. Monitoring and alerts continue; reconnecting restores Pro automatically.
 - **3 moves per 30 days** to another cluster, with the installer
   (**License / Pro**, then **Move license to this cluster**) or **Transfer** on
   your account page.

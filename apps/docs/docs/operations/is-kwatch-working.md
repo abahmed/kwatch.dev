@@ -34,7 +34,9 @@ below.
 
 With an active Pro license, kwatch checks in with `api.kwatch.dev` every 30
 minutes. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster's last
-seen time and its state:
+seen time and its state. Each cluster appears as "Cluster" plus the first 8 characters of its ID. A
+check-in carries only a hashed cluster ID, the license ID, the kwatch version
+and the node count.
 
 | State | Meaning |
 | --- | --- |
@@ -48,7 +50,8 @@ an out-of-memory kill, a lost node or blocked outbound access shows as Silent
 after 60 minutes.
 
 Community sends no check-ins. To turn them off, open the installer's
-**License / Pro** menu and choose **Cluster check-ins**.
+**License / Pro** menu and choose **Cluster check-ins**, or set
+`clusterCheckins: false` (or `KWATCH_CLUSTER_CHECKINS=false`).
 
 ## Your own heartbeat URL <span className="kw-pro">Pro</span>
 

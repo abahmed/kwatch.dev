@@ -37,11 +37,11 @@ line: [cluster](/glossary#cluster), [node](/glossary#node),
 | Benefit | What it means |
 | --- | --- |
 | Root cause first | kwatch follows a failure upstream and names the one cause. |
+| 🔒 Your data stays in your cluster | kwatch analyzes events and logs where they live. |
 | Quiet by default | One message, then silence until something new is true. |
 | Who changed what | See who changed what, and when. |
 | The next step | Every message ends with the command to run. |
 | 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |
-| Your data stays in your cluster | One pod. No kwatch cloud. |
 
 ## ⚙️ How it works in 30 seconds
 
@@ -135,8 +135,12 @@ Already use [Helm](/glossary#helm)? See [Installation](/installation#already-use
 
 ## 🔒 Your data stays in your cluster
 
-kwatch is one pod with no kwatch cloud. It sends alerts only to the channels
-you configure, and redacts secrets from logs and messages.
+Root cause, without your data leaving the cluster.
+
+Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.
+
+kwatch also redacts secrets from logs and messages. To turn usage stats off, see
+[Minimal adoption telemetry](/general-configuration#-minimal-adoption-telemetry).
 
 ## What next
 

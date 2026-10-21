@@ -62,9 +62,9 @@ Owner: kwatch-web (`apps/web/src/pages/pro.astro`). Copy follows
 
 ### 5. Comparison table
 - Heading: `Community and Pro, side by side`
-- Keep the existing four groups and rows from the current page (verified by
-  kwatch-core), with two changes: first column header visible as `What you get`, and
-  add a closing row under OPERATIONS: `Price` is NOT added.
+- Keep the existing four groups and rows from the current page (verified
+  by kwatch-core). Make the first column header visible: `What you get`.
+  No Price row.
 - Pro column header filled Ink with Paper text; dash `—` for not included,
   text-muted. Table scrolls horizontally under 640px inside a focusable
   region (keep `tabindex=0`, aria-label).

@@ -370,7 +370,7 @@ describe('/licenses', () => {
     it('shows a badge linking to the upgrade page when older', async () => {
       await run('1.0.0', '1.0.3');
       const a = await screen.findByRole('link', {name: 'Update available: v1.0.3'});
-      expect(a.getAttribute('href')).toMatch(/\/upgrading$/);
+      expect(a.getAttribute('href')).toMatch(/\/update$/);
     });
     it('shows a badge for an rc older than the release', async () => {
       await run('1.0.3-rc.1', '1.0.3');

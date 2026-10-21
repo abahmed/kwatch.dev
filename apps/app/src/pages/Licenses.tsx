@@ -61,7 +61,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
         <div className="cluster-version-col">
           <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
           {cs.latest && isOutdated(c.version, cs.latest) && (
-            <a className="small update-available" href={`${DOCS_URL}/upgrading`}>
+            <a className="small update-available" href={`${DOCS_URL}/update`}>
               Update available: v{cs.latest.replace(/^v/, '')}
             </a>
           )}

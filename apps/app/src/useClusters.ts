@@ -3,16 +3,19 @@ import {getClusters} from './api';
 import type {Cluster} from './api';
 import {useRefreshOnReturn} from './useRefreshOnReturn';
 
-type State = {clusters: Cluster[] | null; failed: boolean; nowMs: number};
+type State = {clusters: Cluster[] | null; failed: boolean; nowMs: number; skewMs: number};
 
 /** Loads the account's clusters; reloads quietly when the person returns to the tab. No polling. */
 export function useClusters() {
-  const [state, setState] = useState<State>({clusters: null, failed: false, nowMs: 0});
+  const [state, setState] = useState<State>({clusters: null, failed: false, nowMs: 0, skewMs: 0});
 
   const load = useCallback(async () => {
     try {
       const r = await getClusters();
-      setState({clusters: r.clusters ?? [], failed: false, nowMs: Date.now()});
+      const nowMs = Date.now();
+      // Server minus local clock, so relative times hold when the device clock is off.
+      const skewMs = r.srv_time ? r.srv_time * 1000 - nowMs : 0;
+      setState({clusters: r.clusters ?? [], failed: false, nowMs, skewMs});
       return true;
     } catch {
       setState((s) => ({...s, failed: true, nowMs: Date.now()}));
@@ -27,5 +30,5 @@ export function useClusters() {
   }, [load]);
   useRefreshOnReturn(() => void load());
 
-  return {clusters: state.clusters, failed: state.failed, nowMs: state.nowMs, reload: load};
+  return {clusters: state.clusters, failed: state.failed, nowMs: state.nowMs, skewMs: state.skewMs, reload: load};
 }

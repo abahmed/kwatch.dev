@@ -16,7 +16,6 @@ const TOPICS: [string, string][] = [
   ['installing', 'Installing kwatch'],
   ['alerts_not_arriving', 'Alerts not arriving'],
   ['alert_unclear', 'An alert I do not understand'],
-  ['checkins', 'Cluster check-ins'],
   ['license', 'My license'],
   ['other', 'Something else'],
 ];
@@ -108,7 +107,7 @@ export default function Help() {
   if (sentRef) return <Sent email={email} refId={sentRef} />;
 
   const license = pro.find((l) => l.lid === lid) ?? pro.find((l) => l.activation) ?? pro[0];
-  const mine: Cluster[] = (clusters ?? []).filter((c) => c.license === license.lid && c.state !== 'detached');
+  const mine: Cluster[] = (clusters ?? []).filter((c) => c.license === license.lid);
   const len = message.trim().length;
   const tooShort = len < MIN;
   const tooLong = message.length > MAX;
@@ -166,9 +165,9 @@ export default function Help() {
         <option value="">Not sure or not installed yet</option>
         {mine.map((c) => (
           <option key={c.cluster_uuid} value={c.cluster_uuid}>
-            {c.name || 'Unnamed cluster'} ({c.id_short}
-            {c.version ? `, v${c.version.replace(/^v/, '')}` : ''}
-            {c.last_seen ? `, ${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
+            Cluster {c.id_short}
+            {c.version ? ` (v${c.version.replace(/^v/, '')}` : ' ('}
+            {c.last_seen ? `${c.version ? ', ' : ''}${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
           </option>
         ))}
       </select>
@@ -201,7 +200,7 @@ export default function Help() {
       </p>
 
       <p className="hint" style={{marginTop: 18}}>
-        Sent with your request: license, plan and expiry, cluster names, versions and last seen.
+        Sent with your request: license, plan and expiry, cluster IDs, versions and last seen.
         {' '}({license.lid}, Pro, expires {fmtDate(license.expires_at)})
       </p>
 

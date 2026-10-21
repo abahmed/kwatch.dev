@@ -112,10 +112,10 @@ sent. Drops are counted by `kwatch_delivery_outbox_dropped_total` and
 
 ## Telemetry, update check and heartbeat
 
-- **Adoption telemetry** sends a two-field pseudonymous heartbeat to
+- **Adoption telemetry** sends an anonymous ID (a one-way hash of the cluster) and the version to
   `https://api.kwatch.dev` at most every 7 days. Disable it with
   `telemetry.enabled: false`. See [General configuration](/general-configuration#-minimal-adoption-telemetry).
 - **License client** (Pro) activates a key against `https://api.kwatch.dev`,
-  renews daily, and tolerates up to 7 days offline.
+  checks daily, and keeps Pro up to 7 days after the last successful check.
 - **Heartbeat monitor** (Pro) pings an external URL while monitoring is ready;
   see the [heartbeat guide](/heartbeat-monitor-configuration).

@@ -18,8 +18,8 @@ to every surface: README, home, docs, app, social cards.
 | Emoji | Name | One-line copy |
 | --- | --- | --- |
 | 🔍 | Root cause first | kwatch follows a failure upstream and names the one cause. |
-| 🔕 | Quiet by default | One message, then silence until something new is true. |
 | 🔒 | Your data stays in your cluster | kwatch analyzes events and logs where they live. |
+| 🔕 | Quiet by default | One message, then silence until something new is true. |
 | 🕵️ | Who changed what | See who changed what, and when. |
 | 👉 | The next step | Every message ends with the command to run. |
 | 📣 | 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |
@@ -33,6 +33,18 @@ to every surface: README, home, docs, app, social cards.
   `Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.`
 - Do not claim "nothing leaves", "air-gapped" or "offline". Do not name
   competitors. Exact wording was approved; do not reword.
+
+### What kwatch sends (canonical)
+
+Web, docs and app copy this table; do not paraphrase the facts.
+
+| What | When | Contains | Control |
+| --- | --- | --- | --- |
+| Anonymous usage stats | At most once a week | An anonymous ID derived from your cluster (a one-way hash that can't be traced back to the cluster or linked to your license) and the kwatch version | On by default; turn off with `telemetry.enabled: false` or `KWATCH_TELEMETRY=false` |
+| Pro license check | Once a day, Pro only | License ID, hashed cluster ID, kwatch version, node count | Part of Pro; Community sends none |
+
+Never sent: cluster names, namespaces, pod names, logs or events. Alerts go
+only to the channels you set up.
 
 ### Surfaces to update
 

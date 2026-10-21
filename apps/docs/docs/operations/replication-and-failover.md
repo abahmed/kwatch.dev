@@ -25,7 +25,7 @@ Run exactly one replica. One process holds the lock; Kubernetes restarts the pod
 
 ## Node failure: the real monitoring gap
 
-A crashed or unreachable node is the slowest case, because Kubernetes decides when the Pod may start elsewhere. Plan for up to about 7 to 8 minutes without monitoring after a hard node failure: about 70 to 80 seconds for node detection and eviction (the chart shortens the default toleration to 30 seconds), then up to about 6 minutes more for a `ReadWriteOnce` volume to detach. Your own heartbeat URL (Pro) or Cluster check-ins (Pro) are the only signals during that window.
+A crashed or unreachable node is the slowest case, because Kubernetes decides when the Pod may start elsewhere. Plan for up to about 7 to 8 minutes without monitoring after a hard node failure: about 70 to 80 seconds for node detection and eviction (the chart shortens the default toleration to 30 seconds), then up to about 6 minutes more for a `ReadWriteOnce` volume to detach. Your own heartbeat URL (Pro) is the only signal during that window.
 
 If you know the node is really down (powered off, not just partitioned), you can shorten the gap by tainting it out of service:
 

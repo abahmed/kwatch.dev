@@ -3,7 +3,7 @@ layout: ../layouts/Legal.astro
 page: terms
 title: Terms of service
 description: Terms for kwatch accounts, Pro licenses and the kwatch license service.
-updated: Oct 16, 2026
+updated: Oct 21, 2026
 ---
 
 These terms apply to your kwatch account, kwatch Pro licenses, and
@@ -26,8 +26,10 @@ features are enabled by a license key. Releases up to and including
   using the installer or the
   [account page](https://app.kwatch.dev/account). Releasing a license on uninstall counts as a
   move.
-- A licensed kwatch renews with the license service daily and keeps Pro
-  features for up to 7 days if it cannot reach it.
+- A licensed kwatch checks its license with the license service and keeps Pro
+  features for up to 7 days after its last successful license check if it
+  cannot reach kwatch.dev, then falls back to Community features. Monitoring and alerting
+  continue.
 - When a license expires, is revoked or cannot be renewed, kwatch falls back
   to the Community edition and keeps detecting and alerting.
 
@@ -75,7 +77,7 @@ as the Community edition.
 ## The service
 
 We aim to keep the license service available but do not guarantee it.
-Outages shorter than the 7-day offline allowance do not affect a licensed
+Outages shorter than the 7-day license grace period after the last successful license check do not affect a licensed
 cluster. We may change or discontinue features of the service with reasonable
 notice.
 

@@ -54,8 +54,25 @@ key to that cluster. Nothing else about your cluster is sent.
 ## Offline use
 
 If the license service is unreachable, kwatch keeps its Pro features for up
-to 7 days from the last successful renewal: each renewal is valid for 3 days,
-followed by a 4-day grace period, then kwatch falls back to Community.
+to 7 days after its last successful license check: each renewal is valid for 3 days,
+followed by a 4-day grace period. After that kwatch falls back to Community
+features. Monitoring and alerts continue, and reconnecting restores Pro
+automatically.
+
+## What kwatch sends
+
+Pro makes one license check a day. It sends only the license ID, a hashed
+cluster ID, the kwatch version and the node count. Nothing else about your
+cluster is sent. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster as
+"Cluster" followed by the first 8 characters of its ID, with a "Last seen" time.
+
+To be told when kwatch stops, use your own
+[dead man's switch heartbeat](/heartbeat-monitor-configuration), a
+<span className="kw-pro">Pro</span> feature.
+
+Anonymous usage stats are separate and optional. Turn them off with
+`telemetry.enabled: false` or `KWATCH_TELEMETRY=false`. See
+[General configuration](/general-configuration#-minimal-adoption-telemetry).
 
 ## When a license expires
 

@@ -611,9 +611,9 @@ pseudonymous heartbeat so the project can estimate adoption.
 {"cluster_uuid": "<installation ID>", "kwatch_version": "<version>"}
 ```
 
-The installation ID is a UUID derived once from a salted SHA-256 hash of the
-`kube-system` namespace UID, so the UID itself never leaves the cluster; if
-that namespace cannot be read, kwatch uses a random UUID instead. It is kept in
+The installation ID is a one-way, salted SHA-256 hash of the cluster's
+`kube-system` namespace UID, so the UID itself never leaves the cluster. It is
+stable across reinstalls and cannot be linked to a license. It is kept in
 kwatch's state file. The field is named `cluster_uuid` for wire
 compatibility. No cluster name, namespace, resource name, node count,
 configuration, provider setting, log line or incident is sent. As with any

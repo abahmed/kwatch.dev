@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import BenefitIcon from '../components/BenefitIcon.astro';
 
 type Row = [string, string, string, boolean?]; // label, community, pro, community is a dash
 const groups: { name: string; rows: Row[] }[] = [
@@ -40,35 +41,83 @@ const groups: { name: string; rows: Row[] }[] = [
 ];
 
 const license: [string, string][] = [
-  ['Getting one', 'Sign in with your email and press “Get a free Pro license”. Your key appears right away.'],
-  ['Adding it', 'Run the kwatch installer and choose License / Pro, then Add or replace key.'],
   ['One cluster', 'A key runs one cluster. Move it to another up to 3 times in 30 days, from the installer or your account.'],
-  ['Offline', 'kwatch checks in once a day and keeps Pro for up to 7 days without a connection.'],
+  ['If it can\'t reach kwatch.dev', 'Pro keeps working for up to 7 days after its last successful license check, then falls back to Community features. Monitoring continues.'],
   ['When it ends', 'kwatch falls back to Community. Alerts never stop.'],
-  ["What's sent", 'A hashed cluster ID, the kwatch version and the node count. Nothing from your workloads.'],
 ];
 ---
 <Base
   current="pro"
   title="Pro, free during early access · kwatch"
-  description="Community tells you a pod or node broke. Pro adds the full chain of cause, who made the change, what else is hit and the logs. Free during early access."
+  description="Community names what broke. Pro adds the full chain of cause, who made the change, what else is hit and the logs that prove it. Free during early access."
 >
   <section class="hero wrap">
     <div>
       <p class="badge">Free during early access</p>
       <h1>Pro shows you<br />the whole story.</h1>
-      <p class="lede">Community tells you that a pod or node broke. Pro tells you everything else: the full chain of cause, the change and who made it, what else is hit, and the logs that prove it.</p>
+      <p class="lede">Community names what broke. Pro adds the full chain of cause, who made the change, what else is hit, and the logs that prove it.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://app.kwatch.dev">Get a free Pro license</a>
+        <a class="alt" href="#get-pro">Already have a key? Add it in the installer</a>
+      </div>
     </div>
-    <aside class="how-early" aria-labelledby="early-title">
-      <p id="early-title" class="strong">How early access works</p>
-      <ul>
-        <li>Each Pro license is free for 3 months, and we may renew it.</li>
-        <li>One license runs one cluster. Up to 2 per account, or per company domain for work emails.</li>
-        <li>No payment details. If we ever charge, you'll hear well in advance.</li>
-      </ul>
-      <a class="btn btn-primary" href="https://app.kwatch.dev">Get a free Pro license</a>
-      <p class="help-link">Questions? <a href="/support">Get help</a></p>
-    </aside>
+  </section>
+
+  <section class="wrap cards-sec" aria-label="Community and Pro at a glance">
+    <div class="cards">
+      <div class="card">
+        <p class="label">Community</p>
+        <p class="line">Free forever. No account, no key.</p>
+        <ul>
+          <li>One-line root-cause headline for every failure</li>
+          <li>Crash loops, OOM kills, Pending pods, Node NotReady</li>
+          <li>1 alert channel, with quiet-by-default noise control</li>
+        </ul>
+      </div>
+      <div class="card">
+        <p class="label">Pro</p>
+        <p class="line">Free during early access.</p>
+        <ul>
+          <li>Full proof and confidence for each root cause</li>
+          <li>Recent changes and who made them</li>
+          <li>Affected services and log excerpts</li>
+          <li>Unlimited channels, routing, incident history, audit log</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap early">
+    <h2 class="display">Free during early access</h2>
+    <p>Each Pro license is free for 3 months, and we may renew it. One license runs one cluster, up to 2 per account or company. No payment details. If that ever changes, you will hear well in advance.</p>
+  </section>
+
+  <section id="get-pro" class="wrap steps-sec">
+    <h2 class="display">Get Pro in three steps</h2>
+    <ol class="steps">
+      <li>
+        <span class="n" aria-hidden="true">1</span>
+        <h3>Get a key</h3>
+        <p>Sign in at app.kwatch.dev with your email and press "Get a free Pro license". Your key appears right away.</p>
+      </li>
+      <li>
+        <span class="n" aria-hidden="true">2</span>
+        <h3>Run the installer</h3>
+        <p>One command, and it walks you through it.</p>
+        <div class="cmd">
+          <code id="install-cmd">/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</code>
+          <button type="button" class="copy" data-copy="install-cmd" aria-label="Copy install command">Copy</button>
+        </div>
+        <p class="note">Already installed? Run it again.</p>
+      </li>
+      <li>
+        <span class="n" aria-hidden="true">3</span>
+        <h3>Add the key</h3>
+        <p>Choose License / Pro, then Add or replace key.</p>
+      </li>
+    </ol>
+    <p class="helper">Licenses are managed only through the installer.</p>
+    <p class="sr-only" role="status" aria-live="polite" id="copy-status"></p>
   </section>
 
   <section class="wrap compare">
@@ -76,7 +125,7 @@ const license: [string, string][] = [
     <div class="scroll" role="region" aria-label="Community and Pro comparison table" tabindex="0">
       <table>
         <thead>
-          <tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col">Community</th><th scope="col" class="pro-col">Pro</th></tr>
+          <tr><th scope="col">What you get</th><th scope="col">Community</th><th scope="col" class="pro-col">Pro</th></tr>
         </thead>
         {groups.map((g) => (
           <tbody>
@@ -94,7 +143,18 @@ const license: [string, string][] = [
     </div>
   </section>
 
-  <section class="band">
+  <section class="data-sec" aria-labelledby="data-title">
+    <div class="wrap data">
+      <div>
+        <h2 id="data-title" class="display"><BenefitIcon name="data" /> Root cause, without your data leaving the cluster.</h2>
+        <p class="data-line">kwatch analyzes events and logs where they live.</p>
+        <p class="data-small">Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.</p>
+        <a class="alt" href="https://docs.kwatch.dev/architecture/data-flow">What is sent</a>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="wrap license">
       <h2 class="display">How the license works</h2>
       <dl>
@@ -105,31 +165,62 @@ const license: [string, string][] = [
 
   <section class="cta on-signal">
     <div class="wrap cta-inner">
-      <h2 class="display">Try the whole thing.<br />It's free.</h2>
+      <h2 class="display">Get your free Pro license.</h2>
       <a class="btn btn-solid big" href="https://app.kwatch.dev">Get a free Pro license</a>
     </div>
   </section>
+  <script is:inline src="/copy.js"></script>
 </Base>
 
 <style>
-  .hero { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 56px; align-items: end; padding-block: 64px 72px; }
+  .hero { padding-block: 64px 48px; }
   .badge { display: inline-block; background: var(--surface); color: var(--text); border: 1px solid var(--control-border); padding: 4px 12px; border-radius: 999px; font-size: 14px; font-weight: 600; }
   h1 { margin-top: 20px; font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 3.4vw + 28px, 84px); line-height: .95; letter-spacing: -0.045em; }
-  .lede { margin-top: 22px; font-size: clamp(18px, .6vw + 15px, 20px); color: var(--text-soft); max-width: 560px; }
-  .how-early { background: var(--surface); border-radius: 10px; padding: 28px; }
-  .strong { font-weight: 600; }
-  .how-early ul { margin: 12px 0 0; padding-left: 20px; color: var(--text-soft); font-size: 15px; }
-  .how-early .btn { margin-top: 20px; }
-  .help-link { margin-top: 14px; font-size: 15px; }
-  .help-link a { text-decoration: underline; }
+  .lede { margin-top: 22px; font-size: clamp(18px, .6vw + 15px, 20px); color: var(--text-soft); max-width: 600px; }
+  .hero-actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+  .alt { text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+
+  .cards-sec { padding-bottom: 72px; }
+  .cards { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 28px; }
+  .label { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
+  .line { margin-top: 8px; font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -0.02em; }
+  .card ul { margin: 16px 0 0; padding-left: 20px; color: var(--text-soft); display: grid; gap: 8px; }
+
+  .early { padding-bottom: 72px; }
+  .early > * { max-width: 760px; }
+  .early h2, .steps-sec h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); }
+  .early p { margin-top: 16px; color: var(--text-soft); font-size: 18px; }
+
+  .steps-sec { padding-bottom: 80px; }
+  .steps { list-style: none; padding: 0; margin: 32px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .steps li { border-top: 2px solid var(--text); padding-top: 16px; min-width: 0; }
+  .n { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border: 2px solid var(--text); border-radius: 50%; font-family: var(--font-mono); font-weight: 600; }
+  .steps h3 { margin-top: 12px; font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+  .steps p { margin-top: 8px; color: var(--text-soft); }
+  .cmd { margin-top: 12px; display: flex; gap: 8px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .cmd code { flex: 1; min-width: 0; font-size: 13px; overflow-wrap: anywhere; color: var(--text); }
+  .copy { flex: none; font: inherit; font-size: 13px; font-weight: 600; padding: 4px 10px; border: 1px solid var(--control-border); border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; }
+  .copy:hover { border-color: var(--text); }
+  .steps .note { font-size: 14px; color: var(--text-muted); }
+  .helper { margin-top: 24px; color: var(--text-soft); }
+
+  .data-sec { background: var(--surface); }
+  .data { padding-block: 80px; }
+  .data h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); max-width: 20ch; display: flex; gap: 14px; align-items: flex-start; }
+  .data h2 :global(svg) { flex: none; margin-top: .2em; }
+  .data-line { margin-top: 20px; font-size: 19px; color: var(--text-soft); }
+  .data-small { margin-top: 12px; font-size: 15px; color: var(--text-muted); max-width: 60ch; }
+  .data .alt { display: inline-block; margin-top: 14px; }
 
   .compare { padding-block: 24px 100px; }
   .compare h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); }
   .scroll { margin-top: 32px; overflow-x: auto; border-radius: 6px; }
   table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 16px; }
   thead th { text-align: left; padding: 14px 0; border-bottom: 2px solid var(--text); }
-  thead th:first-child { width: 52%; }
+  thead th:first-child { width: 52%; font-weight: 600; }
   th.pro-col, td.pro-col { padding-inline: 12px; }
+  thead th:not(:first-child) { padding-inline: 12px; }
   thead th.pro-col { background: var(--text); color: var(--bg); }
   .group th { text-align: left; padding: 22px 0 8px; font-family: var(--font-mono); font-weight: 400; font-size: 13px; color: var(--text-muted); }
   tbody th[scope='row'] { text-align: left; font-weight: 400; padding: 12px 12px 12px 0; }
@@ -149,7 +240,9 @@ const license: [string, string][] = [
   .btn.big { padding: 18px 32px; font-size: 18px; }
 
   @media (max-width: 960px) {
-    .hero { grid-template-columns: 1fr; gap: 36px; padding-block: 40px 48px; }
+    .hero { padding-block: 40px 32px; }
+    .cards, .steps { grid-template-columns: 1fr; }
+    .data { padding-block: 56px; }
     .license { grid-template-columns: 1fr; gap: 28px; padding-block: 64px; }
     .compare { padding-bottom: 64px; }
     .cta-inner { padding-block: 64px; }

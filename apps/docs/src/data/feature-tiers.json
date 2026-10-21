@@ -88,14 +88,14 @@
   {
     "id": "core.detection.nodes",
     "lifecycle": "runtime",
-    "description": "Detect node readiness, pressure and draining",
+    "description": "Detect nodes that are not ready",
     "deps": [],
     "tier": "community"
   },
   {
     "id": "core.nodes.usage",
     "lifecycle": "runtime",
-    "description": "Detect node resource pressure from kubelet stats",
+    "description": "Detect node pressure and draining, and resource pressure from kubelet stats",
     "deps": [
       "core.detection.nodes"
     ],

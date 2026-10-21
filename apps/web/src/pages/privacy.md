@@ -3,7 +3,7 @@ layout: ../layouts/Legal.astro
 page: privacy
 title: Privacy policy
 description: What data kwatch collects for accounts and Pro licenses, how telemetry works, how long data is kept and how to delete it.
-updated: Oct 16, 2026
+updated: Oct 21, 2026
 lead: kwatch runs in your cluster. The free Community edition needs no account and never contacts us about licensing.
 ---
 
@@ -21,32 +21,30 @@ exception is the anonymous telemetry ping described below.
 | --- | --- | --- |
 | Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a license about to expire) |
 | Session cookie (`kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
-| License usage: hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
+| License usage: license ID, hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates, or checks its license once a day | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
 | Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |
-| IP address | Any request to `api.kwatch.dev` | Rate limiting and abuse prevention. The last IP that activated or renewed a license is kept on its activation record |
+| IP address | Any request to `api.kwatch.dev` | Abuse prevention only. Never stored with your account or licenses. |
 
 We never receive workload names, logs, secrets, alerts or any other content
 from your cluster. The cluster ID is a one-way hash of the `kube-system`
 namespace UID, and the raw UID never leaves your cluster.
+
+### IP addresses
+
+We use your IP address only to prevent abuse. It is never stored with your
+account or licenses.
 
 The website does not use analytics or advertising cookies.
 
 ## Telemetry
 
 Telemetry is on by default. kwatch sends an anonymous adoption ping, at most
-once every 7 days, containing a random or hashed installation ID and the kwatch version, so we
-can see which versions are in use. It is separate from licensing, works in the
+once every 7 days, containing an anonymous ID derived from your cluster (a one-way hash that
+can't be traced back to the cluster or linked to your license) and the kwatch
+version, so we can see which versions are in use. It is separate from licensing, works in the
 Community edition too, and contains no personal data. Turn it off with
 `telemetry.enabled: false` or `KWATCH_TELEMETRY=false`.
-
-## Cluster check-ins (Pro only)
-
-With an active Pro license, kwatch pings `api.kwatch.dev` every 30 minutes so
-app.kwatch.dev can show when a cluster last checked in and mark it silent after
-60 minutes. The ping sends the kwatch version, the node count, the namespace and
-the cluster name if you set one. Nothing is sent to you. The Community edition
-sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 
 ## How long we keep data
 
@@ -55,9 +53,8 @@ sends none. Turn it off in the installer: License / Pro, then Cluster check-ins.
 | Account, licenses and activation records | Until you delete your account |
 | Sign-in links | 15 minutes, single use |
 | Sessions | 30 days, or until you sign out |
-| Rate-limit counters | A few hours to a day |
 | License event log | 180 days, keyed by license ID only |
-| Telemetry ping (installation ID, kwatch version, last seen; no IP address) | One row per installation, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
+| Telemetry ping (anonymous ID, kwatch version, last seen) | One row per anonymous ID, overwritten on each ping. There is no automatic deletion yet, so it is kept until removed on request |
 | Free-license records (email hash, company domain) | Kept after account deletion so deleting an account cannot reset the free-license limit |
 
 ## How we use data and legal bases

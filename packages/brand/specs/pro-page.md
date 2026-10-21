@@ -76,10 +76,10 @@ Owner: kwatch-web (`apps/web/src/pages/pro.astro`). Copy follows
 - Link: `What is sent` to docs data page.
 
 ### 7. License details (definition list)
-Keep: One cluster, Offline (relabel `If it cannot check in`), When it ends.
+Keep: One cluster, Offline (relabel `If it can't reach kwatch.dev`), When it ends.
 Move "Getting one" and "Adding it" into section 4 and drop "What's sent"
 (now section 6).
-- `If it cannot check in`: `Pro keeps working for up to 7 days after its last check-in, then falls back to Community features. Monitoring continues.`
+- `If it can't reach kwatch.dev`: `Pro keeps working for up to 7 days after its last successful license check, then falls back to Community features. Monitoring continues.`
 - This row is about the license only. Never say "offline" in it or imply
   analysis needs a connection.
 

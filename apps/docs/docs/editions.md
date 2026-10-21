@@ -27,7 +27,7 @@ advance.
 | Analysis | Root-cause headline | Full proof, shared-factor suspects, who changed what, impact and redacted log excerpts |
 | Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down |
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
-| Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export`, Cluster check-ins |
+| Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
 
 The per-capability list is on the [Pro page](https://kwatch.dev/pro) and in the
 [generated feature reference](/reference/generated/features). Every
@@ -56,7 +56,7 @@ Pro adds everything marked <span className="kw-pro">Pro</span> across these
 docs: the extra detectors, the full root-cause and change history, routing,
 threads, templates, severity overrides, maintenance holds, runbooks, audit
 log, heartbeat and probes, persistence, the flight recorder, `/status` JSON
-and Cluster check-ins. Configuration for Pro features is accepted in
+and more. Configuration for Pro features is accepted in
 Community and ignored; `kwatch lint` prints an `info:` line for each one, and
 the file stays valid when you upgrade.
 
@@ -70,7 +70,8 @@ the file stays valid when you upgrade.
 - **3 months, renewable.** Each license runs for 3 months from the day you
   start it, and we may renew it.
 - **Offline for up to 7 days.** kwatch renews daily. A renewal is valid for 3 days,
-  followed by a 4-day grace period, then kwatch falls back to Community.
+  followed by a 4-day grace period, then kwatch falls back to Community
+  features. Monitoring and alerts continue; reconnecting restores Pro automatically.
 - **3 moves per 30 days** to another cluster, with the installer
   (**License / Pro**, then **Move license to this cluster**) or **Transfer** on
   your account page.

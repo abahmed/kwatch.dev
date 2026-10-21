@@ -1,9 +1,9 @@
 ---
 title: "Is kwatch working? How to check and what silence means"
 sidebar_label: Is kwatch working?
-description: Check that kwatch is running and can reach your notification channel, what Pro Cluster check-ins show, and the usual reasons kwatch goes quiet.
+description: Check that kwatch is running and can reach your notification channel, what the app's "Last seen" shows, and the usual reasons kwatch goes quiet.
 sidebar_position: 3
-keywords: [kwatch status, test alert, cluster check-ins, silent, heartbeat, troubleshooting]
+keywords: [kwatch status, test alert, last seen, silent, heartbeat, troubleshooting]
 ---
 
 # Is kwatch working?
@@ -30,25 +30,15 @@ knowing how to check that it is alive, and that its alerts can reach you.
 If the test does not arrive, see the [silent failures](#common-silent-failures)
 below.
 
-## Cluster check-ins <span className="kw-pro">Pro</span>
+## Last seen in the app
 
-With an active Pro license, kwatch checks in with `api.kwatch.dev` every 30
-minutes. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster's last
-seen time and its state:
+With an active Pro license, kwatch makes a daily license check.
+[app.kwatch.dev](https://app.kwatch.dev) shows each cluster as "Cluster" plus
+the first 8 characters of its ID, with a "Last seen" time. The check sends only
+the license ID, a hashed cluster ID, the kwatch version and the node count.
 
-| State | Meaning |
-| --- | --- |
-| Checking in | kwatch checked in recently. |
-| Silent | Nothing heard for 60 minutes. kwatch stopped talking; your apps may be fine, but kwatch cannot alert you. |
-| Stopped | kwatch shut down cleanly, for example scaled down on purpose. Not a problem. |
-| Check-ins off | You turned them off. |
-
-Nothing is sent to anyone: no email, no message. You look at the page. A crash,
-an out-of-memory kill, a lost node or blocked outbound access shows as Silent
-after 60 minutes.
-
-Community sends no check-ins. To turn them off, open the installer's
-**License / Pro** menu and choose **Cluster check-ins**.
+"Last seen" is not an alert. To be told when kwatch stops, use the heartbeat
+below (<span className="kw-pro">Pro</span>).
 
 ## Your own heartbeat URL <span className="kw-pro">Pro</span>
 

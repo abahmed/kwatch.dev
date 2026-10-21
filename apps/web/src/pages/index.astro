@@ -48,11 +48,11 @@ const steps = [
 
 const benefits = [
   ['root', 'Root cause first', 'kwatch follows a failure upstream and names the one cause.'],
+  ['data', 'Your data stays in your cluster', 'kwatch analyzes events and logs where they live.'],
   ['quiet', 'Quiet by default', 'One message, then silence until something new is true.'],
   ['who', 'Who changed what', 'See who changed what, and when.'],
   ['next', 'The next step', 'Every message ends with the command to run.'],
   ['channels', '50+ channels', 'Slack, Teams, PagerDuty, email, webhooks and more.'],
-  ['data', 'Your data stays in your cluster', 'One pod. No kwatch cloud.'],
 ];
 
 const timeline = [
@@ -66,7 +66,7 @@ const faq = [
   ['Do I need to be a Kubernetes expert?', 'No. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
-  ['What leaves my cluster?', 'Your alerts, to the channels you choose. With Pro, a daily license check sends a hashed cluster ID, the kwatch version and the node count. Separately, kwatch sends an anonymous adoption ping (a random or hashed installation ID and the version) at most once a week; turn it off with telemetry.enabled: false. Nothing else.'],
+  ['What leaves my cluster?', 'Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.'],
   ['What permissions does it need?', 'Read access to the resources it watches, through Kubernetes permissions (RBAC) that decide what kwatch may read. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
   ['Why is Pro free?', "We want kwatch proven on real clusters first. If that ever changes, you will hear well in advance."],
 ];
@@ -146,6 +146,21 @@ const jsonLd = [
     </div>
   </div>
 
+  <section class="band" aria-labelledby="data-title">
+    <div class="wrap section-tight privacy">
+      <div>
+        <h2 id="data-title" class="display h2-md">Root cause, without your data leaving the cluster.</h2>
+        <p class="privacy-lede">kwatch analyzes events and logs where they live.</p>
+        <p class="privacy-small">Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up. <a href="https://docs.kwatch.dev/architecture/data-flow">What is sent</a></p>
+      </div>
+      <ul class="facts">
+        <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>
+        <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
+        <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
+      </ul>
+    </div>
+  </section>
+
   <section id="quick" class="wrap section-tight quick">
     <p class="eyebrow">How it works in 30 seconds</p>
     <ol class="quick-steps">
@@ -223,20 +238,6 @@ const jsonLd = [
         </li>
       ))}
     </ol>
-  </section>
-
-  <section class="band">
-    <div class="wrap section-tight privacy">
-      <div>
-        <h2 class="display h2-md">Your data stays in your cluster.</h2>
-        <p class="privacy-lede">kwatch is one pod. It redacts secrets before anything is stored or sent, and it sends alerts only to the channels you choose. The only other traffic is the license check for Pro and a weekly anonymous ping you can turn off. There is no kwatch cloud reading your logs.</p>
-      </div>
-      <ul class="facts">
-        <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>
-        <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
-        <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
-      </ul>
-    </div>
   </section>
 
   <section id="install" class="install on-ink">
@@ -399,6 +400,8 @@ const jsonLd = [
   /* Privacy */
   .privacy { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 56px; align-items: center; }
   .privacy-lede { margin-top: 22px; font-size: 19px; color: var(--text-soft); }
+  .privacy-small { margin-top: 14px; font-size: 15px; color: var(--text-muted); max-width: 52ch; }
+  .privacy-small a { text-decoration: underline; color: var(--text); }
   .facts { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 18px; }
   .facts li { background: var(--bg); border-radius: 6px; padding: 18px 22px; }
 

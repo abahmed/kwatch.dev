@@ -3,7 +3,7 @@ layout: ../layouts/Legal.astro
 page: privacy
 title: Privacy policy
 description: What data kwatch collects for accounts and Pro licenses, how telemetry works, how long data is kept and how to delete it.
-updated: Oct 16, 2026
+updated: Oct 21, 2026
 lead: kwatch runs in your cluster. The free Community edition needs no account and never contacts us about licensing.
 ---
 

@@ -3,7 +3,7 @@ layout: ../layouts/Legal.astro
 page: terms
 title: Terms of service
 description: Terms for kwatch accounts, Pro licenses and the kwatch license service.
-updated: Oct 16, 2026
+updated: Oct 21, 2026
 ---
 
 These terms apply to your kwatch account, kwatch Pro licenses, and

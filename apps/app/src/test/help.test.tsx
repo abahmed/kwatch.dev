@@ -8,7 +8,7 @@ afterEach(() => vi.unstubAllGlobals());
 const base = {
   'GET /account': {body: account({licenses: [license()]})},
   'GET /account/clusters': {
-    body: {clusters: [{name: 'prod', id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3, last_seen: Math.floor(Date.now() / 1000) - 60, checkins: true, state: 'ok'}]},
+    body: {clusters: [{id_short: '7c1e04ab', cluster_uuid: 'uuid-1', license: 'lic_1', version: '1.0.0', nodes: 3, last_seen: Math.floor(Date.now() / 1000) - 60, checkins: true, state: 'ok'}]},
   },
 };
 const text = 'The alerts never arrive in Slack since upgrading.';
@@ -22,7 +22,7 @@ describe('/help', () => {
     mockApi(base);
     renderAt('/help');
     expect(await screen.findByLabelText('Your email')).toHaveValue('ab@acme.com');
-    expect(await screen.findByRole('option', {name: /prod \(7c1e04ab/})).toBeInTheDocument();
+    expect(await screen.findByRole('option', {name: /Cluster 7c1e04ab/})).toBeInTheDocument();
   });
   it('non-Pro sees the GitHub route', async () => {
     mockApi({'GET /account': {body: account({licenses: [license({status: 'expired'})]})}});

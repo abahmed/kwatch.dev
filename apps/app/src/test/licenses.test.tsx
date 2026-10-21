@@ -9,7 +9,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const now = () => Math.floor(Date.now() / 1000);
 const cl = (over: Partial<Cluster> = {}): Cluster => ({
-  name: 'prod', cluster_uuid: 'uuid-1', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
+  cluster_uuid: 'uuid-1', id_short: '7c1e04ab', license: 'lic_1', version: '1.0.0', nodes: 3,
   last_seen: now() - 240, checkins: true, state: 'ok', ...over,
 });
 const withClusters = (clusters: Cluster[], licenses = [license()]) =>
@@ -64,7 +64,7 @@ describe('/licenses', () => {
     expect(within(first).getByText(/KW1-••••••f3a9Qk/)).toBeInTheDocument();
     expect(within(first).getByText('active')).toBeInTheDocument();
     expect(within(first).getByText(/Free during early access · ends/)).toBeInTheDocument();
-    expect(within(await screen.findByRole('group', {name: 'Cluster for license lic_1'})).getByText('prod')).toBeInTheDocument();
+    expect(within(await screen.findByRole('group', {name: 'Cluster for license lic_1'})).getByText('7c1e04ab')).toBeInTheDocument();
     const second = screen.getByRole('region', {name: 'License lic_2'});
     expect(within(second).getByText(/Not attached yet/)).toBeInTheDocument();
     expect(within(second).queryByRole('button', {name: 'Move to another cluster'})).toBeNull();

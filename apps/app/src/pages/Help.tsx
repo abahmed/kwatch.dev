@@ -166,9 +166,9 @@ export default function Help() {
         <option value="">Not sure or not installed yet</option>
         {mine.map((c) => (
           <option key={c.cluster_uuid} value={c.cluster_uuid}>
-            {c.name || 'Unnamed cluster'} ({c.id_short}
-            {c.version ? `, v${c.version.replace(/^v/, '')}` : ''}
-            {c.last_seen ? `, ${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
+            Cluster {c.id_short}
+            {c.version ? ` (v${c.version.replace(/^v/, '')}` : ' ('}
+            {c.last_seen ? `${c.version ? ', ' : ''}${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
           </option>
         ))}
       </select>
@@ -201,7 +201,7 @@ export default function Help() {
       </p>
 
       <p className="hint" style={{marginTop: 18}}>
-        Sent with your request: license, plan and expiry, cluster names, versions and last seen.
+        Sent with your request: license, plan and expiry, cluster IDs, versions and last seen.
         {' '}({license.lid}, Pro, expires {fmtDate(license.expires_at)})
       </p>
 

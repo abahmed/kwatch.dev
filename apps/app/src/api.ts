@@ -42,8 +42,6 @@ export type Cluster = {
   license: string;
   cluster_uuid: string;
   id_short: string;
-  name: string | null;
-  namespace?: string | null;
   version: string | null;
   nodes: number | null;
   last_seen: number | null;

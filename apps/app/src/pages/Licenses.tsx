@@ -64,8 +64,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
       <>
         <div className="cluster-grid">
           <div className="cluster-name">
-            <div>{c.name || 'Unnamed cluster'}</div>
-            <div className="mono cluster-id">{c.id_short}</div>
+            <div>Cluster <span className="mono cluster-id">{c.id_short}</span></div>
           </div>
           <div className="cluster-state">
             <Pill view={v} />
@@ -438,6 +437,10 @@ export default function Licenses() {
                 kwatch checks in every 30 minutes. After 60 minutes without a check-in we mark the cluster inactive
                 here. We do not send messages. Want one?{' '}
                 <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>kwatch can ping a monitor you own.</a>
+              </p>
+              <p className="small muted">
+                Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod
+                names, logs or events. Alerts go only to the channels you set up.
               </p>
             </section>
           )}

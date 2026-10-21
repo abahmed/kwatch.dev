@@ -35,25 +35,16 @@ export type AccountResponse = {
   trials?: FreeInfo;
 };
 
-export type ClusterState = 'waiting' | 'ok' | 'back' | 'silent' | 'stopped' | 'off' | 'detached';
 
 /** GET /account/clusters row (kwatch-api). Times are unix seconds. */
 export type Cluster = {
   license: string;
   cluster_uuid: string;
   id_short: string;
-  name: string | null;
-  namespace?: string | null;
   version: string | null;
   nodes: number | null;
-  last_seen: number | null;
-  checkins: boolean;
-  state: ClusterState;
-  silent_since?: number | null;
-  inactive_since?: number | null;
-  stopped_since?: number | null;
-  recovered_at?: number | null;
-  quiet_seconds?: number | null;
+  /** Unix seconds of the last anonymous license check. */
+  last_seen: number;
 };
 
 export type SupportRequest = {license: string; cluster_uuid?: string; topic: string; message: string};

@@ -45,7 +45,7 @@ export function fmtRefreshed(updatedAtMs: number, nowMs = Date.now()): string {
 }
 
 /** "just now", "20 min ago", "3 h ago", "2 days ago". */
-export function fmtCheckinAgo(unix: number, nowMs = Date.now()): string {
+export function fmtLastSeenAgo(unix: number, nowMs = Date.now()): string {
   const s = Math.max(0, Math.floor(nowMs / 1000 - unix));
   if (s < 60) return 'just now';
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;

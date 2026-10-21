@@ -112,12 +112,10 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .license-cluster { background: var(--surface); border-top: 1px solid var(--line); padding: 16px 22px; }
 .cluster-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
 .cluster-ended { color: var(--degraded); margin-bottom: 8px; }
-.cluster-grid { display: grid; grid-template-columns: 3fr 3fr 3fr 2fr 1.4fr; gap: 12px 16px; align-items: start; }
+.cluster-grid { display: grid; grid-template-columns: 3fr 3fr 2fr 1.4fr; gap: 12px 16px; align-items: start; }
 .cluster-version { font-size: 14px; }
 .cluster-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 .cluster-last .cluster-sub, .cluster-last { margin-top: 0; white-space: nowrap; }
-.cluster-detail { grid-column: 1 / -1; max-width: 62ch; }
-.cluster-detail code { font-size: 13px; }
 .cluster-unavailable { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .license-footer { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 16px 22px; border-top: 1px solid var(--line); }
 .license-group { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -175,8 +173,7 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
   .license-main, .license-footer { padding: 16px; }
   .license-cluster { padding: 14px 16px; }
   .cluster-grid { grid-template-columns: 1fr 1fr; }
-  .cluster-name, .cluster-detail { grid-column: 1 / -1; }
-  .head-side { width: 100%; }
+  .cluster-name,   .head-side { width: 100%; }
   h1 { font-size: 26px; }
   .page-head h1 { font-size: 26px; }
   .license-group-key { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
@@ -186,14 +183,9 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
   .facts dd { margin-bottom: 12px; }
 }
 
-/* Cluster pills */
+/* Cluster */
 .cluster-id { font-size: 13px; color: var(--text-muted); }
-.pill { display: inline-block; white-space: nowrap; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 999px; border: 1px solid transparent; }
-.pill-active { color: var(--success); background: var(--success-bg); }
-.pill-inactive { color: var(--degraded); background: var(--degraded-bg); }
-.pill-stopped, .pill-off, .pill-waiting { color: var(--text); background: var(--surface); border-color: var(--line); }
-.license-cluster .pill-stopped, .license-cluster .pill-off, .license-cluster .pill-waiting { background: var(--bg); }
-.panel { margin-top: 28px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; }
+.license-cluster .panel { margin-top: 28px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; }
 .panel h2 { font-size: 18px; }
 .panel p { margin-top: 8px; font-size: 15px; color: var(--text-muted); }
 .skeleton { height: 18px; margin-top: 16px; border-radius: 6px; background: var(--surface); }

@@ -72,14 +72,16 @@ Owner: kwatch-web (`apps/web/src/pages/pro.astro`). Copy follows
 ### 6. Data stays in your cluster
 - Heading (BenefitIcon lock, line style): `Root cause, without your data leaving the cluster.`
 - Line: `kwatch analyzes events and logs where they live.`
-- Small print: `Only optional anonymous usage stats and Pro license checks reach kwatch.dev, never cluster data.`
+- Small print: `Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.`
 - Link: `What is sent` to docs data page.
 
 ### 7. License details (definition list)
-Keep: One cluster, Offline, When it ends. Move "Getting one" and "Adding
-it" into section 4 and drop "What's sent" (now section 6). Before shipping
-confirm the "Offline" row wording with kwatch-core; keep it as is, it is
-about license grace, not about analysis.
+Keep: One cluster, Offline (relabel `If it cannot check in`), When it ends.
+Move "Getting one" and "Adding it" into section 4 and drop "What's sent"
+(now section 6).
+- `If it cannot check in`: `Pro keeps working for up to 7 days after its last check-in, then falls back to Community features. Monitoring continues.`
+- This row is about the license only. Never say "offline" in it or imply
+  analysis needs a connection.
 
 ### 8. Closing CTA
 - Heading: `Get your free Pro license.`

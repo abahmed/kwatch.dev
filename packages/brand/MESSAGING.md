@@ -30,7 +30,7 @@ to every surface: README, home, docs, app, social cards.
   kwatch.dev): `Root cause, without your data leaving the cluster.`
 - One-line copy: `kwatch analyzes events and logs where they live.`
 - Small print, factual, directly under the line, in text-muted:
-  `Only optional anonymous usage stats and Pro license checks reach kwatch.dev, never cluster data.`
+  `Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up.`
 - Do not claim "nothing leaves", "air-gapped" or "offline". Do not name
   competitors. Exact wording was approved; do not reword.
 

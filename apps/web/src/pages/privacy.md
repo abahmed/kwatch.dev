@@ -24,23 +24,17 @@ exception is the anonymous telemetry ping described below.
 | License usage: license ID, hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates or renews | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
 | Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |
-| IP address | Any request to `api.kwatch.dev` | Rate limiting and abuse prevention. Stored in two places, see below |
+| IP address | Any request to `api.kwatch.dev` | Rate limiting only. We do not store it; see below |
 
 We never receive workload names, logs, secrets, alerts or any other content
 from your cluster. The cluster ID is a one-way hash of the `kube-system`
 namespace UID, and the raw UID never leaves your cluster.
 
-### IP addresses we store
+### IP addresses
 
-- **License activations:** we keep the last IP address that activated, moved
-  or renewed a license. Each new action overwrites it. It is deleted when the
-  activation is deactivated, transferred or regenerated, or when you delete
-  your account.
-- **Account sessions:** we keep the IP address you signed in from. It is
-  deleted when you sign out or the session expires, after 30 days at most.
-
-We use these only for manual abuse investigation. They are never shown to
-anyone, including you, and never shared.
+We do not store IP addresses. Your IP address is used only briefly in
+rate-limit counters, which are kept for a few hours to a day, to limit abuse
+of the service.
 
 The website does not use analytics or advertising cookies.
 

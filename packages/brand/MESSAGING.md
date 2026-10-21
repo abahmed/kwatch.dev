@@ -12,14 +12,40 @@ The kwatch README (abahmed/kwatch#557), the home page (#29) and the docs
 
 ## 2. The six benefits (canonical names, order and copy)
 
+The data benefit is second, right after Root cause first. This order applies
+to every surface: README, home, docs, app, social cards.
+
 | Emoji | Name | One-line copy |
 | --- | --- | --- |
 | 🔍 | Root cause first | kwatch follows a failure upstream and names the one cause. |
 | 🔕 | Quiet by default | One message, then silence until something new is true. |
+| 🔒 | Your data stays in your cluster | kwatch analyzes events and logs where they live. |
 | 🕵️ | Who changed what | See who changed what, and when. |
 | 👉 | The next step | Every message ends with the command to run. |
 | 📣 | 50+ channels | Slack, Teams, PagerDuty, email, webhooks and more. |
-| 🔒 | Your data stays in your cluster | One pod. No kwatch cloud. |
+
+### Data section spec (🔒 Your data stays in your cluster)
+
+- Section line (bold, also the section heading under the hero on
+  kwatch.dev): `Root cause, without your data leaving the cluster.`
+- One-line copy: `kwatch analyzes events and logs where they live.`
+- Small print, factual, directly under the line, in text-muted:
+  `Only optional anonymous usage stats and Pro license checks reach kwatch.dev, never cluster data.`
+- Do not claim "nothing leaves", "air-gapped" or "offline". Do not name
+  competitors. Exact wording was approved; do not reword.
+
+### Surfaces to update
+
+- [ ] kwatch README: benefits list order; 🔒 heading and bold line in the data
+      section; small print under it.
+- [ ] kwatch.dev home: benefits grid order and copy (BenefitIcon, no emoji);
+      new section under the hero with the bold line as its heading, the
+      one-line copy and the small print.
+- [ ] docs intro: benefits order and copy; docs data page (what stays, what
+      is sent) uses the same small print.
+- [ ] kwatch.dev Pro page: data point per `specs/pro-page.md`.
+- [ ] app.kwatch.dev: any benefits list follows the new order.
+- [ ] Check each claim against the code with kwatch-core before merging.
 
 ## 3. Emoji rules
 

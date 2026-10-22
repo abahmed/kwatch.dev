@@ -69,7 +69,7 @@ heartbeatMonitor:
 2. Create a new check
 3. Copy the ping URL
 4. Configure kwatch as shown above
-5. In Healthchecks.io, set the period to match `interval` and a grace of at least two intervals
+5. In Healthchecks.io, set the period and grace as described in [Pick a period and grace](#pick-a-period-and-grace)
 
 ## How kwatch pings
 
@@ -85,37 +85,17 @@ Set the provider's expected period to kwatch's `interval` (default 300 seconds),
 
 ## Point the heartbeat at an external service
 
-The steps below only cover what kwatch needs: a ping URL that accepts `GET`. For everything else, such as notification routing, escalation and plan limits, follow the provider's own documentation.
+kwatch needs a ping URL that accepts a plain `GET` with no headers. [Healthchecks.io](https://healthchecks.io) does, and so can other dead-man's-switch services. Use the period and grace from the section above.
 
-### Healthchecks.io
-
-1. Create a check in [Healthchecks.io](https://healthchecks.io).
-2. Set its **Period** to your `interval` and its **Grace Time** to at least twice that.
-3. Copy the check's ping URL into the Secret (`heartbeat-url`).
-4. Enable `heartbeatMonitor` as shown above.
+1. Create a check in Healthchecks.io and set its period and grace as described above.
+2. Copy the check's ping URL into the Secret (`heartbeat-url`).
+3. Enable `heartbeatMonitor` as shown above.
 
 See the [Healthchecks.io documentation](https://healthchecks.io/docs/).
 
-### PagerDuty
+### Paging through PagerDuty or Opsgenie
 
-PagerDuty offers heartbeat monitors that alert when a ping does not arrive in time.
-
-1. Create a heartbeat monitor in PagerDuty and choose the service that should be paged.
-2. Choose an alert window that is at least twice your `interval`.
-3. Copy the heartbeat URL PagerDuty shows into the Secret (`heartbeat-url`). Use exactly the URL and method PagerDuty documents for pinging a heartbeat; kwatch sends a `GET`.
-4. Enable `heartbeatMonitor` as shown above.
-
-See [PagerDuty heartbeat monitoring](https://support.pagerduty.com/docs/heartbeat-monitoring) for the current setup and the ping format it accepts.
-
-### Opsgenie
-
-Opsgenie heartbeats raise an alert when no ping arrives within the configured interval.
-
-1. Create a heartbeat in Opsgenie with an interval of at least twice your `interval`.
-2. Copy the ping URL into the Secret (`heartbeat-url`). Check in the [Opsgenie heartbeat documentation](https://support.atlassian.com/opsgenie/docs/what-are-heartbeats-and-how-to-use-them/) which URL form and authentication your region needs. kwatch sends a plain `GET` with no custom headers.
-3. Enable `heartbeatMonitor` as shown above.
-
-If the provider's ping needs a header or a `POST`, kwatch cannot send it. Pick a provider or ping URL form that accepts a plain `GET`.
+Do not point kwatch at PagerDuty or Opsgenie directly. Opsgenie heartbeat pings need an API key header, which kwatch does not send, and Atlassian is retiring Opsgenie. Instead, let the dead-man's switch send the alert: add PagerDuty or Opsgenie as an integration of your Healthchecks.io project, so a missed ping pages your on-call there. See the [Healthchecks.io integrations documentation](https://healthchecks.io/docs/configuring_notifications/) for the current list and setup steps.
 
 ## Related
 

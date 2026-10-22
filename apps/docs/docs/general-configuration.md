@@ -238,7 +238,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
   or a Pod still waiting for the state lock, can pass the rolling-update probe.
 - `GET /health` — JSON containing overall status, state lock status, component
   states, and bounded degradation reasons.
-- `GET /status` — only with `healthCheck.statusEndpoint: true` (404 otherwise; the text includes a `Pro checks:` line in Community). 🔎 What is wrong right now, read-only: open incidents,
+- `GET /status` — only with `healthCheck.statusEndpoint: true` (404 otherwise). 🔎 What is wrong right now, read-only: open incidents,
   control plane, upgrade readiness, zone health and what
   kwatch cannot see. Plain text in both editions; add `?format=json` for JSON <span className="kw-pro">Pro</span> (the JSON format answers `402` with `{"error":"pro_required"}` in Community). It uses no new
   RBAC and writes nothing. It shows object names (workloads, nodes, PDBs,
@@ -248,7 +248,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
   NetworkPolicy (off by default) limits the port to the release namespace,
   `networkPolicy.kubeletCIDRs` and `networkPolicy.healthIngressFrom`. It never shows
   Secret values.
-- `GET /metrics` — <span className="kw-pro">Pro</span> 📊 Prometheus-format metrics. Community answers a plain `404` with an empty body. It does not require Prometheus to be
+- `GET /metrics` — 📊 Prometheus-format metrics. It does not require Prometheus to be
   installed. Every series has a production writer; labels are a fixed, bounded set.
 
 | Metric | Type | Labels | Meaning |

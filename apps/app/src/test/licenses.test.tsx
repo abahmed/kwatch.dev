@@ -76,7 +76,7 @@ describe('/licenses', () => {
     renderAt('/licenses');
     const card = await screen.findByRole('region', {name: 'License lic_1'});
     await within(card).findByText('7c1e04ab');
-    const names = within(card).getAllByRole('button').map((b) => b.textContent);
+    const names = within(card).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent);
     expect(names).toEqual(['Copy key', 'Show key', 'Move to another cluster', 'Replace key']);
     expect(within(card).getByRole('group', {name: 'Key actions'})).toBeInTheDocument();
     expect(within(card).getByRole('group', {name: 'Manage license'})).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe('/licenses', () => {
     expect(screen.getAllByText(/^Last seen /).length).toBe(2);
     expect(screen.queryByText(/Inactive|Stopped|Waiting|check-in/i)).toBeNull();
     expect(screen.getByRole('link', {name: /dead man.s switch/})).toHaveAttribute('href', 'https://docs.kwatch.dev/heartbeat-monitor-configuration');
-    expect(screen.getByText(/a daily Pro license check reach kwatch.dev/)).toBeInTheDocument();
+    expect(screen.queryByText(/reach kwatch.dev/)).toBeNull();
   });
 
   it('shows relative last seen, keeps the UTC tooltip and refreshes every minute', async () => {

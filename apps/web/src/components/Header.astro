@@ -14,7 +14,6 @@ const { current = 'none', minimal = false } = Astro.props;
           <a href="/support" aria-current={current === 'support' ? 'page' : undefined}>Get help</a>
           <a href="https://app.kwatch.dev">Sign in</a>
         </nav>
-        <a class="btn btn-line install-pill" href="/#install">Install</a>
       </>
     )}
   </div>
@@ -31,10 +30,8 @@ const { current = 'none', minimal = false } = Astro.props;
   nav a { color: var(--text-muted); text-decoration: none; }
   nav a:hover { color: var(--text); text-decoration: underline; }
   nav a[aria-current='page'] { color: var(--text); font-weight: 600; }
-  .install-pill { padding-block: 8px; }
-  @media (max-width: 700px) {
-    .inner { gap: 8px 16px; padding-block: 14px; }
+  @media (max-width: 640px) {
+    .inner { gap: 12px 16px; }
     nav { order: 3; flex-basis: 100%; }
-    .install-pill { margin-left: auto; }
   }
 </style>

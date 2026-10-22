@@ -23,7 +23,6 @@ export default defineConfig({
   output: 'static',
   trailingSlash: 'never',
   build: { format: 'file', inlineStylesheets: 'never' },
-  vite: { build: { assetsInlineLimit: 0 } }, // keep scripts external for script-src 'self'
   integrations: [
     sitemap({
       filter: (page) => !page.endsWith('/404'),

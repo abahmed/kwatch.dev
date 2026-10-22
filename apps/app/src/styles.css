@@ -183,7 +183,6 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
   .cluster-name,   .head-side { width: 100%; }
   h1 { font-size: 26px; }
   .page-head h1 { font-size: 26px; }
-  .license-group-key { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .license-group-manage { flex-direction: column; flex-wrap: nowrap; margin-inline-start: 0; width: 100%; }
   .license-group-manage .btn-quiet { text-align: left; }
   .facts { grid-template-columns: 1fr; gap: 2px; }
@@ -219,3 +218,9 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 }
 @keyframes kw-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; background: none; border: 0; border-radius: var(--radius-pill); color: var(--text-muted); cursor: pointer; transition: background var(--motion-fast), color var(--motion-fast); }
+.icon-btn:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
+.icon-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.icon-btn:disabled { cursor: default; }
+.key-row { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.key-row .key { margin: 0; overflow-x: auto; }

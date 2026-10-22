@@ -56,8 +56,8 @@ generated: true
 | `upgrader.disableUpdateCheck` | boolean | `false` | active | Disable the update notification. |
 | `telemetry.enabled` | boolean | `true` | active | Send the weekly adoption heartbeat. |
 | `maintenance.enabled` | boolean | `true` | active | Honor maintenance annotations while preserving cluster-level alerts. |
-| `maintenance.annotation` | string | `kwatch.io/maintenance` | active | Annotation that marks deliberate maintenance on a resource. |
-| `maintenance.untilAnnotation` | string | `kwatch.io/maintenance-until` | active | Optional annotation containing the maintenance expiry timestamp. |
+| `maintenance.annotation` | string | `kwatch.dev/maintenance` | active | Annotation that marks deliberate maintenance on a resource. |
+| `maintenance.untilAnnotation` | string | `kwatch.dev/maintenance-until` | active | Optional annotation containing the maintenance expiry timestamp. |
 | `app.clusterName` | string | `empty` | active | Cluster name shown in notifications. |
 | `app.proxyURL` | string | `empty` | active | Optional proxy for outbound provider requests. |
 | `app.disableStartupMessage` | boolean | `false` | active | Disable the startup notification. |

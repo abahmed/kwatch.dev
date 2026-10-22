@@ -67,7 +67,7 @@ counts will not repair an invalid credential or destination.
 
 Use `kwatch lint` after a configuration change. `kwatch lint --check` can
 test credentials for providers that support checks. Use `/status` (opt-in) and the
-`kwatch_delivery_*` metrics to see open incidents and failed deliveries.
+`kwatch_delivery_*` metrics (Pro) to see open incidents and failed deliveries.
 
 ## 5. Verify recovery
 

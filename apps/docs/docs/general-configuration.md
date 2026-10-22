@@ -180,7 +180,7 @@ talks to the outside world.
 | `app.logFormatter` | Log format: `text` (default) or `json`. `json` writes one JSON object per log line to stderr. Any other value fails startup |
 | `app.insecureSkipTLSVerify` | 🔓 Skip TLS verification on outbound HTTP (default: false) |
 | `app.caBundlePath` | 📜 Path to a PEM CA bundle for outbound HTTP. A missing or invalid bundle fails startup |
-| `app.hideProHints` | Remove the one-line note that names what kwatch Pro would add from Community messages (default: false) |
+| `app.hideProHints` | Remove the Pro line from Community alerts, the root-cause note and the Pro-check count in the startup message (default: false). `/status` and the installer keep their count; the setting does not hide `/status`. The counts are computed in the cluster and never sent |
 | `app.communityProvider` | The alert provider the Community edition keeps when more than one is configured (Community sends to one provider; Pro sends to all). Empty keeps the first provider by name. A name that is not a configured provider is warned about and falls back the same way. `/status`, the startup log and `kwatch lint` show which provider is kept, for example `Community sends to: slack (inactive: pagerduty)` |
 
 The startup message and the upgrade notice are each a single plain sentence
@@ -218,7 +218,7 @@ to TCP 10250 on the nodes (the chart's opt-in policy does this through
 
 ## 💓 Health checks
 
-Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. These
+Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics (Pro). These
 (plus the opt-in `/status`) are the only HTTP endpoints; there are no profiling or test-alert endpoints.
 
 | Parameter | What it does |
@@ -240,7 +240,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
   states, and bounded degradation reasons.
 - `GET /status` — only with `healthCheck.statusEndpoint: true` (404 otherwise). 🔎 What is wrong right now, read-only: open incidents,
   control plane, upgrade readiness, zone health and what
-  kwatch cannot see. Plain text in both editions; add `?format=json` for JSON <span className="kw-pro">Pro</span> (the JSON format answers `402` with `{"error":"pro_required"}` in Community). It uses no new
+  kwatch cannot see. Short plain text in Community, with a `Pro checks:` line, full in Pro; add `?format=json` for JSON <span className="kw-pro">Pro</span> (the JSON format answers `402` with `{"error":"pro_required"}` in Community). It uses no new
   RBAC and writes nothing. It shows object names (workloads, nodes, PDBs,
   webhooks) to anyone who can reach the health port, so keep that port
   inside the cluster and read it through
@@ -248,7 +248,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics. T
   NetworkPolicy (off by default) limits the port to the release namespace,
   `networkPolicy.kubeletCIDRs` and `networkPolicy.healthIngressFrom`. It never shows
   Secret values.
-- `GET /metrics` — 📊 Prometheus-format metrics. It does not require Prometheus to be
+- `GET /metrics` — 📊 <span className="kw-pro">Pro</span> Prometheus-format metrics. In Community it answers `404` and kwatch logs once that it is part of Pro. It does not require Prometheus to be
   installed. Every series has a production writer; labels are a fixed, bounded set.
 
 | Metric | Type | Labels | Meaning |

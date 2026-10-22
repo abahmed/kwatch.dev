@@ -76,6 +76,9 @@ the rest.
 | --- | --- | --- |
 | Pod crashes and OOM kills | Crash reason, restarts, root-cause headline and a next step | Community |
 | Pending pods | Why the scheduler cannot place a pod | Community |
+| Liveness and startup probe failures | Which probe failed and why | Community |
+| Readiness probe failures | Sustained readiness failures | <span className="kw-pro">Pro</span> |
+| Prometheus `/metrics` | Metrics endpoint for your dashboards | <span className="kw-pro">Pro</span> |
 | Nodes | NotReady nodes | Community |
 | Node pressure, draining and usage | Disk or memory pressure and draining | <span className="kw-pro">Pro</span> |
 | Rollouts, readiness | Stuck rollouts and unavailable replicas | <span className="kw-pro">Pro</span> |

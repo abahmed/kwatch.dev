@@ -30,8 +30,9 @@ free during early access. See [Community vs Pro](/editions).
 
 | Area | Signals | Edition |
 | --- | --- | --- |
-| Pods | Pending and unschedulable pods, crash loops and restarts, OOM kills and repeated OOMs, image pull, config, create, sandbox and lifecycle-hook failures, eviction evidence | Community |
-| Pods | Sustained readiness failures | <span className="kw-pro">Pro</span> |
+| Pods | Pending and unschedulable pods, crash loops and restarts, OOM kills and repeated OOMs, image pull, config, create, sandbox and lifecycle-hook failures, liveness and startup probe failures, eviction evidence | Community |
+| Pods | Sustained readiness failures and readiness probe failures | <span className="kw-pro">Pro</span> |
+| Pods | Preemption, admission rejection, grace-period kills and scheduling gates | <span className="kw-pro">Pro</span> |
 | Nodes | Not Ready, memory, disk, PID and network pressure, draining, lost heartbeat | Community |
 | Nodes | Resource pressure read from kubelet stats | <span className="kw-pro">Pro</span> |
 | Workloads | Stuck Deployment and StatefulSet rollouts, DaemonSet availability, failed or suspended Jobs, failed or missed CronJobs, PodDisruptionBudgets that block disruption, HPA failures | <span className="kw-pro">Pro</span> |

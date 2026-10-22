@@ -25,7 +25,7 @@ advance.
 | Cost | Free, no account, no key | Free during early access |
 | Detection | Pod crashes, OOM kills and Pending pods; node NotReady | Adds node pressure and draining, readiness, rollouts, Jobs and CronJobs, PDBs, HPAs, storage, network, admission, certificates, quota, custom resources, control plane, probes and unusual events |
 | Analysis | Root-cause headline | Full proof, shared-factor suspects, who changed what, impact and redacted log excerpts |
-| Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down |
+| Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down, gap report (next release) |
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
 | Operations | RBAC audit, secret redaction, health, metrics, text `/status` | Severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
 

@@ -4,7 +4,6 @@ import BenefitIcon from '../components/BenefitIcon.astro';
 import Panel from '../components/Panel.astro';
 import InstallField from '../components/InstallField.astro';
 
-const chart = 'https://github.com/abahmed/kwatch/blob/main/deploy/chart/README.md';
 const failures = ['CrashLoopBackOff', 'OOMKilled', 'ImagePullBackOff', 'NodeNotReady', 'FailedScheduling', 'CertificateExpiring', 'PVC Pending', 'WebhookTimeout', 'RolloutStuck', 'CronJob missed'];
 
 const alerts = [
@@ -44,12 +43,12 @@ const glossary = [
 ];
 
 const benefits = [
-  ['root', 'Root cause first', 'kwatch follows a failure upstream and names the one cause.'],
+  ['root', 'Root cause first', 'Follows a crash back through the deployment and node to the ConfigMap that changed, and names it.'],
   ['data', 'Your data stays in your cluster', 'kwatch analyzes events and logs where they live.'],
-  ['quiet', 'Quiet by default', 'One message, then silence until something new is true.'],
-  ['who', 'Who changed what', 'See who changed what, and when.'],
-  ['next', 'The next step', 'Every message ends with the command to run.'],
-  ['channels', '50+ channels', 'Slack, Teams, PagerDuty, email, webhooks and more.'],
+  ['quiet', 'Quiet by default', 'A crash loop that fires 47 alerts becomes one message, then silence until something new is true.'],
+  ['who', 'Who changed what', 'Names the user or Argo CD sync behind the change, and when it landed.'],
+  ['next', 'The next step', 'Ends with the command to run, such as rolling back checkout-config.'],
+  ['channels', '50+ channels', 'Slack, Teams, Discord, PagerDuty, email and webhooks, with 50+ in all.'],
 ];
 
 const timeline = [
@@ -60,7 +59,7 @@ const timeline = [
 ];
 
 const faq = [
-  ['Do I need to be a Kubernetes expert?', 'No. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
+  ['Do I need to be a Kubernetes expert?', 'Not at all. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Where do alerts go?', 'Slack, Teams, Discord, PagerDuty, email, webhooks and 50+ other channels.'],
   ['How do I get Pro?', 'Pro is free during early access. Get a key at app.kwatch.dev, then open the installer and choose License / Pro > Add or replace key.'],
@@ -114,16 +113,15 @@ const jsonLd = [
         <p class="install-sub">It walks you through it and checks your cluster before it changes anything.</p>
       </div>
       <p class="hero-links">
-        <a class="link-strong" href={chart}>Already use Helm? See the chart guide →</a>
         <a class="link-strong" href="#editions">Pro is free during early access →</a>
       </p>
-      <p class="watches">Watches crash loops, out-of-memory kills, failed rollouts, image pull errors, node pressure and more.</p>
+      <p class="watches">Watches your pods, deployments, nodes, jobs and CronJobs, certificates, storage and services, with no rules to write.</p>
     </div>
 
     <div class="hero-visual">
       <figure class="proof">
         <ul class="noise" aria-hidden="true">
-          {[...alerts.slice(0, 4), alerts[6]].map((a, i) => <li class:list={{ dim1: i === 3, dim2: i === 4 }}>{a}</li>)}
+          {[...alerts.slice(0, 4), alerts[6]].map((a, i) => <li class:list={{ last: i === 4 }}>{a}</li>)}
         </ul>
         <figcaption>Without kwatch</figcaption>
       </figure>
@@ -160,7 +158,7 @@ const jsonLd = [
           <p class="eyebrow">What kwatch watches</p>
           <h2 class="display h2-md">The failures that wake people up.</h2>
         </div>
-        <p class="catches-sub">Crash loops, out-of-memory kills, failed rollouts, image pull errors, node pressure and more. Built in, no rules to write.</p>
+        <p class="catches-sub">Stuck rollouts, failed jobs, expiring certificates, full disks, unreachable services and the cluster itself. Built in.</p>
       </div>
       <ul class="grid">
         {catches.map(([name, text, term]) => (
@@ -173,7 +171,7 @@ const jsonLd = [
   <section id="how" class="wrap section">
     <p class="eyebrow">How it works in 30 seconds</p>
     <h2 class="display h2-lg">It follows the trail, the way you would.</h2>
-    <p class="lede-lg">When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do, in Slack, Discord, email and 50+ other channels.</p>
+    <p class="lede-lg">From one command to one clear message, in three steps.</p>
     <ol class="steps">
       <li>
         <p class="eyebrow">Step 1</p>
@@ -244,7 +242,7 @@ const jsonLd = [
     </div>
     <div class="panels editions">
       <Panel title="Community" sub="Free forever. No account, no key.">
-        <p class="body">Apps that keep crashing (crash loops, out-of-memory kills), pods stuck waiting and servers that go down (NotReady nodes), explained in one line and sent to your channel.</p>
+        <p class="body">Catches crash loops, out-of-memory kills, stuck pods and node failures, and explains each in one message.</p>
         <a slot="footer" class="btn btn-line" href="#install">Install kwatch</a>
       </Panel>
       <Panel title="Pro" sub="Free during early access." tone="soft">
@@ -255,25 +253,24 @@ const jsonLd = [
         </Fragment>
       </Panel>
     </div>
-    <p class="editions-note">Licenses are managed in the installer: License / Pro > Add or replace key.</p>
   </section>
 
   <section class="band" aria-labelledby="trust-title">
     <div class="wrap section">
       <p class="eyebrow">Read it before you run it</p>
-      <h2 id="trust-title" class="display h2-md">Nothing hidden.</h2>
+      <h2 id="trust-title" class="display h2-md">Built in the open.</h2>
       <ul class="trust">
         <li><p class="b-name">Source available.</p><p class="b-text">Read every line on GitHub, under ELv2. <a class="link-strong" href="https://github.com/abahmed/kwatch">View the repository →</a></p></li>
         <li><p class="b-name">One small pod.</p><p class="b-text">A small volume for state, nothing else to run.</p></li>
-        <li><p class="b-name">Your data stays in your cluster.</p><p class="b-text">kwatch analyzes events and logs where they live.</p></li>
+        <li><p class="b-name">Upgrade in one command.</p><p class="b-text">Run the installer again to upgrade, change settings or manage your license.</p></li>
       </ul>
     </div>
   </section>
 
   <section class="faq">
     <div class="faq-inner">
-      <p class="eyebrow">Questions</p>
-      <h2 class="display h2-md">Fair questions</h2>
+      <p class="eyebrow">Good to know</p>
+      <h2 class="display h2-md">Questions, answered.</h2>
       {faq.map(([q, a]) => (
         <details>
           <summary>{q}</summary>
@@ -288,7 +285,6 @@ const jsonLd = [
       <h2 class="display">Sleep through<br />the noise.</h2>
       <div class="cta-install">
         <InstallField onSignal label="Install kwatch" />
-        <p class="cta-sub">Prefer Helm? <a href={chart}>See the chart guide.</a></p>
       </div>
     </div>
   </section>
@@ -314,17 +310,16 @@ const jsonLd = [
   .proof { margin: 0; min-width: 0; }
   .proof + .proof { border-top: 1px solid var(--line); padding-top: var(--space-4); }
   figcaption { margin-top: var(--space-2); font-family: var(--font-mono); font-size: var(--text-micro); color: var(--text-muted); }
-  .noise { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: var(--text-micro); color: var(--text-muted); }
-  .noise li { padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-chip); overflow-wrap: anywhere; }
-  .noise .dim1 { opacity: .6; }
-  .noise .dim2 { opacity: .4; }
+  .noise { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: var(--text-micro); color: var(--text-soft); }
+  .noise li { padding: var(--space-2) var(--space-3); border: 1px solid var(--control-border); border-radius: var(--radius-chip); overflow-wrap: anywhere; }
+  .noise .last { opacity: .75; }
   .card {
     position: relative; background: var(--ink); color: var(--ink-text); border: 1px solid var(--ink-line);
     border-radius: var(--radius-output); padding: var(--space-5) var(--space-5) 22px; box-shadow: var(--shadow-output);
   }
   .card-top { display: flex; justify-content: space-between; gap: var(--space-3); font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
   .accent { color: var(--ink-text); font-weight: 600; }
-  .card-title { margin-top: 14px; font-family: var(--font-display); font-weight: 700; font-size: var(--h3-card); line-height: 1.2; }
+  .card-title { margin-top: 14px; font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.25; }
   .card dl { margin-top: var(--space-4); display: grid; grid-template-columns: 80px 1fr; gap: 6px var(--space-3); font-size: var(--text-small); }
   .card dt { color: var(--ink-muted); }
   .card dd { margin: 0; }
@@ -337,7 +332,8 @@ const jsonLd = [
   .strip-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); flex: 1 1 400px; }
   .strip-link { color: var(--ink-text); text-decoration: underline; }
 
-  .watches { font-size: var(--text-small); color: var(--text-muted); max-width: var(--measure); }
+  .watches { margin-top: var(--space-2); font-size: var(--text-small); color: var(--text-muted); max-width: var(--measure); }
+  @media (min-width: 961px) { .hero .field { white-space: nowrap; font-size: 14px; overflow-wrap: normal; } }
   .catches-head { display: grid; grid-template-columns: 5fr 7fr; gap: var(--space-7); align-items: end; }
   .catches-sub { color: var(--text-soft); font-size: 18px; max-width: var(--measure); }
   .grid { list-style: none; padding: 0; margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }

@@ -55,7 +55,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
           <dd className="mono cluster-id">{c.id_short}</dd>
         </div>
         <div>
-          <dt className="mono cluster-label">Last seen</dt>
+          <dt className="mono cluster-label">Last update</dt>
           <dd className="cluster-last">
             <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
           </dd>

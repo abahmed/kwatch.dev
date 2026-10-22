@@ -71,7 +71,8 @@ Copy (exact):
   - Field: `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"`
   - Copy button label: `Copy`; after click, `Copied` for 2s, announced via `aria-live="polite"`. No-JS: the command is plain selectable text in the page; the Copy button is progressive enhancement, rendered `hidden` and revealed by a small script, so without JS the visitor still sees and selects the command.
   - Under the field, 15px `--text-muted`: `It walks you through it and checks your cluster before it changes anything.`
-- Secondary row: `Already use Helm? See the chart guide →` (link to the chart guide) and `Pro is free during early access →` (to `#editions`).
+- Secondary row: one link, `Pro is free during early access →` (to `#editions`). No Helm link in the hero; Helm lives in docs and the FAQ answer "Can I install with Helm?".
+- Watches line under the links (15px `--text-muted`): `Watches your pods, deployments, nodes, jobs and CronJobs, certificates, storage and services, with no rules to write.`
 - Proof (right): two stacked blocks.
   1. "Before" `.noise` list, 4 lines then `+ 41 more`, mono 13px, dimmed progressively, caption `Without kwatch`.
   2. "After" ink alert card (radius `--radius-output`, `--shadow-output`), caption `With kwatch`. Content exactly as today: `checkout-api is crash-looping because a ConfigMap changed 4 minutes ago.` with Why / Who / Impact / Next. Caption under: `Example alert.`
@@ -96,7 +97,7 @@ Pending, WebhookTimeout, RolloutStuck, CronJob missed. Prefix label
 ### 3.3 How it works
 
 Eyebrow `How it works in 30 seconds`. H2: `It follows the trail, the way you would.`
-Lede: `When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do, in Slack, Discord, email and 50+ other channels.`
+Lede: `From one command to one clear message, in three steps.`
 
 Three steps, uneven grid `4fr 5fr 3fr`, 2px `--text` top rule (the one emphasis rule):
 1. **Install.** `Run one command. It asks a few questions.` Visual: the installer session (`? Where should alerts go?`, `? Add a Pro license key? (Enter to skip)`), `--ink` terminal.
@@ -108,7 +109,7 @@ Glossary stays as a collapsed `<details>` under the steps.
 
 ### 3.4 Benefits
 
-Eyebrow `Why teams keep it`. H2: `One message, with the cause.` Six items in MESSAGING order, `BenefitIcon` (no emoji), 3x2 grid desktop, 2x3 at <=960, 1 column at <=480, divided by 1px `--line` with `--radius-card` outer corners:
+Eyebrow `Why teams keep it`. H2: `One message, with the cause.` Six items in MESSAGING order (names fixed; the line under each is one concrete sentence that does not repeat its title; see the copy table in the PR thread), `BenefitIcon` (no emoji), 3x2 grid desktop, 2x3 at <=960, 1 column at <=480, divided by 1px `--line` with `--radius-card` outer corners:
 
 1. Root cause first: `kwatch follows a failure upstream and names the one cause.`
 2. Your data stays in your cluster: `kwatch analyzes events and logs where they live.`
@@ -130,7 +131,7 @@ Lede: `Pro is free during early access. No payment details.`
 Two Panels (existing Panel spec, `5fr 7fr`):
 - **Community**, sub `Free forever. No account, no key.` Body: `Apps that keep crashing (crash loops, out-of-memory kills), pods stuck waiting and servers that go down (NotReady nodes), explained in one line and sent to your channel.` Button `.btn-line`: `Install kwatch`.
 - **Pro**, sub `Free during early access.` Body: `Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks.` Buttons: `Get a free Pro license` (to app.kwatch.dev, `.btn-solid`), link `Compare editions →`.
-- Footnote under both, 15px `--text-muted`: `Licenses are managed in the installer: License / Pro > Add or replace key.`
+- No license footnote on the landing; the License / Pro path lives on `/pro`, in docs and in the FAQ answer "How do I get Pro?".
 
 Rule: each panel says only what its edition gives; no sentence compares the editions. Detail lives on `/pro`.
 
@@ -140,16 +141,18 @@ Not on the landing page. The approved small print, the table and the Never-sent 
 
 ### 3.7 Trust
 
-Eyebrow `Read it before you run it`. Three equal facts in a divided row (same grid as benefits):
+Eyebrow `Read it before you run it`. H2 `Built in the open.` Three equal facts in a divided row (same grid as benefits):
 - `Source available.` `Read every line on GitHub, under ELv2.` (link: repository)
 - `One small pod.` `A small volume for state, nothing else to run.`
-- `Your data stays in your cluster.` `kwatch analyzes events and logs where they live.`
+- `Upgrade in one command.` `Run the installer again to upgrade, change settings or manage your license.`
+
+"Your data stays in your cluster" appears once, as benefit 2.
 
 Do not add logos, testimonials, star counts or user numbers unless a real one is provided by the lead; fabricated social proof is not allowed. If a GitHub star count is wanted, fetch it at build time from the GitHub API and show it as text `Star on GitHub` with the number in mono; hide the number if the fetch fails.
 
 ### 3.8 FAQ
 
-H2 `Fair questions`. Keep only questions whose answers are pure benefits. Drop "Does it replace Prometheus?", "What leaves my cluster?", "What permissions does it need?" and "Why is Pro free?" from the landing FAQ (they admit a gap, state a requirement or hedge; the approved data wording stays in benefit 2, the rest lives in docs). Final five:
+Eyebrow `Good to know`, H2 `Questions, answered.` Keep only questions whose answers are pure benefits. Drop "Does it replace Prometheus?", "What leaves my cluster?", "What permissions does it need?" and "Why is Pro free?" from the landing FAQ (they admit a gap, state a requirement or hedge; the approved data wording stays in benefit 2, the rest lives in docs). Final five:
 1. Do I need to be a Kubernetes expert? (answer as on main)
 2. Will it work on my cluster? (answer as on main)
 3. Where do alerts go? `Slack, Teams, Discord, PagerDuty, email, webhooks and 50+ other channels.`
@@ -162,7 +165,7 @@ FAQ JSON-LD must list the same five. `<details>` rows, summary 19px, min-height 
 
 The only Signal fill on the page (the logo point is exempt as brand chrome).
 H2 `Sleep through the noise.` Beside it, the same install field as the hero (command plus Copy, on `--signal` ground, text `--on-signal`, field border `--on-signal` 1.5px, button `.btn-solid`).
-Under it, 15px: `Prefer Helm? See the chart guide.`
+No Helm line under the field.
 Light and dark: Signal swaps to `#B5DE3C` through the token; contrast of `--on-signal` on it is above 4.5:1 in both.
 
 ### 3.10 Header and footer
@@ -185,7 +188,7 @@ Breakpoints 960 / 700 / 480 only.
 - >960: hero 7fr/5fr; benefits 3x2; editions 5fr/7fr.
 - 700-960: hero stacks (text, command, proof); benefits 2x3; editions stack.
 - <700: one column; section padding 64px (48px at <=480); header second row for links.
-- Hero order on phone: mono line, H1, subhead, command field and Copy (full width, Copy under the field), Helm/Pro links, proof pair. The command is visible within 700px height at 375 wide with the 16px gutter.
+- Hero order on phone: mono line, H1, subhead, command field and Copy (full width, Copy under the field), Pro link, watches line, proof pair. The command is visible within 700px height at 375 wide with the 16px gutter.
 - No horizontal scroll on the page; only the command field text wraps.
 - Touch targets 44px (`--hit`).
 

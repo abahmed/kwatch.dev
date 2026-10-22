@@ -26,7 +26,7 @@ Audited at `index.astro` on main (b7bbfbb).
 | A2 | Hero carries two paragraphs (`lede`, `lede-sub`) that say the same thing. | The first read is two blocks of grey text before any action. | Use the subhead only; the plain-language line moves to "How it works". |
 | A3 | Hero card overlaps the noise list with `margin: -150px 0 0 28px` and a 60px shadow (`index.astro` .card). | It is the best proof on the page, but at tablet width it collides with text; the noise list is read as decoration. | Keep the idea as a two-state before/after (section 3.1), no negative margin. |
 | A4 | Order: strip, `#quick` (3 steps plus benefits), `#how` (3 more steps), catches, quiet, install, pro, faq, cta. | "How it works" is told twice (30-second steps, then trace). Benefits sit inside the steps section. Install comes after six sections. | Collapse to one story with install earlier (section 2). |
-| A5 | Privacy detail (two Panels and the Never-sent strip) sits right under the hero. | Heavy reading before value is understood. It is right to be prominent, but as a short band first, detail on demand. | Short band with the approved bold line; panels behind the "What is sent" disclosure and on docs (section 3.6). |
+| A5 | Privacy detail (two Panels and the Never-sent strip) sits right under the hero. | Heavy reading before value is understood. It is right to be prominent, but as a short band first, detail on demand. | Removed from the landing; the approved wording lives on `/pro` and in docs (section 3.6). |
 | A6 | No trust section. Source-available and GitHub appear only as one bullet in `.facts`. | The first question of an engineer who installs into prod is "can I read it?" | A trust row with only verifiable facts (section 3.7). |
 | A7 | Copy with limits or contrast in marketing sections: catches sub ("Community covers X; Pro covers everything below"), quiet note ("in Community they arrive as short follow-up messages"). | Violates positive-only copy, makes the free tier read as the lesser one. | State what each edition gives; no "only", no comparison inside feature sections (section 3.4, 3.5). |
 | A8 | Four H2 patterns and two CTA label styles ("Install free", "Install kwatch free", "Install", "Get a free Pro license"). | The primary action has four names. | One label: "Install kwatch" (section 4). |
@@ -117,8 +117,8 @@ Eyebrow `Why teams keep it`. H2: `One message, with the cause.` Six items in MES
 5. The next step: `Every message ends with the command to run.`
 6. 50+ channels: `Slack, Teams, PagerDuty, email, webhooks and more.`
 
-Benefits 2 and 3 are expandable cards (a `<details>`-style disclosure that reads as one control, 44px summary):
-- Benefit 2 expands to the approved bold line `Root cause, without your data leaving the cluster.`, the small print exactly as in MESSAGING, link `What is sent` to the docs data-flow page, and the two Panels plus the Never-sent strip (existing `DataFlows.astro`). Collapsed by default; if the URL hash is `#data`, open it.
+Benefit 3 is an expandable card (a `<details>`-style disclosure that reads as one control, 44px summary):
+- Benefit 2 stays a plain benefit card: `Your data stays in your cluster.` / `kwatch analyzes events and logs where they live.` It carries no small print, table, Panels or Never-sent strip on the landing page. The approved data wording (bold line, small print, what-kwatch-sends table, Never sent) now lives on `/pro` and in docs (`architecture/data-flow`); `DataFlows.astro` renders there, not on the landing.
 - Benefit 3 expands to the four-line timeline (03:07 Opened, 03:11 Update, 03:16 Fix detected, 03:21 Resolved after 14 minutes) with the sentence `kwatch waits for failures to settle, merges what belongs together and speaks when there is news.`
 
 ### 3.5 Community and Pro (`#editions`)
@@ -136,7 +136,7 @@ Rule: each panel says only what its edition gives; no sentence compares the edit
 
 ### 3.6 What is sent
 
-Covered by benefit 2 (3.4). No separate full-width table above the fold.
+Not on the landing page. The approved small print, the table and the Never-sent strip live on `/pro` and in docs.
 
 ### 3.7 Trust
 
@@ -176,7 +176,7 @@ Footer: the single shared line, `kwatch · source available under ELv2`, then Do
 - No "trial", prices, "open source", "free forever" for Pro.
 - Licenses only through the installer's License / Pro menu; app.kwatch.dev issues keys, the installer applies them.
 - Channels: always `50+`.
-- Strengths only (see the rule at the top). The approved data small print and ELv2 line are the only disclosures kept on the landing page, verbatim.
+- Strengths only (see the rule at the top). The ELv2 line is the only disclosure on the landing page; the approved data small print lives on `/pro` and in docs.
 - Claims verified in code by the lead: one replica with small requests/limits, state on a small volume, installer checks cluster version and permissions before applying. Keep "one small pod", "a small volume for state" and "checks your cluster before it changes anything".
 
 ## 5. Responsive behaviour
@@ -191,7 +191,7 @@ Breakpoints 960 / 700 / 480 only.
 
 ## 6. Dark mode
 
-Everything through tokens; no hard-coded colors (replace `#000` terminal, `#fff` skip-link text, `rgba` shadow stays via `--shadow-output`). Ink blocks (strip, terminal, alert card, never-sent strip) have a 1px `--ink-line` edge on dark `--bg`. Status colours appear only inside the alert card and trace chips. Signal flips to `#B5DE3C`, still one fill.
+Everything through tokens; no hard-coded colors (replace `#000` terminal, `#fff` skip-link text, `rgba` shadow stays via `--shadow-output`). Ink blocks (strip, terminal, alert card) have a 1px `--ink-line` edge on dark `--bg`. Status colours appear only inside the alert card and trace chips. Signal flips to `#B5DE3C`, still one fill.
 
 ## 7. Accessibility
 

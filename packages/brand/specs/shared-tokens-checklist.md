@@ -30,6 +30,7 @@ Companion to `specs/cross-site-consistency.md` and `LANDING_REDESIGN.md`.
 - Buttons: `.btn` min-height `var(--btn-height)`, border `var(--btn-border)`, radius `var(--radius-pill)`; one `.big` in `global.css`.
 - Fonts: unchanged (shared `fonts.css`, preload kept).
 - Colours: no local colours; replace `#000`, `#fff`, hero shadow with `--ink`, `--ink-text`, `--shadow-output`.
+- Landing: remove the data band, `DataFlows` and telemetry small print from `index.astro` and its JSON-LD FAQ; keep them on `pro.astro`.
 - Remove local `--max`, `--gutter` base values (keep the 16px mobile override); radii and section padding use the new tokens; breakpoints 960/700/480.
 - Rename `.signal` text class to `.accent`; keep exactly one Signal fill.
 

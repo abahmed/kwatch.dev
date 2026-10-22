@@ -274,6 +274,15 @@
     "tier": "pro"
   },
   {
+    "id": "incidents.gap-report",
+    "lifecycle": "startup",
+    "description": "Report what changed and crashed while kwatch was down",
+    "deps": [
+      "incidents.downtime-changes"
+    ],
+    "tier": "pro"
+  },
+  {
     "id": "policy.scope",
     "lifecycle": "runtime",
     "description": "Filter by namespace, reason, selector and silences",

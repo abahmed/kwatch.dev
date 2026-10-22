@@ -98,7 +98,7 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'kwatch docs',
+      title: 'kwatch',
       logo: logo,
       items: [
         {type: 'search', position: 'left'},

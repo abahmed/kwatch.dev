@@ -9,10 +9,10 @@ From general knowledge of how these tools present support; not re-fetched
 for this spec, so treat as direction.
 
 - Sidekiq Pro, Plausible, Tailscale (small plans): support is a plain line
-  ("email support", "direct access to the maintainer"), listed once, no
+  ("email support", "direct access to the author"), listed once, no
   numbers. Trust comes from a named person, not from a promise.
 - Grafana, PostHog, larger vendors: tiers with response-time tables and SLAs.
-  That is a team promise a solo maintainer cannot keep. Do not borrow it.
+  That is a team promise a small project cannot keep. Do not borrow it.
 - What works for small open-core tools: say who answers, what they help with,
   what Community gets instead, and say honestly that it is a person.
 - Avoid: "24/7", "enterprise-grade", "white-glove", "SLA", "guaranteed",
@@ -93,9 +93,9 @@ Add under the table, before "When a Pro license ends":
 
 README FAQ entry:
 
-> **Who answers support questions?**
+> **What does Pro support include?**
 > Community questions go to GitHub issues and Discussions, answered on a
-> best-effort basis. Pro includes direct support from the maintainer:
+> best-effort basis. Pro includes dedicated support:
 > installation help, and your feature requests and kwatch fixes come first.
 > There is no guaranteed reply time.
 
@@ -134,7 +134,7 @@ Docs FAQ (editions or getting-help):
 > kwatch itself. It does not cover running your cluster or your applications.
 > Requests are read in order of when they arrive, with Pro ahead of Community.
 
-The last sentence is a claim the maintainer must be able to keep. 
+The last sentence is a claim we must be able to keep. 
 
 ### Website Pro page (`apps/web/src/pages/pro.astro`)
 
@@ -143,7 +143,7 @@ Comparison table, new group "Support" (last group, after Operations/Account):
 | What you get | Community | Pro |
 | --- | --- | --- |
 | Where to ask | GitHub issues and Discussions | Get help at app.kwatch.dev |
-| Answers from | Community, best effort | Dedicated support |
+| Support from | Community, best effort | Dedicated support |
 | Installation help | Docs and GitHub | Yes |
 | Your feature requests | Read on GitHub | Weighed first |
 | kwatch fixes | In the normal queue | Looked at first |
@@ -192,10 +192,10 @@ focus. "Get help" is bold in running text, as for other UI labels.
 
 ## Claims check (before merge)
 
-- "Direct support from the maintainer": true only if the mailbox exists and
+- "Dedicated support": true only if the mailbox exists and
   is read (decision 1, closed).
 - "Installation help", "feature requests first", "fixes first": policy
-  claims, not code. The maintainer must agree to keep them (decision 3, closed).
+  claims, not code. We must agree to keep them (decision 3, closed).
 - "Pro only" on Get help: matches Help.tsx / support.ts (active Pro license).
 - No reply time, no SLA, no price, no "trial".
 

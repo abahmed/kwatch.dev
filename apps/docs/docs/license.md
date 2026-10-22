@@ -61,9 +61,10 @@ automatically.
 
 ## What kwatch sends
 
-Pro makes one license check a day. It sends only the license ID, a hashed
-cluster ID, the kwatch version and the node count. Nothing else about your
-cluster is sent. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster as
+Pro makes a license check about once a day, and again after an upgrade. It
+sends the license ID, a hashed cluster ID, the kwatch version and the node
+count, plus a signed proof and timestamp. It sends no cluster names,
+namespaces, pod names, logs or events. [app.kwatch.dev](https://app.kwatch.dev) shows each cluster as
 "Cluster" followed by the first 8 characters of its ID, with a "Last seen" time.
 
 To be told when kwatch stops, use your own

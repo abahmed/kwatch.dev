@@ -17,6 +17,17 @@ const alerts = [
   '+ 41 more',
 ];
 
+const catches = [
+  ['Apps that keep crashing', 'Crash loops, out-of-memory kills, image pull failures and pods stuck waiting to start', 'CrashLoopBackOff, OOMKilled, Pending'],
+  ['Servers that go down', 'A machine in your cluster stops responding, runs low on resources or is being drained', 'Node NotReady, pressure, draining'],
+  ['Deploys that never finish', 'A new version that does not roll out, jobs that fail and scheduled jobs that never ran', 'Stuck rollouts, failed Jobs, missed CronJobs'],
+  ['Disks that fill up or will not attach', 'Storage requests that stay pending or cannot attach, and volumes that are almost full', 'PVC Pending, attach failures'],
+  ['Services nobody can reach', 'A service with nothing behind it, or traffic rules that block it', 'No endpoints, Ingress, NetworkPolicy'],
+  ['Certificates about to expire', 'Security certificates that are close to expiring or already invalid', 'TLS certificates'],
+  ['The cluster itself', 'The parts that run Kubernetes, DNS, and the checks that approve or reject changes', 'API server, etcd, DNS, admission webhooks'],
+  ['Custom add-ons', 'Failing conditions on resources that other tools add to your cluster', 'Custom resources (CRDs)'],
+];
+
 const glossary = [
   ['Cluster', 'The group of machines that runs your apps.'],
   ['Node', 'One machine in the cluster.'],
@@ -106,6 +117,7 @@ const jsonLd = [
         <a class="link-strong" href={chart}>Already use Helm? See the chart guide →</a>
         <a class="link-strong" href="#editions">Pro is free during early access →</a>
       </p>
+      <p class="watches">Watches crash loops, out-of-memory kills, failed rollouts, image pull errors, node pressure and more.</p>
     </div>
 
     <div class="hero-visual">
@@ -137,9 +149,26 @@ const jsonLd = [
       <ul class="strip-list">
         {failures.map((f) => <li>{f}</li>)}
       </ul>
-      <a class="strip-link" href="https://docs.kwatch.dev">See everything it catches →</a>
+      <a class="strip-link" href="#catches">See everything it catches →</a>
     </div>
   </div>
+
+  <section id="catches" class="band">
+    <div class="wrap section">
+      <div class="catches-head">
+        <div>
+          <p class="eyebrow">What kwatch watches</p>
+          <h2 class="display h2-md">The failures that wake people up.</h2>
+        </div>
+        <p class="catches-sub">Crash loops, out-of-memory kills, failed rollouts, image pull errors, node pressure and more. Built in, no rules to write.</p>
+      </div>
+      <ul class="grid">
+        {catches.map(([name, text, term]) => (
+          <li><p class="cell-name">{name}</p><p class="cell-text">{text}</p><p class="cell-term">{term}</p></li>
+        ))}
+      </ul>
+    </div>
+  </section>
 
   <section id="how" class="wrap section">
     <p class="eyebrow">How it works in 30 seconds</p>
@@ -308,6 +337,14 @@ const jsonLd = [
   .strip-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); flex: 1 1 400px; }
   .strip-link { color: var(--ink-text); text-decoration: underline; }
 
+  .watches { font-size: var(--text-small); color: var(--text-muted); max-width: var(--measure); }
+  .catches-head { display: grid; grid-template-columns: 5fr 7fr; gap: var(--space-7); align-items: end; }
+  .catches-sub { color: var(--text-soft); font-size: 18px; max-width: var(--measure); }
+  .grid { list-style: none; padding: 0; margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }
+  .grid li { background: var(--bg); padding: 22px; min-width: 0; }
+  .cell-name { font-weight: 600; }
+  .cell-text { margin-top: 6px; font-size: 14px; color: var(--text-muted); }
+  .cell-term { margin-top: var(--space-2); font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
   .resolved { color: var(--resolved); }
   .failing { color: var(--failing); }
 
@@ -383,7 +420,8 @@ const jsonLd = [
     .hero { grid-template-columns: 1fr; gap: var(--space-6); padding-block: var(--space-6) var(--space-8); }
     .steps { grid-template-columns: 1fr; margin-top: var(--space-7); }
     .steps > li, .steps > li:first-child, .steps > li:last-child { padding: 28px 0; border-right: 0; border-bottom: 1px solid var(--line); }
-    .benefits, .trust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .benefits, .trust, .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .catches-head { grid-template-columns: 1fr; gap: var(--space-4); }
     .cta-inner { grid-template-columns: 1fr; padding-block: var(--space-8); }
   }
   @media (max-width: 700px) {
@@ -394,7 +432,7 @@ const jsonLd = [
     .glossary dl { grid-template-columns: 1fr; gap: 2px; }
   }
   @media (max-width: 480px) {
-    .benefits, .trust { grid-template-columns: 1fr; }
+    .benefits, .trust, .grid { grid-template-columns: 1fr; }
     .glossary dd { margin-bottom: var(--space-3); }
     .card { padding: var(--space-5) 18px; }
     .card dl { grid-template-columns: 64px 1fr; }

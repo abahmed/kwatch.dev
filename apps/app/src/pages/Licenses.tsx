@@ -175,24 +175,54 @@ function LicenseCard({
             Free during early access · {license.status === 'expired' ? 'ended' : 'ends'} {fmtDate(license.expires_at)}
           </p>
         </div>
-        <p className="mono key">{shownKey}</p>
-      </div>
-      <ClusterHalf license={license} cs={cs} />
-      <div className="license-footer" role="group" aria-label="License actions">
-        <div className="license-group license-group-key" role="group" aria-label="Key actions">
-          <button type="button" className="btn-action is-primary" onClick={copy}>
-            {copied ? 'Copied' : 'Copy key'}
+        <div className="key-row" role="group" aria-label="Key actions">
+          <p className="mono key">{shownKey}</p>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={copied ? 'Copied' : 'Copy key'}
+            title={copied ? 'Copied' : 'Copy key'}
+            onClick={copy}
+          >
+            {copied ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="12" height="12" rx="2" />
+                <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+              </svg>
+            )}
           </button>
           <button
             type="button"
-            className="btn-action is-toggle"
+            className="icon-btn"
+            aria-label={busy && !revealed ? 'Showing…' : revealed ? 'Hide key' : 'Show key'}
+            title={revealed ? 'Hide key' : 'Show key'}
             disabled={busy}
             aria-busy={busy && !revealed ? true : undefined}
             onClick={show}
           >
-            {busy && !revealed ? 'Showing…' : revealed ? 'Hide key' : 'Show key'}
+            {busy && !revealed ? (
+              <span className="spinner" aria-hidden="true" />
+            ) : revealed ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 3l18 18" />
+                <path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6A17 17 0 0 0 2 12s4 7 10 7a10 10 0 0 0 5.4-1.6" />
+                <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
           </button>
         </div>
+      </div>
+      <ClusterHalf license={license} cs={cs} />
+      <div className="license-footer" role="group" aria-label="License actions">
         <div className="license-group license-group-manage" role="group" aria-label="Manage license">
           {a && (
             <button type="button" className="btn-action" onClick={() => setDialog('move')}>
@@ -379,13 +409,21 @@ export default function Licenses() {
               <span className="sr-only" aria-live="polite">{announce}</span>
               <button
                 type="button"
-                className="link small"
+                className="icon-btn"
+                aria-label={refreshing ? 'Refreshing…' : 'Refresh'}
+                title="Refresh"
                 disabled={refreshing}
                 aria-busy={refreshing || undefined}
                 onClick={() => void refresh()}
               >
-                {refreshing && <span className="spinner" aria-hidden="true" />}
-                {refreshing ? 'Refreshing…' : 'Refresh'}
+                {refreshing ? (
+                  <span className="spinner" aria-hidden="true" />
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <path d="M21 3v6h-6" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
@@ -418,9 +456,7 @@ export default function Licenses() {
             <div className="get-more">
               <button type="button" className="btn-action" disabled={busy} onClick={getFree}>
                 {busy ? 'Getting your license…' : 'Get another free Pro license'}
-              </button>
-              <p className="small muted">You can have {free?.limit ?? 2}. One license runs one cluster.</p>
-            </div>
+              </button>            </div>
           )}
           {!empty && (
             <div className="small muted">

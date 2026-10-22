@@ -21,7 +21,7 @@ kwatch never needs write access to monitored workloads. Its ClusterRole is read-
 
 ## Endpoint exposure
 
-kwatch serves only `/healthz`, `/readyz`, `/availabilityz`, `/health` and `/metrics`, plus the opt-in `/status` (`healthCheck.statusEndpoint`, Pro for JSON). There are no diagnostic, profiling or test-alert endpoints. None has authentication, so keep the health port inside the cluster. `/status` shows object names; read it with `kubectl port-forward`. Responses use safe reason codes; credentials, tokens, payloads and raw Kubernetes objects are excluded.
+kwatch serves only `/healthz`, `/readyz`, `/availabilityz`, `/health` and `/metrics` (Pro), plus the opt-in `/status` (`healthCheck.statusEndpoint`, Pro for JSON). There are no diagnostic, profiling or test-alert endpoints. None has authentication, so keep the health port inside the cluster. `/status` shows object names; read it with `kubectl port-forward`. Responses use safe reason codes; credentials, tokens, payloads and raw Kubernetes objects are excluded.
 
 ## Network controls
 

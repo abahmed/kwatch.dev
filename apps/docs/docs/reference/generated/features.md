@@ -15,7 +15,8 @@ generated: true
 | `core.detection.pods` | runtime | Detect pod and container failures | `none` |
 | `core.pods.scheduling` | runtime | Detect pod scheduling failures | `core.detection.pods` |
 | `core.pods.oom` | runtime | Detect out-of-memory kills and repeated OOMs | `core.detection.pods` |
-| `core.pods.readiness` | runtime | Detect sustained pod readiness failures | `core.detection.pods` |
+| `core.pods.readiness` | runtime | Detect sustained pod readiness and readiness probe failures | `core.detection.pods` |
+| `core.pods.advanced` | runtime | Detect preemption, admission rejection, grace-period kills and scheduling gates | `core.detection.pods` |
 | `core.pods.restarts` | runtime | Detect crash loops and excessive restarts | `core.detection.pods` |
 | `core.detection.workloads` | runtime | Detect workload rollout and execution failures | `none` |
 | `core.workloads.rollouts` | runtime | Detect stuck workload rollouts | `core.detection.workloads` |

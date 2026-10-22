@@ -27,7 +27,16 @@
   {
     "id": "core.pods.readiness",
     "lifecycle": "runtime",
-    "description": "Detect sustained pod readiness failures",
+    "description": "Detect sustained pod readiness and readiness probe failures",
+    "deps": [
+      "core.detection.pods"
+    ],
+    "tier": "pro"
+  },
+  {
+    "id": "core.pods.advanced",
+    "lifecycle": "runtime",
+    "description": "Detect preemption, admission rejection, grace-period kills and scheduling gates",
     "deps": [
       "core.detection.pods"
     ],

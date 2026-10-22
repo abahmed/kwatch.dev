@@ -37,6 +37,10 @@ account or licenses.
 
 The website does not use analytics or advertising cookies.
 
+## Pro checks stay in your cluster
+
+In Community, kwatch counts what its Pro checks find (by category, such as readiness probes) and shows the count in the startup message, `/status` and the installer. The counts are computed in your cluster and are never sent to us. `app.hideProHints: true` turns off the alert line and startup count.
+
 ## Telemetry
 
 Telemetry is on by default. kwatch sends an anonymous adoption ping, at most

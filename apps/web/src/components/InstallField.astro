@@ -21,7 +21,8 @@ const { id, label, onSignal = false } = Astro.props;
     background: var(--surface); border: var(--btn-border) solid var(--line); border-radius: var(--radius-input);
     padding: 0 var(--space-1) 0 var(--space-4); font-family: var(--font-mono); font-size: 15px;
   }
-  .field code { flex: 1 1 auto; min-width: 0; padding-block: var(--space-3); overflow-wrap: anywhere; user-select: all; }
+  .field code { flex: 1 1 auto; min-width: 0; padding-block: var(--space-3); padding-right: var(--space-2); overflow-wrap: anywhere; overflow-x: auto; scrollbar-width: none; user-select: all; }
+  .field code::-webkit-scrollbar { display: none; }
   .copy {
     flex: none; width: var(--hit); height: var(--hit); display: inline-flex; align-items: center; justify-content: center;
     background: transparent; color: var(--text); border: 0; border-radius: var(--radius-input); cursor: pointer;

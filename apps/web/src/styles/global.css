@@ -68,10 +68,14 @@ img, svg { max-width: 100%; }
    get a faint tint, text colour never flips. Same in light and dark. */
 .btn { transition: background-color var(--motion-fast), border-color var(--motion-fast); }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
-.btn-solid { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
-.btn-solid:hover { color: var(--ink-text); background: color-mix(in srgb, var(--ink) 82%, var(--ink-text)); border-color: color-mix(in srgb, var(--ink) 82%, var(--ink-text)); }
-.btn-solid:active { background: color-mix(in srgb, var(--ink) 68%, var(--ink-text)); border-color: color-mix(in srgb, var(--ink) 68%, var(--ink-text)); }
+.btn-solid { background: var(--text); color: var(--bg); border-color: var(--text); }
+.btn-solid:hover { color: var(--bg); background: color-mix(in srgb, var(--text) 88%, var(--bg)); border-color: color-mix(in srgb, var(--text) 88%, var(--bg)); }
+.btn-solid:active { background: color-mix(in srgb, var(--text) 76%, var(--bg)); border-color: color-mix(in srgb, var(--text) 76%, var(--bg)); }
 .btn-solid:focus-visible { outline-color: var(--text); }
+/* On the Signal band the primary keeps its ink fill. */
+.on-signal .btn-solid { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
+.on-signal .btn-solid:hover { color: var(--ink-text); background: color-mix(in srgb, var(--ink) 82%, var(--ink-text)); border-color: color-mix(in srgb, var(--ink) 82%, var(--ink-text)); }
+.on-signal .btn-solid:active { background: color-mix(in srgb, var(--ink) 68%, var(--ink-text)); border-color: color-mix(in srgb, var(--ink) 68%, var(--ink-text)); }
 .on-signal .btn-solid:focus-visible { outline-color: var(--on-signal); }
 .btn-line { border-color: var(--control-border); color: var(--text); background: transparent; }
 .btn-line:hover { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }

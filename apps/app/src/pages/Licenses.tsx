@@ -51,7 +51,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
     body = (
       <div className="cluster-grid">
         <div className="cluster-name">
-          Cluster <span className="mono cluster-id">{c.id_short}</span>
+          <span className="mono cluster-id">{c.id_short}</span>
         </div>
         <div className="mono cluster-sub cluster-last">
           <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
@@ -170,7 +170,7 @@ function LicenseCard({
             Pro <span className={`badge badge-${st.tone}`}>{st.label}</span>
           </p>
           <p className="small muted">
-            Free during early access · {license.status === 'expired' ? 'ended' : 'ends'} {fmtDate(license.expires_at)}
+            {license.status === 'expired' ? 'Ended' : 'Ends'} {fmtDate(license.expires_at)}
           </p>
         </div>
         <div className="key-row" role="group" aria-label="Key actions">

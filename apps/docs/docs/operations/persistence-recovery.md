@@ -44,8 +44,8 @@ The state file can be removed to reset kwatch: it then starts cold and sends one
 
 ## Gap report after downtime
 
-:::info Pro, from the next kwatch release
-The gap report is part of kwatch Pro, which is free during early access. It is not in a released kwatch yet.
+:::info Pro
+The gap report is part of kwatch Pro, which is free during early access.
 :::
 
 When kwatch was down for 5 minutes or more, it sends one message after it syncs with the cluster. The message states when it was not running, then compares the cluster before and after the gap and reports only the net difference:

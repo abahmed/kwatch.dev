@@ -25,7 +25,7 @@ advance.
 | Cost | Free, no account, no key | Free during early access |
 | Detection | Pod crashes, CrashLoop, OOM, image pull and config errors; Pending, Unschedulable, Evicted, Failed and stuck Terminating pods; liveness and startup probe failures; node NotReady | Adds readiness probe failures, node pressure and draining, rollouts, Jobs and CronJobs, PDBs, HPAs, storage, network, admission, certificates, quota, custom resources, control plane, probes and unusual events |
 | Analysis | One-line cause | Full proof, shared-factor suspects, who changed what, impact and redacted log excerpts |
-| Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down, gap report (next release) |
+| Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down, gap report |
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
 | Operations | RBAC audit, secret redaction, health, short text `/status` | Prometheus `/metrics`, severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
 | Support | GitHub issues and Discussions | Dedicated support: installation help, feature requests and fixes first |

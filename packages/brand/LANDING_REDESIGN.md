@@ -8,6 +8,14 @@ is not repeated; this document changes **structure, hero, order and copy** and
 adds the shared tokens (`tokens.css`) and per-app checklist
 (`specs/shared-tokens-checklist.md`). Status: proposed.
 
+**Copy rule: landing copy states strengths only.** No limits, caveats,
+requirements, permissions, edge cases, what Community lacks, what kwatch does
+not do, or "only/just/but/however" contrasts on the landing page. Detail that
+must be disclosed lives in the approved data wording, `/pro`, and docs.
+
+**Signal:** the logo's lime point is brand chrome and exempt from "Signal at
+most once per view". Content gets one Signal fill per view (the final CTA).
+
 ## 1. Audit of the current page
 
 Audited at `index.astro` on main (b7bbfbb).
@@ -61,12 +69,12 @@ Copy (exact):
 - Install block (the primary action): a Geist Mono command field with a Copy button.
   - Label above, 13px mono: `Install in one command`
   - Field: `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"`
-  - Copy button label: `Copy`; after click, `Copied` for 2s, announced via `aria-live="polite"`.
+  - Copy button label: `Copy`; after click, `Copied` for 2s, announced via `aria-live="polite"`. No-JS: the command is plain selectable text in the page; the Copy button is progressive enhancement, rendered `hidden` and revealed by a small script, so without JS the visitor still sees and selects the command.
   - Under the field, 15px `--text-muted`: `It walks you through it and checks your cluster before it changes anything.`
 - Secondary row: `Already use Helm? See the chart guide →` (link to the chart guide) and `Pro is free during early access →` (to `#editions`).
 - Proof (right): two stacked blocks.
   1. "Before" `.noise` list, 4 lines then `+ 41 more`, mono 13px, dimmed progressively, caption `Without kwatch`.
-  2. "After" ink alert card (radius `--radius-output`, `--shadow-output`), caption `With kwatch`. Content exactly as today: `checkout-api is crash-looping because a ConfigMap changed 4 minutes ago.` with Why / Who / Impact / Next. Caption under: `Illustrative example.`
+  2. "After" ink alert card (radius `--radius-output`, `--shadow-output`), caption `With kwatch`. Content exactly as today: `checkout-api is crash-looping because a ConfigMap changed 4 minutes ago.` with Why / Who / Impact / Next. Caption under: `Example alert.`
   No negative margins: the two blocks are separated by a 16px gap and a 1px `--line` arrow-free divider.
 
 States: the command field is a `<code>` in a focusable `div[role=group]`; Copy
@@ -111,20 +119,20 @@ Eyebrow `Why teams keep it`. H2: `One message, with the cause.` Six items in MES
 
 Benefits 2 and 3 are expandable cards (a `<details>`-style disclosure that reads as one control, 44px summary):
 - Benefit 2 expands to the approved bold line `Root cause, without your data leaving the cluster.`, the small print exactly as in MESSAGING, link `What is sent` to the docs data-flow page, and the two Panels plus the Never-sent strip (existing `DataFlows.astro`). Collapsed by default; if the URL hash is `#data`, open it.
-- Benefit 3 expands to the four-line timeline (03:07 Opened, 03:11 Update, 03:16 Fix detected, 03:21 Resolved after 14 minutes) with the sentence `No repeats every five minutes, no flapping storms. kwatch waits for failures to settle, merges what belongs together and speaks when there is news.`
+- Benefit 3 expands to the four-line timeline (03:07 Opened, 03:11 Update, 03:16 Fix detected, 03:21 Resolved after 14 minutes) with the sentence `kwatch waits for failures to settle, merges what belongs together and speaks when there is news.`
 
 ### 3.5 Community and Pro (`#editions`)
 
 H2: `Free. And Pro is free too.`
-Lede: `While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Each license runs one cluster, up to 2 per account or company. No payment details.`
-(Wording per MESSAGING section 7; no "trial", no prices.)
+Lede: `Pro is free during early access. No payment details.`
+(No "trial", no prices. License terms and numbers live on `/pro`, not here.)
 
 Two Panels (existing Panel spec, `5fr 7fr`):
-- **Community**, sub `Free forever. No account, no key.` Body: `Apps that keep crashing (crash loops, out-of-memory kills), pods stuck waiting and servers that go down (NotReady nodes), explained in one line and sent to one channel.` Button `.btn-line`: `Install kwatch`.
+- **Community**, sub `Free forever. No account, no key.` Body: `Apps that keep crashing (crash loops, out-of-memory kills), pods stuck waiting and servers that go down (NotReady nodes), explained in one line and sent to your channel.` Button `.btn-line`: `Install kwatch`.
 - **Pro**, sub `Free during early access.` Body: `Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks.` Buttons: `Get a free Pro license` (to app.kwatch.dev, `.btn-solid`), link `Compare editions →`.
 - Footnote under both, 15px `--text-muted`: `Licenses are managed in the installer: License / Pro > Add or replace key.`
 
-Rule: no sentence compares the editions or says what Community lacks. Detail lives on `/pro`.
+Rule: each panel says only what its edition gives; no sentence compares the editions. Detail lives on `/pro`.
 
 ### 3.6 What is sent
 
@@ -135,13 +143,20 @@ Covered by benefit 2 (3.4). No separate full-width table above the fold.
 Eyebrow `Read it before you run it`. Three equal facts in a divided row (same grid as benefits):
 - `Source available.` `Read every line on GitHub, under ELv2.` (link: repository)
 - `One small pod.` `A small volume for state, nothing else to run.`
-- `Real output.` `Every alert on this page is what kwatch sends.` Only keep this line if every shown alert comes from real output; the hero card is marked "Illustrative example", so use `Example alerts follow the format kwatch sends.` until web confirms with kwatch-core.
+- `Your data stays in your cluster.` `kwatch analyzes events and logs where they live.`
 
 Do not add logos, testimonials, star counts or user numbers unless a real one is provided by the lead; fabricated social proof is not allowed. If a GitHub star count is wanted, fetch it at build time from the GitHub API and show it as text `Star on GitHub` with the number in mono; hide the number if the fetch fails.
 
 ### 3.8 FAQ
 
-H2 `Fair questions`. Keep the six questions and answers as in `index.astro` (they match MESSAGING). `<details>` rows, summary 19px, min-height 44px, `+`/`-` drawn with 2px strokes (`currentColor`).
+H2 `Fair questions`. Keep only questions whose answers are pure benefits. Drop "Does it replace Prometheus?", "What leaves my cluster?", "What permissions does it need?" and "Why is Pro free?" from the landing FAQ (they admit a gap, state a requirement or hedge; the approved data wording stays in benefit 2, the rest lives in docs). Final five:
+1. Do I need to be a Kubernetes expert? (answer as on main)
+2. Will it work on my cluster? (answer as on main)
+3. Where do alerts go? `Slack, Teams, Discord, PagerDuty, email, webhooks and 50+ other channels.`
+4. How do I get Pro? `Pro is free during early access. Get a key at app.kwatch.dev, then open the installer and choose License / Pro > Add or replace key.`
+5. Can I install with Helm? `Yes. The chart guide walks you through it; the installer is the quickest way.`
+
+FAQ JSON-LD must list the same five. `<details>` rows, summary 19px, min-height 44px, `+`/`-` drawn with 2px strokes (`currentColor`).
 
 ### 3.9 Final CTA (Signal)
 
@@ -161,8 +176,8 @@ Footer: the single shared line, `kwatch · source available under ELv2`, then Do
 - No "trial", prices, "open source", "free forever" for Pro.
 - Licenses only through the installer's License / Pro menu; app.kwatch.dev issues keys, the installer applies them.
 - Channels: always `50+`.
-- Positive-only: no limits or caveats in marketing sections (A7). Facts that must stay (data line, ELv2) are the approved wording.
-- Check each factual claim ("checks your cluster before it changes anything", "one small pod", "a small volume for state") with kwatch-core before merge, as already used on main.
+- Strengths only (see the rule at the top). The approved data small print and ELv2 line are the only disclosures kept on the landing page, verbatim.
+- Claims verified in code by the lead: one replica with small requests/limits, state on a small volume, installer checks cluster version and permissions before applying. Keep "one small pod", "a small volume for state" and "checks your cluster before it changes anything".
 
 ## 5. Responsive behaviour
 

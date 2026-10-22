@@ -50,7 +50,7 @@ Community is free forever and works without contacting any server.
 
 Pro-only checks still run in Community and only count. Alerts can end with
 one Pro line (a short note, or a note that Pro found a likely cause), and the
-startup message, `/status` and the installer show how many issues the Pro
+startup message, `/status` (a `Pro checks:` line) and the installer show how many issues the Pro
 checks found, by category only: readiness probes, shared causes, preemption
 and admission, and scheduling gates. The counts are computed in your cluster
 and never leave it. Set `app.hideProHints: true` to remove the alert line, the
@@ -59,7 +59,7 @@ count.
 
 These moved to Pro: readiness probe failures, shared-factor causes, the
 Prometheus `/metrics` endpoint, preemption, admission rejection, grace-period
-kills and scheduling gates. In Community the metrics endpoint is off and
+kills and scheduling gates. In Community `/metrics` answers `404` and
 kwatch logs one line saying it is part of Pro.
 
 ## Pro

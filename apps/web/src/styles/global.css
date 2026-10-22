@@ -3,7 +3,7 @@
   --max: 1280px;
   --gutter: 24px;
 }
-@media (max-width: 640px) {
+@media (max-width: 700px) {
   :root { --gutter: 16px; }
 }
 
@@ -71,8 +71,6 @@ img, svg { max-width: 100%; }
 .btn-solid { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
 .btn-solid:hover, .btn-solid:focus-visible { color: var(--ink-text); background: var(--ink-line); border-color: var(--ink-line); }
 .btn-solid:focus-visible { outline-color: var(--ink); }
-.btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
-.btn-primary:hover, .btn-primary:focus-visible { color: var(--bg); background: var(--primary-hover); border-color: var(--primary-hover); }
 .btn-line { border-color: var(--control-border); color: var(--text); }
 .btn-line:hover, .btn-line:focus-visible { border-color: var(--text); background: var(--text); color: var(--bg); }
 .link-strong { font-weight: 600; text-underline-offset: 4px; }
@@ -86,3 +84,13 @@ img, svg { max-width: 100%; }
    rule is more specific than .btn-solid:hover and used to turn the label the
    same colour as the black button behind it. */
 .on-ink a:not(.btn):hover, .on-signal a:not(.btn):hover { color: inherit; }
+
+.btn.big { padding: 18px 32px; font-size: 18px; }
+
+/* One vertical rhythm, one pair of display sizes. */
+.section { padding-block: 96px; }
+.band { background: var(--surface); }
+.h2-lg { font-size: clamp(36px, 3vw + 24px, 60px); margin-top: 12px; max-width: 900px; }
+.h2-md { font-size: clamp(30px, 1.6vw + 24px, 44px); letter-spacing: -0.03em; margin-top: 12px; }
+@media (max-width: 960px) { .section { padding-block: 64px; } }
+@media (max-width: 480px) { .section { padding-block: 48px; } }

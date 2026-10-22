@@ -1,0 +1,52 @@
+---
+import Panel from './Panel.astro';
+interface Props { facts?: boolean }
+const { facts = false } = Astro.props;
+---
+<section class="band" aria-labelledby="data-title">
+  <div class="wrap section data">
+    <div class="data-head">
+      <div>
+        <p class="eyebrow">Data</p>
+        <h2 id="data-title" class="display h2-md">Root cause, without your data leaving the cluster.</h2>
+        <p class="data-lede">kwatch analyzes events and logs where they live.</p>
+        <p class="data-small">Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, namespaces, pod names, logs or events. Alerts go only to the channels you set up. <a href="https://docs.kwatch.dev/architecture/data-flow">What is sent</a></p>
+      </div>
+      {facts && (
+        <ul class="facts">
+          <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>
+          <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
+          <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
+        </ul>
+      )}
+    </div>
+    <div class="panels">
+      <Panel title="Anonymous usage stats">
+        <dl class="rows">
+          <div><dt>When</dt><dd>At most once a week</dd></div>
+          <div><dt>Contains</dt><dd>An anonymous ID derived from your cluster (a one-way hash that can't be traced back to the cluster or linked to your license) and the kwatch version</dd></div>
+          <div><dt>Control</dt><dd>On by default; turn off with <code>telemetry.enabled: false</code> or <code>KWATCH_TELEMETRY=false</code></dd></div>
+        </dl>
+      </Panel>
+      <Panel title="Pro license check">
+        <dl class="rows">
+          <div><dt>When</dt><dd>Once a day, Pro only</dd></div>
+          <div><dt>Contains</dt><dd>License ID, hashed cluster ID, kwatch version, node count</dd></div>
+          <div><dt>Control</dt><dd>Part of Pro; Community sends none</dd></div>
+        </dl>
+      </Panel>
+    </div>
+    <p class="never on-ink"><strong>Never sent:</strong> cluster names, namespaces, pod names, logs or events.</p>
+  </div>
+</section>
+
+<style>
+  .data-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 48px; align-items: center; margin-bottom: 32px; }
+  .data-lede { margin-top: 16px; font-size: 18px; color: var(--text-soft); max-width: 60ch; }
+  .data-small { margin-top: 12px; font-size: 15px; color: var(--text-muted); max-width: 60ch; }
+  .data-small a { text-decoration: underline; color: var(--text); }
+  .facts { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 17px; }
+  .facts li { background: var(--bg); border-radius: 10px; padding: 16px 24px; }
+  .never { margin-top: 16px; background: var(--ink); color: var(--ink-text); border: 1px solid var(--ink-line); border-radius: 10px; padding: 16px 24px; font-size: 16px; }
+  @media (max-width: 480px) { .never { padding: 14px 18px; } }
+</style>

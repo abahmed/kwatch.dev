@@ -1,6 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import BenefitIcon from '../components/BenefitIcon.astro';
+import Panel from '../components/Panel.astro';
+import DataFlows from '../components/DataFlows.astro';
 
 const failures = ['CrashLoopBackOff', 'OOMKilled', 'ImagePullBackOff', 'NodeNotReady', 'FailedScheduling', 'CertificateExpiring', 'PVC Pending', 'WebhookTimeout', 'RolloutStuck', 'CronJob missed'];
 
@@ -66,7 +68,7 @@ const faq = [
   ['Do I need to be a Kubernetes expert?', 'No. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
   ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
   ['Does it replace Prometheus?', 'No. Keep your metrics. kwatch answers a different question: when something breaks, what caused it and what to do.'],
-  ['What leaves my cluster?', 'Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Usage stats go at most once a week and contain an anonymous ID derived from your cluster (a one-way hash that cannot be traced back to the cluster or linked to your license) and the kwatch version; turn them off with telemetry.enabled: false. A Pro license check goes once a day and contains the license ID, a hashed cluster ID, the kwatch version and the node count. Community sends none. Never cluster names, namespaces, pod names, logs or events. Alerts go only to the channels you set up.'],
+  ['What leaves my cluster?', 'Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Usage stats go at most once a week and contain an anonymous ID derived from your cluster (a one-way hash that cannot be traced back to the cluster or linked to your license) and the kwatch version; turn them off with telemetry.enabled: false or KWATCH_TELEMETRY=false. A Pro license check goes once a day and contains the license ID, a hashed cluster ID, the kwatch version and the node count. Community sends none. Never cluster names, namespaces, pod names, logs or events. Alerts go only to the channels you set up.'],
   ['What permissions does it need?', 'Read access to the resources it watches, through Kubernetes permissions (RBAC) that decide what kwatch may read. It writes only its own lock and license record in its own namespace, and never changes your workloads.'],
   ['Why is Pro free?', "We want kwatch proven on real clusters first. If that ever changes, you will hear well in advance."],
 ];
@@ -115,7 +117,7 @@ const jsonLd = [
       <p class="lede">When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do, in Slack, Discord, email and 50+ other channels.</p>
       <p class="lede-sub">kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.</p>
       <div class="actions">
-        <a class="btn btn-primary big" href="#install">Install free</a>
+        <a class="btn btn-solid big" href="#install">Install free</a>
         <a class="link-strong big-link" href="#pro">Pro is free during early access →</a>
       </div>
     </div>
@@ -146,33 +148,9 @@ const jsonLd = [
     </div>
   </div>
 
-  <section class="band" aria-labelledby="data-title">
-    <div class="wrap section-tight privacy">
-      <div>
-        <h2 id="data-title" class="display h2-md">Root cause, without your data leaving the cluster.</h2>
-        <p class="privacy-lede">kwatch analyzes events and logs where they live.</p>
-        <p class="privacy-small">Only optional anonymous usage stats and Pro license checks reach kwatch.dev. Never cluster names, pod names, logs or events. Alerts go only to the channels you set up. <a href="https://docs.kwatch.dev/architecture/data-flow">What is sent</a></p>
-      </div>
-      <ul class="facts">
-        <li><strong>One pod.</strong> A small volume for state, nothing else to run.</li>
-        <li><strong>50+ channels.</strong> Slack, Teams, PagerDuty, Opsgenie, email, webhooks.</li>
-        <li><strong>Source available.</strong> Read every line on GitHub, under ELv2.</li>
-      </ul>
-      <div class="sends-wrap">
-      <table class="sends">
-          <caption class="sr-only">What kwatch sends to kwatch.dev</caption>
-          <thead><tr><th scope="col">What</th><th scope="col">When</th><th scope="col">Contains</th><th scope="col">Control</th></tr></thead>
-          <tbody>
-            <tr><th scope="row">Anonymous usage stats</th><td>At most once a week</td><td>An anonymous ID derived from your cluster (a one-way hash that can't be traced back to the cluster or linked to your license) and the kwatch version</td><td>On by default; turn off with <code>telemetry.enabled: false</code> or <code>KWATCH_TELEMETRY=false</code></td></tr>
-            <tr><th scope="row">Pro license check</th><td>Once a day, Pro only</td><td>License ID, hashed cluster ID, kwatch version, node count</td><td>Part of Pro; Community sends none</td></tr>
-          </tbody>
-        </table>
-        <p class="privacy-small">Never sent: cluster names, namespaces, pod names, logs or events.</p>
-      </div>
-    </div>
-  </section>
+  <DataFlows facts />
 
-  <section id="quick" class="wrap section-tight quick">
+  <section id="quick" class="wrap section quick">
     <p class="eyebrow">How it works in 30 seconds</p>
     <ol class="quick-steps">
       {steps.map(([k, h, t]) => (<li><p class="eyebrow">{k}</p><h3>{h}</h3><p>{t}</p></li>))}
@@ -212,7 +190,7 @@ const jsonLd = [
   </section>
 
   <section id="catches" class="band">
-    <div class="wrap section-tight">
+    <div class="wrap section">
       <div class="catches-head">
         <div>
           <p class="eyebrow">What it catches</p>
@@ -271,29 +249,27 @@ const jsonLd = [
       <h2 class="display h2-lg">Free. And Pro is free too.</h2>
       <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per account or company. No payment details.</p>
     </div>
-    <div class="editions">
-      <div class="edition community">
-        <h3>Community</h3>
-        <p class="sub">Free forever. No account.</p>
+    <div class="panels editions">
+      <Panel title="Community" sub="Free forever. No account.">
         <p class="body">Apps that keep crashing (crash loops, out-of-memory kills), pods stuck waiting and servers that go down (NotReady nodes), explained in one line and sent to one channel.</p>
-        <p class="body">Support on GitHub.</p>
-        <a class="btn btn-line" href="#install">Install</a>
-      </div>
-      <div class="edition pro">
-        <h3>Pro</h3>
-        <p class="sub">Free during early access.</p>
-        <p class="body">Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks. Dedicated support.</p>
-        <div class="actions">
+        <dl class="rows"><div><dt>Support</dt><dd>Support on GitHub.</dd></div></dl>
+        <a slot="footer" class="btn btn-line" href="#install">Install</a>
+      </Panel>
+      <Panel title="Pro" sub="Free during early access." tone="soft">
+        <p class="body">Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks.</p>
+        <dl class="rows"><div><dt>Support</dt><dd>Dedicated support.</dd></div></dl>
+        <Fragment slot="footer">
           <a class="btn btn-solid" href="https://app.kwatch.dev">Get a free Pro license</a>
           <a class="link-strong compare" href="/pro">Compare editions →</a>
-        </div>
-      </div>
+        </Fragment>
+      </Panel>
     </div>
   </section>
 
   <section class="faq">
     <div class="faq-inner">
-      <h2 class="display">Fair questions</h2>
+      <p class="eyebrow">Questions</p>
+      <h2 class="display h2-md">Fair questions</h2>
       {faq.map(([q, a]) => (
         <details>
           <summary>{q}</summary>
@@ -327,23 +303,22 @@ const jsonLd = [
   .quick-steps { list-style: none; padding: 0; margin-top: 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
   .quick-steps h3 { margin: 8px 0; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
   .quick-steps p:not(.eyebrow) { color: var(--text-soft); }
-  .benefits { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .benefits { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .benefits li { background: var(--bg); padding: 22px; }
   .benefits svg { color: var(--text); }
   .b-name { margin-top: 12px; font-weight: 600; }
   .b-text { margin-top: 4px; font-size: 14px; color: var(--text-muted); }
   .quick-note { margin-top: 20px; font-size: 14px; color: var(--text-muted); }
   .cell-term { margin-top: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
-  .glossary { margin-top: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 20px; background: var(--bg); }
+  .glossary { margin-top: 32px; border: 1px solid var(--line); border-radius: 10px; padding: 4px 20px; background: var(--bg); }
   .glossary summary { cursor: pointer; font-weight: 600; padding: 14px 0; }
   .glossary dl { display: grid; grid-template-columns: 180px 1fr; gap: 12px 24px; padding: 4px 0 18px; }
   .glossary dt { font-family: var(--font-mono); font-size: 14px; }
   .glossary dd { margin: 0; color: var(--text-soft); }
-  .big { padding: 16px 28px; font-size: 17px; }
   .big-link { padding: 16px 22px; font-size: 17px; }
   .hero-visual { padding: 8px 0; min-width: 0; }
   .noise { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
-  .noise li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; overflow-wrap: anywhere; }
+  .noise li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; overflow-wrap: anywhere; }
   .noise .dim1 { opacity: .6; }
   .noise .dim2 { opacity: .4; }
   .card {
@@ -363,19 +338,14 @@ const jsonLd = [
   .track { display: inline-flex; animation: scroll 60s linear infinite; will-change: transform; }
   .run { display: inline-block; padding-left: 24px; }
   .item { margin-right: .6em; }
-  .item i { font-style: normal; color: var(--text-muted); margin-left: .6em; }
+  .item i { font-style: normal; color: var(--ink-muted); margin-left: .6em; }
   @keyframes scroll { to { transform: translateX(-50%); } }
   @media (prefers-reduced-motion: reduce) {
     .track { animation: none; }
     .strip { overflow-x: hidden; }
   }
 
-  /* Sections */
-  .section { padding-block: 110px; }
-  .section-tight { padding-block: 100px; }
-  .band { background: var(--surface); }
-  .h2-lg { font-size: clamp(36px, 3vw + 24px, 60px); margin-top: 12px; max-width: 900px; }
-  .h2-md { font-size: clamp(34px, 2vw + 24px, 52px); letter-spacing: -0.03em; margin-top: 12px; }
+  /* Sections (shared rhythm and sizes live in global.css) */
   .underline { box-shadow: inset 0 -0.12em 0 var(--text); }
   .resolved { color: var(--resolved); }
   .failing { color: var(--failing); }
@@ -385,10 +355,10 @@ const jsonLd = [
   .steps > li { padding: 32px; border-right: 1px solid var(--line); min-width: 0; }
   .steps > li:first-child { padding-left: 0; }
   .steps > li:last-child { padding-right: 0; border-right: 0; }
-  .steps h3 { margin: 14px 0 10px; font-family: var(--font-display); font-weight: 700; font-size: 28px; letter-spacing: -0.02em; line-height: 1.15; }
+  .steps h3 { margin: 12px 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
   .steps p:not(.eyebrow) { color: var(--text-soft); }
   .trace { list-style: none; padding: 0; margin-top: 18px; font-family: var(--font-mono); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
-  .trace li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--text-muted); }
+  .trace li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-muted); }
   .trace li:nth-child(2) { margin-left: 18px; }
   .trace li:nth-child(3) { margin-left: 36px; }
   .trace li.cause { margin-left: 54px; background: var(--text); color: var(--bg); font-weight: 500; border-color: var(--text); }
@@ -396,7 +366,7 @@ const jsonLd = [
   /* Catches */
   .catches-head { display: grid; grid-template-columns: 5fr 7fr; gap: 56px; align-items: end; }
   .catches-sub { color: var(--text-soft); font-size: 18px; }
-  .grid { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .grid { list-style: none; padding: 0; margin-top: 48px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .grid li { background: var(--bg); padding: 22px; }
   .cell-name { font-weight: 600; }
   .cell-text { margin-top: 6px; font-size: 14px; color: var(--text-muted); }
@@ -409,22 +379,9 @@ const jsonLd = [
   .time { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
   .event { margin-top: 2px; font-weight: 600; }
 
-  /* Privacy */
-  .privacy { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 56px; align-items: center; }
-  .privacy-lede { margin-top: 22px; font-size: 19px; color: var(--text-soft); }
-  .privacy-small { margin-top: 14px; font-size: 15px; color: var(--text-muted); max-width: 52ch; }
-  .privacy-small a { text-decoration: underline; color: var(--text); }
-  .sends-wrap { grid-column: 1 / -1; overflow-x: auto; }
-  .sends { margin-top: 20px; width: 100%; border-collapse: collapse; font-size: 14px; }
-  .sends th, .sends td { text-align: left; vertical-align: top; padding: 10px 10px 10px 0; border-bottom: 1px solid var(--line); color: var(--text-soft); font-weight: 400; }
-  .sends thead th { color: var(--text); font-weight: 600; }
-  .sends tbody th { color: var(--text); font-weight: 600; }
-  .facts { list-style: none; padding: 0; display: grid; gap: 12px; font-size: 18px; }
-  .facts li { background: var(--bg); border-radius: 6px; padding: 18px 22px; }
-
   /* Install */
   .install { background: var(--ink); color: var(--ink-text); }
-  .terminal { margin-top: 48px; background: #000; border: 1px solid var(--ink-line); border-radius: 10px; padding: 26px 28px; font-family: var(--font-mono); font-size: 16px; overflow-x: auto; white-space: pre; }
+  .terminal { margin-top: 48px; background: var(--ink); border: 1px solid var(--ink-line); border-radius: 10px; padding: 26px 28px; font-family: var(--font-mono); font-size: 16px; overflow-x: auto; white-space: pre; }
   .terminal .gap { margin-top: 16px; }
   .dim { color: var(--ink-muted); }
   .bright { color: var(--ink-text); }
@@ -436,24 +393,13 @@ const jsonLd = [
   .pro-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; align-items: end; }
   .pro-head p { max-width: 400px; color: var(--text-soft); }
   .pro-head .h2-lg { margin-top: 0; }
-  .editions { display: grid; grid-template-columns: 5fr 7fr; gap: 20px; margin-top: 48px; }
-  .edition { border-radius: 10px; padding: 34px; }
-  .edition h3 { font-family: var(--font-display); font-size: 32px; font-weight: 700; line-height: 1.2; }
-  .edition .sub { margin-top: 4px; }
-  .edition .body { margin-top: 22px; }
-  .community { border: 2px solid var(--text); }
-  .community .sub { color: var(--text-muted); }
-  .community .body { color: var(--text-soft); }
-  .community .btn { margin-top: 26px; }
-  .pro { background: var(--surface); border: 2px solid var(--control-border); }
-  .pro .sub { color: var(--text-muted); }
-  .pro .actions { margin-top: 26px; gap: 10px; }
+  .editions { margin-top: 48px; }
   .compare { padding: 13px 8px; }
 
   /* FAQ */
   .faq { border-top: 1px solid var(--line); }
-  .faq-inner { max-width: 900px; margin: 0 auto; padding: 90px var(--gutter); }
-  .faq h2 { font-size: 40px; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 24px; }
+  .faq-inner { max-width: 900px; margin: 0 auto; padding: 96px var(--gutter); }
+  .faq h2 { margin-bottom: 24px; }
   details { border-top: 1px solid var(--line); padding: 20px 0; }
   details:last-of-type { border-bottom: 1px solid var(--line); }
   summary { cursor: pointer; font-weight: 600; font-size: 19px; }
@@ -461,32 +407,31 @@ const jsonLd = [
 
   /* CTA */
   .cta { background: var(--signal); color: var(--on-signal); }
-  .cta-inner { padding-block: 120px; display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between; }
-  .cta h2 { font-size: clamp(48px, 6vw + 16px, 104px); line-height: .92; letter-spacing: -0.05em; }
-  .btn.big { padding: 18px 32px; font-size: 18px; }
+  .cta-inner { padding-block: 96px; display: flex; flex-wrap: wrap; gap: 32px; align-items: end; justify-content: space-between; }
+  .cta h2 { font-size: clamp(44px, 4.4vw + 24px, 80px); line-height: .95; letter-spacing: -0.05em; }
 
   /* Tablet */
   @media (max-width: 960px) {
+    .faq-inner { padding-block: 64px; }
     .hero { grid-template-columns: 1fr; gap: 40px; padding-block: 40px 64px; }
     .card { margin-top: 16px; margin-left: 0; }
     .big-link { padding-inline: 0; }
     .note { margin-left: 0; }
-    .section { padding-block: 72px; }
-    .section-tight { padding-block: 64px; }
     .steps { grid-template-columns: 1fr; margin-top: 40px; }
     .steps > li, .steps > li:first-child, .steps > li:last-child { padding: 28px 0; border-right: 0; border-bottom: 1px solid var(--line); }
-    .catches-head, .quiet, .editions { grid-template-columns: 1fr; gap: 28px; }
+    .catches-head, .quiet { grid-template-columns: 1fr; gap: 28px; }
     .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .quick-steps { grid-template-columns: 1fr; gap: 24px; }
     .benefits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .cta-inner { padding-block: 80px; }
+    .cta-inner { padding-block: 64px; }
   }
-  @media (max-width: 480px) {
+  @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; }
     .glossary dl { grid-template-columns: 1fr; gap: 2px; }
     .benefits { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
     .glossary dd { margin-bottom: 10px; }
-    .edition { padding: 26px 22px; }
     .terminal { padding: 20px 16px; font-size: 14px; }
     .card { padding: 20px 18px; }
     .card dl { grid-template-columns: 64px 1fr; }
@@ -494,7 +439,7 @@ const jsonLd = [
     .trace li:nth-child(2) { margin-left: 10px; }
     .trace li:nth-child(3) { margin-left: 20px; }
     .trace li.cause { margin-left: 30px; }
-    .faq-inner { padding-block: 56px; }
-    .faq h2 { font-size: 32px; }
+    .faq-inner { padding-block: 48px; }
+    .cta-inner { padding-block: 48px; }
   }
 </style>

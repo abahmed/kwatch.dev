@@ -1,0 +1,41 @@
+---
+interface Props {
+  title: string;
+  sub?: string;
+  as?: 'li' | 'div';
+  tone?: 'default' | 'soft';
+}
+const { title, sub, as: Tag = 'div', tone = 'default' } = Astro.props;
+---
+<Tag class:list={['panel', tone]}>
+  <h3>{title}</h3>
+  {sub && <p class="panel-sub">{sub}</p>}
+  <slot />
+  <div class="panel-foot"><slot name="footer" /></div>
+</Tag>
+
+<style is:global>
+  .panel { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 24px; background: var(--bg); }
+  .panel.soft { background: var(--surface); }
+  .panel h3 { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.2; letter-spacing: -0.02em; color: var(--text); }
+  .panel-sub { margin-top: 4px; font-size: 15px; color: var(--text-muted); }
+  .panel .body { margin-top: 16px; font-size: 15px; color: var(--text-soft); }
+  .panel .rows { margin-top: 16px; display: grid; gap: 12px; }
+  .panel .rows > div { display: grid; gap: 2px; }
+  .panel .rows > div + div { border-top: 1px solid var(--line); padding-top: 12px; }
+  .panel .rows dt { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+  .panel .rows dd { margin: 0; font-size: 15px; color: var(--text-soft); }
+  .panel code { font-family: var(--font-mono); font-size: 13.5px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .panel.soft code { background: var(--bg); }
+  .panel-foot { margin-top: auto; padding-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .panel-foot:empty { display: none; }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 16px; }
+  .panels.editions { grid-template-columns: 5fr 7fr; }
+  .panels.editions .panel.soft { border-color: var(--control-border); }
+  @media (max-width: 960px) { .panels.editions { grid-template-columns: 1fr; } }
+  @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) {
+    .panel { padding: 20px; }
+    .panel code { overflow-wrap: anywhere; }
+  }
+</style>

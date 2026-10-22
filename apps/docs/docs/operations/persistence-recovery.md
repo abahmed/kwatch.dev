@@ -64,4 +64,4 @@ Never assume a notification was delivered exactly once. Delivery is at least onc
 
 ## Detecting a hung kwatch
 
-On the leader, `/healthz` fails when the pipeline loop makes no progress for 5 minutes, so the kubelet restarts a hung process. To fail over to another node sooner, kwatch's chart tolerates `not-ready` and `unreachable` nodes for 30 seconds. See [Replication and failover](/operations/replication-and-failover). To be told when kwatch is down, use the [heartbeat monitor](/heartbeat-monitor-configuration).
+On the leader, `/healthz` fails when the pipeline loop makes no progress for 5 minutes, so the kubelet restarts a hung process. When its node fails, kwatch's chart moves it to a healthy node sooner: it tolerates `not-ready` and `unreachable` nodes for 30 seconds only. The state volume still has to detach first. See [Replication and failover](/operations/replication-and-failover). To be told when kwatch is down, use the [heartbeat monitor](/heartbeat-monitor-configuration).

@@ -27,27 +27,10 @@ const catches = [
   ['Custom add-ons', 'Failing conditions on resources that other tools add to your cluster', 'Custom resources (CRDs)'],
 ];
 
-const glossary = [
-  ['Cluster', 'The group of machines that runs your apps.'],
-  ['Node', 'One machine in the cluster.'],
-  ['Pod', 'A running copy of an app.'],
-  ['Namespace', 'A named area of the cluster, often one per team or app.'],
-  ['CrashLoopBackOff', 'A pod keeps starting, failing and restarting.'],
-  ['OOMKilled', 'A pod used more memory than allowed and was stopped.'],
-  ['RBAC', 'Kubernetes permissions. It decides what kwatch may read.'],
-  ['Helm', 'A package manager for Kubernetes, an alternative way to install.'],
-  ['CRD', 'A custom resource definition, an extra kind of object that a tool adds to the cluster.'],
-  ['Rollout', 'Replacing the running version of an app with a new one.'],
-  ['ConfigMap', 'A settings object an app reads, such as a database address.'],
-  ['PDB and HPA', 'A PodDisruptionBudget limits how many copies of an app may be down at once. A HorizontalPodAutoscaler adds or removes copies as load changes.'],
-];
-
 const benefits = [
-  ['root', 'Root cause first', 'Follows a crash back through the deployment and node to the ConfigMap that changed, and names it.'],
   ['data', 'Your data stays in your cluster', 'kwatch analyzes events and logs where they live.'],
   ['quiet', 'Quiet by default', 'A crash loop that fires 47 alerts becomes one message, then silence until something new is true.'],
   ['who', 'Who changed what', 'Names the user or Argo CD sync behind the change, and when it landed.'],
-  ['next', 'The next step', 'Ends with the command to run, such as rolling back checkout-config.'],
   ['channels', '50+ channels', 'Slack, Teams, Discord, PagerDuty, email and webhooks, with 50+ in all.'],
 ];
 
@@ -59,9 +42,9 @@ const timeline = [
 ];
 
 const faq = [
-  ['Do I need to be a Kubernetes expert?', 'Not at all. One command, and it walks you through it with plain questions. It checks your cluster before it changes anything. Alerts say what broke, why and what to do next in plain words, with the technical names alongside for people who want them.'],
-  ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster. The installer checks your cluster before it changes anything.'],
-  ['Where do alerts go?', 'Slack, Teams, Discord, PagerDuty, email, webhooks and 50+ other channels.'],
+  ['Do I need to be a Kubernetes expert?', 'Not at all. One command, and it walks you through it with plain questions. kwatch runs as one small pod with a small volume for state, and alerts use plain words with the technical names alongside.'],
+  ['Will it work on my cluster?', 'kwatch runs on any conformant Kubernetes cluster.'],
+  ['Where do alerts go?', 'Wherever your team already works. See the full list in the docs.', 'Wherever your team already works. <a href="https://docs.kwatch.dev">See the full list in the docs →</a>'],
   ['How do I get Pro?', 'Pro is free during early access. Get a key at app.kwatch.dev, then open the installer and choose License / Pro > Add or replace key.'],
   ['Can I install with Helm?', 'Yes. The chart guide walks you through it; the installer is the quickest way.'],
 ];
@@ -105,7 +88,6 @@ const jsonLd = [
 >
   <section class="hero wrap">
     <div class="hero-text">
-      <p class="mono-line">03:07 · #prod-alerts · 47 new messages</p>
       <h1><span class="sr-only">kwatch: </span>Fifty alerts.<br /><span class="mark">One cause.</span></h1>
       <p class="lede">kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.</p>
       <div class="install-block">
@@ -115,7 +97,6 @@ const jsonLd = [
       <p class="hero-links">
         <a class="link-strong" href="#editions">Pro is free during early access →</a>
       </p>
-      <p class="watches">Watches your pods, deployments, nodes, jobs and CronJobs, certificates, storage and services, with no rules to write.</p>
     </div>
 
     <div class="hero-visual">
@@ -142,13 +123,12 @@ const jsonLd = [
   </section>
 
   <div class="strip on-ink">
-    <div class="wrap strip-inner">
-      <span class="strip-label">Catches</span>
-      <ul class="strip-list">
-        {failures.map((f) => <li>{f}</li>)}
-      </ul>
-      <a class="strip-link" href="#catches">See everything it catches →</a>
+    <div class="track" aria-hidden="true">
+      {[0, 1].map(() => (
+        <span class="run">{failures.map((f) => <span class="item">{f}<i>/</i></span>)}</span>
+      ))}
     </div>
+    <p class="wrap strip-more"><a class="strip-link" href="#catches">See everything it catches →</a></p>
   </div>
 
   <section id="catches" class="band">
@@ -158,7 +138,7 @@ const jsonLd = [
           <p class="eyebrow">What kwatch watches</p>
           <h2 class="display h2-md">The failures that wake people up.</h2>
         </div>
-        <p class="catches-sub">Stuck rollouts, failed jobs, expiring certificates, full disks, unreachable services and the cluster itself. Built in.</p>
+        <p class="catches-sub">Built in, no rules to write.</p>
       </div>
       <ul class="grid">
         {catches.map(([name, text, term]) => (
@@ -171,7 +151,6 @@ const jsonLd = [
   <section id="how" class="wrap section">
     <p class="eyebrow">How it works in 30 seconds</p>
     <h2 class="display h2-lg">It follows the trail, the way you would.</h2>
-    <p class="lede-lg">From one command to one clear message, in three steps.</p>
     <ol class="steps">
       <li>
         <p class="eyebrow">Step 1</p>
@@ -186,7 +165,7 @@ const jsonLd = [
       <li>
         <p class="eyebrow">Step 2</p>
         <h3>It watches</h3>
-        <p>kwatch runs as one small pod in your cluster and keeps a live map of what depends on what.</p>
+        <p>kwatch keeps a live map of what depends on what, and walks it back from the symptom.</p>
         <ol class="trace" aria-label="Example trace, from symptom to cause">
           <li>Pod checkout-api-7f9c · <span class="failing">CrashLoopBackOff</span></li>
           <li>Deployment checkout-api · healthy before 03:03</li>
@@ -197,22 +176,17 @@ const jsonLd = [
       <li>
         <p class="eyebrow">Step 3</p>
         <h3>You hear</h3>
-        <p>When something breaks you get one clear message: what broke, why, and what to do.</p>
+        <p>One clear message, in the channel you chose.</p>
         <p class="step-link"><a class="link-strong" href="#example">See the example alert →</a></p>
       </li>
     </ol>
-    <details class="glossary">
-      <summary>New to Kubernetes? Plain-English glossary</summary>
-      <dl>
-        {glossary.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
-      </dl>
-    </details>
+    <p class="glossary-link"><a class="link-strong" href="https://docs.kwatch.dev/glossary">New to Kubernetes? Plain-English glossary →</a></p>
   </section>
 
   <section id="benefits" class="band">
     <div class="wrap section">
       <p class="eyebrow">Why teams keep it</p>
-      <h2 class="display h2-md">One message, with the cause.</h2>
+      <h2 class="display h2-md">Built for quiet, trusted alerts.</h2>
       <ul class="benefits">
         {benefits.map(([i, n, t]) => (
           <li id={i === 'data' ? 'data' : undefined}>
@@ -237,12 +211,12 @@ const jsonLd = [
 
   <section id="editions" class="wrap section">
     <div class="pro-head">
-      <h2 class="display h2-lg">Free. And Pro is free too.</h2>
-      <p>Pro is free during early access. No payment details.</p>
+      <h2 class="display h2-lg">Free to start. Free to grow.</h2>
+      <p>No payment details, and no account for Community.</p>
     </div>
     <div class="panels editions">
       <Panel title="Community" sub="Free forever. No account, no key.">
-        <p class="body">Catches crash loops, out-of-memory kills, stuck pods and node failures, and explains each in one message.</p>
+        <p class="body">Crash loops, out-of-memory kills and node failures, each in one clear message.</p>
         <a slot="footer" class="btn btn-line" href="#install">Install kwatch</a>
       </Panel>
       <Panel title="Pro" sub="Free during early access." tone="soft">
@@ -255,26 +229,14 @@ const jsonLd = [
     </div>
   </section>
 
-  <section class="band" aria-labelledby="trust-title">
-    <div class="wrap section">
-      <p class="eyebrow">Read it before you run it</p>
-      <h2 id="trust-title" class="display h2-md">Built in the open.</h2>
-      <ul class="trust">
-        <li><p class="b-name">Source available.</p><p class="b-text">Read every line on GitHub, under ELv2. <a class="link-strong" href="https://github.com/abahmed/kwatch">View the repository →</a></p></li>
-        <li><p class="b-name">One small pod.</p><p class="b-text">A small volume for state, nothing else to run.</p></li>
-        <li><p class="b-name">Upgrade in one command.</p><p class="b-text">Run the installer again to upgrade, change settings or manage your license.</p></li>
-      </ul>
-    </div>
-  </section>
-
   <section class="faq">
     <div class="faq-inner">
       <p class="eyebrow">Good to know</p>
       <h2 class="display h2-md">Questions, answered.</h2>
-      {faq.map(([q, a]) => (
+      {faq.map(([q, a, h]) => (
         <details>
           <summary>{q}</summary>
-          <p>{a}</p>
+          <p set:html={h ?? a} />
         </details>
       ))}
     </div>
@@ -284,7 +246,8 @@ const jsonLd = [
     <div class="wrap cta-inner">
       <h2 class="display">Sleep through<br />the noise.</h2>
       <div class="cta-install">
-        <InstallField onSignal label="Install kwatch" />
+        <a class="btn btn-solid big" href="#install">Install kwatch</a>
+        <p class="cta-sub">Source available under ELv2. <a href="https://github.com/abahmed/kwatch">Read every line on GitHub →</a></p>
       </div>
     </div>
   </section>
@@ -294,7 +257,6 @@ const jsonLd = [
 <style>
   /* Hero */
   .hero { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: var(--gutter); column-gap: var(--space-8); align-items: start; padding-block: var(--space-7) var(--space-9); }
-  .mono-line { font-family: var(--font-mono); font-size: 14px; color: var(--text-muted); }
   h1 {
     margin-top: var(--space-4); font-family: var(--font-display); font-weight: 800;
     font-size: var(--h1-marketing); line-height: 0.95; letter-spacing: -0.045em;
@@ -305,7 +267,6 @@ const jsonLd = [
   .install-sub { margin-top: var(--space-3); font-size: var(--text-small); color: var(--text-muted); }
   .hero-links { margin-top: var(--space-4); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); font-size: var(--text-small); }
   .hero-links a { display: inline-flex; align-items: center; min-height: var(--hit); }
-  .lede-lg { margin-top: var(--space-4); font-size: 18px; color: var(--text-soft); max-width: var(--measure); }
   .hero-visual { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
   .proof { margin: 0; min-width: 0; }
   .proof + .proof { border-top: 1px solid var(--line); padding-top: var(--space-4); }
@@ -325,15 +286,20 @@ const jsonLd = [
   .card dd { margin: 0; }
   .card code { font-size: var(--text-micro); }
 
-  /* Keyword strip (static) */
-  .strip { background: var(--ink); color: var(--ink-text); border-block: 1px solid var(--ink-line); font-family: var(--font-mono); font-size: var(--text-small); padding: var(--space-4) 0; }
-  .strip-inner { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-5); }
-  .strip-label { color: var(--ink-muted); }
-  .strip-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); flex: 1 1 400px; }
-  .strip-link { color: var(--ink-text); text-decoration: underline; }
+  /* Failure strip (marquee) */
+  .strip { background: var(--ink); color: var(--ink-text); border-block: 1px solid var(--ink-line); overflow: hidden; white-space: nowrap; font-family: var(--font-mono); font-size: 15px; padding: var(--space-4) 0; }
+  .track { display: inline-flex; animation: scroll 60s linear infinite; will-change: transform; }
+  .run { display: inline-block; padding-left: var(--space-5); }
+  .item { margin-right: .6em; }
+  .item i { font-style: normal; color: var(--ink-muted); margin-left: .6em; }
+  .strip-more { white-space: normal; margin-top: var(--space-2); font-size: var(--text-small); }
+  .strip-link { color: var(--ink-text); text-decoration: underline; display: inline-flex; align-items: center; min-height: var(--hit); }
+  @keyframes scroll { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .track { animation: none; }
+  }
 
-  .watches { margin-top: var(--space-2); font-size: var(--text-small); color: var(--text-muted); max-width: var(--measure); }
-  @media (min-width: 961px) { .hero .field { white-space: nowrap; font-size: 14px; overflow-wrap: normal; } }
+  @media (min-width: 961px) { .hero :global(.field code) { white-space: nowrap; overflow-wrap: normal; } }
   .catches-head { display: grid; grid-template-columns: 5fr 7fr; gap: var(--space-7); align-items: end; }
   .catches-sub { color: var(--text-soft); font-size: 18px; max-width: var(--measure); }
   .grid { list-style: none; padding: 0; margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }
@@ -351,6 +317,7 @@ const jsonLd = [
   .steps > li:last-child { padding-right: 0; border-right: 0; }
   .steps h3 { margin: var(--space-3) 0 var(--space-2); font-family: var(--font-display); font-weight: 700; font-size: var(--h3-card); letter-spacing: -0.02em; line-height: 1.15; }
   .steps p:not(.eyebrow) { color: var(--text-soft); }
+  .glossary-link { margin-top: var(--space-5); }
   .step-link { margin-top: var(--space-3); }
   .terminal { margin-top: 18px; background: var(--ink); color: var(--ink-text); border: 1px solid var(--ink-line); border-radius: var(--radius-card); padding: var(--space-4) 18px; font-family: var(--font-mono); font-size: 14px; display: grid; gap: 6px; overflow-wrap: anywhere; }
   .dim { color: var(--ink-muted); }
@@ -360,21 +327,13 @@ const jsonLd = [
   .trace li:nth-child(2) { margin-left: 18px; }
   .trace li:nth-child(3) { margin-left: 36px; }
   .trace li.cause { margin-left: 54px; background: var(--text); color: var(--bg); font-weight: 500; border-color: var(--text); }
-  .glossary { margin-top: var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-card); padding: var(--space-1) var(--space-5); background: var(--bg); }
-  .glossary summary { cursor: pointer; font-weight: 600; font-size: 17px; min-height: var(--hit); display: flex; align-items: center; }
-  .glossary dl { display: grid; grid-template-columns: 180px 1fr; gap: var(--space-3) var(--space-5); padding: var(--space-1) 0 18px; }
-  .glossary dt { font-family: var(--font-mono); font-size: 14px; }
-  .glossary dd { margin: 0; color: var(--text-soft); }
 
   /* Benefits */
-  .benefits, .trust { list-style: none; padding: 0; margin-top: var(--space-7); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }
-  .benefits > li, .trust > li { background: var(--bg); padding: 22px; min-width: 0; }
-  .band .trust > li { background: var(--surface); }
+  .benefits { list-style: none; padding: 0; margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius-card); overflow: hidden; }
+  .benefits > li { background: var(--bg); padding: 22px; min-width: 0; }
   .benefits svg { color: var(--text); }
   .b-name { margin-top: var(--space-3); font-weight: 600; display: block; }
   .b-text { margin-top: var(--space-1); font-size: 14px; color: var(--text-muted); display: block; }
-  .trust .b-name { margin-top: 0; }
-  .trust a { text-decoration: underline; }
   .b-details summary { cursor: pointer; list-style: none; min-height: var(--hit); position: relative; padding-right: var(--space-6); }
   .b-details summary::-webkit-details-marker { display: none; }
   .b-details summary::after { content: ''; position: absolute; right: 0; top: 4px; width: 14px; height: 14px; background: linear-gradient(currentColor, currentColor) center / 100% 2px no-repeat, linear-gradient(currentColor, currentColor) center / 2px 100% no-repeat; }
@@ -408,7 +367,9 @@ const jsonLd = [
   .cta { background: var(--signal); color: var(--on-signal); }
   .cta-inner { padding-block: var(--section-pad); display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--space-6); align-items: end; }
   .cta h2 { font-size: clamp(44px, 4.4vw + 24px, 80px); line-height: .95; letter-spacing: -0.05em; }
-  .cta-sub { margin-top: var(--space-3); font-size: var(--text-small); }
+  .cta-install { display: flex; flex-direction: column; align-items: flex-start; }
+  .cta-install { display: flex; flex-direction: column; align-items: flex-start; }
+  .cta-sub { margin-top: var(--space-4); font-size: var(--text-small); }
   .cta-sub a { text-decoration: underline; }
 
   @media (max-width: 960px) {
@@ -416,7 +377,7 @@ const jsonLd = [
     .hero { grid-template-columns: 1fr; gap: var(--space-6); padding-block: var(--space-6) var(--space-8); }
     .steps { grid-template-columns: 1fr; margin-top: var(--space-7); }
     .steps > li, .steps > li:first-child, .steps > li:last-child { padding: 28px 0; border-right: 0; border-bottom: 1px solid var(--line); }
-    .benefits, .trust, .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .benefits, .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .catches-head { grid-template-columns: 1fr; gap: var(--space-4); }
     .cta-inner { grid-template-columns: 1fr; padding-block: var(--space-8); }
   }
@@ -425,12 +386,10 @@ const jsonLd = [
     h1 { margin-top: var(--space-2); }
     .lede { margin-top: var(--space-3); font-size: 17px; }
     .install-block { margin-top: var(--space-4); }
-    .glossary dl { grid-template-columns: 1fr; gap: 2px; }
-  }
+    }
   @media (max-width: 480px) {
-    .benefits, .trust, .grid { grid-template-columns: 1fr; }
-    .glossary dd { margin-bottom: var(--space-3); }
-    .card { padding: var(--space-5) 18px; }
+    .benefits, .grid { grid-template-columns: 1fr; }
+      .card { padding: var(--space-5) 18px; }
     .card dl { grid-template-columns: 64px 1fr; }
     .trace li:nth-child(n) { margin-left: 0; }
     .trace li:nth-child(2) { margin-left: 10px; }

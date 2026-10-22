@@ -4,30 +4,35 @@ const { id, label, onSignal = false } = Astro.props;
 ---
 <div class="install-field" class:list={{ 'on-sig': onSignal }} data-install id={id}>
   {label && <p class="install-label">{label}</p>}
-  <div class="field-row">
-    <div class="field" role="group" aria-label="Installer command" tabindex="0"><code>/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</code></div>
-    <button type="button" class="btn btn-line copy" data-copy hidden>Copy</button>
+  <div class="field" role="group" aria-label="Installer command">
+    <code tabindex="0">/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</code>
+    <button type="button" class="copy" data-copy hidden aria-label="Copy install command" title="Copy">
+      <svg class="i-copy" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true" focusable="false"><path d="M8 8h12v12H8zM4 16V4h12" /></svg>
+      <svg class="i-done" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true" focusable="false"><path d="M4 12l6 6L20 6" /></svg>
+    </button>
   </div>
   <p class="sr-only" role="status" aria-live="polite" data-status></p>
 </div>
 
 <style>
   .install-label { font-family: var(--font-mono); font-size: var(--text-micro); color: var(--text-muted); margin-bottom: var(--space-2); }
-  .field-row { display: flex; gap: var(--space-3); align-items: stretch; }
   .field {
-    flex: 1 1 auto; min-width: 0; display: flex; align-items: center; min-height: var(--hit);
+    display: flex; align-items: center; gap: var(--space-2); min-height: var(--hit);
     background: var(--surface); border: var(--btn-border) solid var(--line); border-radius: var(--radius-input);
-    padding: var(--space-3) var(--space-4); font-family: var(--font-mono); font-size: 15px; overflow-wrap: anywhere;
+    padding: 0 var(--space-1) 0 var(--space-4); font-family: var(--font-mono); font-size: 15px;
   }
-  .field code { user-select: all; }
-  .copy { cursor: pointer; font: inherit; font-weight: 600; background: transparent; flex: 0 0 auto; }
+  .field code { flex: 1 1 auto; min-width: 0; padding-block: var(--space-3); overflow-wrap: anywhere; user-select: all; }
+  .copy {
+    flex: none; width: var(--hit); height: var(--hit); display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: var(--text); border: 0; border-radius: var(--radius-input); cursor: pointer;
+  }
+  .copy[hidden] { display: none; }
+  .copy { transition: background-color var(--motion-fast); }
+  .copy:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+  .i-done, .copy.done .i-copy { display: none; }
+  .copy.done .i-done { display: block; }
   .on-sig .install-label { color: var(--on-signal); }
   .on-sig .field { background: transparent; border-color: var(--on-signal); }
-  .on-sig .copy { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
-  .on-sig .copy:hover, .on-sig .copy:focus-visible { background: var(--ink-line); border-color: var(--ink-line); color: var(--ink-text); }
-  @media (max-width: 700px) {
-    .field-row { flex-direction: column; }
-    .copy { width: 100%; }
-    .field { font-size: 14px; }
-  }
+  .on-sig .copy { color: var(--on-signal); }
+  @media (max-width: 700px) { .field { font-size: 14px; } }
 </style>

@@ -18,7 +18,7 @@ function LastSeen({unix, skewMs}: {unix: number; skewMs: number}) {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
-  return <span title={fmtUtcFull(unix)}>Last seen {fmtLastSeenAgo(unix, now + skewMs)}</span>;
+  return <span title={fmtUtcFull(unix)}>{fmtLastSeenAgo(unix, now + skewMs)}</span>;
 }
 
 function statusOf(l: License): {label: string; tone: 'ok' | 'warn' | 'bad'} {
@@ -49,23 +49,33 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
     body = <div className="skeleton" aria-busy="true" aria-label="Loading cluster" />;
   } else if (c) {
     body = (
-      <div className="cluster-grid">
-        <div className="cluster-name">
-          <span className="mono cluster-id">{c.id_short}</span>
+      <dl className="cluster-grid">
+        <div>
+          <dt className="mono cluster-label">Cluster</dt>
+          <dd className="mono cluster-id">{c.id_short}</dd>
         </div>
-        <div className="mono cluster-sub cluster-last">
-          <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
+        <div>
+          <dt className="mono cluster-label">Last update</dt>
+          <dd className="cluster-last">
+            <LastSeen unix={c.last_seen} skewMs={cs.skewMs} />
+          </dd>
         </div>
-        <div className="cluster-version-col">
-          <div className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</div>
-          {cs.latest && isOutdated(c.version, cs.latest) && (
-            <a className="small update-available" href={`${DOCS_URL}/update`}>
-              Update available: v{cs.latest.replace(/^v/, '')}
-            </a>
-          )}
+        <div>
+          <dt className="mono cluster-label">Version</dt>
+          <dd className="cluster-version-col">
+            <span className="mono cluster-version">{c.version ? `v${c.version.replace(/^v/, '')}` : ''}</span>
+            {cs.latest && isOutdated(c.version, cs.latest) && (
+              <a className="small update-available" href={`${DOCS_URL}/update`}>
+                Update available: v{cs.latest.replace(/^v/, '')}
+              </a>
+            )}
+          </dd>
         </div>
-        <div className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</div>
-      </div>
+        <div>
+          <dt className="mono cluster-label">Nodes</dt>
+          <dd className="cluster-nodes">{c.nodes != null ? plural(c.nodes, 'node', 'nodes') : ''}</dd>
+        </div>
+      </dl>
     );
   } else if (license.status === 'active') {
     body = (
@@ -80,7 +90,7 @@ function ClusterHalf({license, cs}: {license: License; cs: ClusterState}) {
   if (!body && !ended) return null;
   return (
     <div className="license-cluster" role="group" aria-label={label}>
-      <p className="mono cluster-label">Cluster</p>
+      {!c && <p className="mono cluster-label">Cluster</p>}
       {ended}
       {body}
     </div>

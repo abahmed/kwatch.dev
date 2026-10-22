@@ -225,7 +225,7 @@ describe('/licenses', () => {
     expect(await screen.findByText('7c1e04ab')).toHaveClass('mono');
     expect(screen.getByText('v1.0.0')).toBeInTheDocument();
     expect(screen.getByText('3 nodes')).toBeInTheDocument();
-    expect(screen.getAllByText(/^Last seen /).length).toBe(2);
+    expect(screen.getAllByText(/ ago$|^just now$/).length).toBe(2);
     expect(screen.queryByText(/Inactive|Stopped|Waiting|check-in/i)).toBeNull();
     expect(screen.queryByText(/reach kwatch.dev/)).toBeNull();
   });
@@ -236,10 +236,10 @@ describe('/licenses', () => {
       const t = Math.floor(Date.now() / 1000);
       withClusters([cl({last_seen: t - 20 * 60})]);
       renderAt('/licenses');
-      const el = await screen.findByText('Last seen 20 min ago');
+      const el = await screen.findByText('20 min ago');
       expect(el).toHaveAttribute('title', expect.stringMatching(/^\d{4}-\d\d-\d\d \d\d:\d\d UTC$/));
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-      expect(screen.getByText('Last seen 21 min ago')).toBeInTheDocument();
+      expect(screen.getByText('21 min ago')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -260,7 +260,7 @@ describe('/licenses', () => {
       'GET /account/clusters': {body: {clusters: [cl({last_seen: t - 600})], srv_time: t + 3600}},
     });
     renderAt('/licenses');
-    expect(await screen.findByText('Last seen 1 h ago')).toBeInTheDocument();
+    expect(await screen.findByText('1 h ago')).toBeInTheDocument();
   });
 
   it('sorts non-active licenses first, then newest first', async () => {

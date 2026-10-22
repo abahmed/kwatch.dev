@@ -227,3 +227,7 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .key-row .key { margin: 0; overflow-x: auto; }
 .license-main p { margin: 0; }
 .license-name { margin-bottom: 4px; }
+.cluster-grid { margin: 0; }
+.cluster-grid dt { margin: 0 0 4px; }
+.cluster-grid dd { margin: 0; font-family: var(--font-mono); font-size: 13px; }
+.cluster-grid dd, .cluster-grid dd .cluster-version { color: var(--text-muted); font-weight: 400; font-size: 13px; }

@@ -2,7 +2,7 @@ import {useEffect, useId, useRef} from 'react';
 import type {ReactNode, RefObject} from 'react';
 import {NavLink, Outlet, useNavigate} from 'react-router-dom';
 import {logout} from './api';
-import {DOCS_URL} from './config';
+import {DOCS_URL, SITE_URL} from './config';
 import {useSession} from './session';
 
 export function Mark({size = 34}: {size?: number}) {
@@ -47,12 +47,18 @@ export function Shell() {
   return (
     <div className="shell">
       <nav className="side" aria-label="App">
-        <span className="wordmark">kwatch</span>
+        <span className="brand">
+          <Mark size={26} />
+          <span className="wordmark">kwatch</span>
+        </span>
         <NavLink to="/licenses">Licenses</NavLink>
         <NavLink to="/help">Get help</NavLink>
         <NavLink to="/account">Account</NavLink>
         <a className="muted-link" href={DOCS_URL}>
           Docs ↗
+        </a>
+        <a className="muted-link" href={SITE_URL}>
+          kwatch.dev ↗
         </a>
         <span className="who">
           {data.account.email} ·{' '}
@@ -61,9 +67,12 @@ export function Shell() {
           </button>
         </span>
       </nav>
-      <main className="content">
-        <Outlet />
-      </main>
+      <div className="main">
+        <main className="content">
+          <Outlet />
+        </main>
+        <footer className="site-footer">kwatch · source available under ELv2</footer>
+      </div>
     </div>
   );
 }

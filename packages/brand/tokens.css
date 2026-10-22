@@ -37,6 +37,41 @@
   --font-mono: 'Geist Mono', ui-monospace, monospace;
 }
 
+/* ---- Shared scales (additive; same in light and dark) ----
+   Breakpoints cannot be variables. Use exactly: 960px, 700px, 480px.
+   Marketing (web) body is 17px; product surfaces (docs, app) body is 16px. */
+:root {
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px; --space-9: 96px;
+
+  --radius-chip: 4px;   /* chips, code, inline controls */
+  --radius-input: 8px;  /* inputs */
+  --radius-card: 10px;  /* every card and panel */
+  --radius-output: 14px;/* kwatch output shown as a product screen (hero alert) */
+  --radius-pill: 999px; /* buttons and the Pro badge only */
+
+  --max: 1280px;        /* marketing and docs shell width */
+  --max-app: 1000px;    /* app content width */
+  --gutter: 24px;       /* 16px at <=640px, set by each app's base css */
+  --measure: 62ch;      /* longest line of running text */
+
+  --text-body: 17px;    /* marketing; product surfaces use --text-body-product */
+  --text-body-product: 16px;
+  --text-small: 15px;
+  --text-micro: 13px;   /* mono labels, eyebrows */
+  --h1-marketing: clamp(48px, 4vw + 32px, 92px);
+  --h1-product: clamp(30px, 2vw + 22px, 48px);
+  --h2-lead: clamp(36px, 3vw + 24px, 60px);
+  --h2-section: clamp(30px, 1.6vw + 24px, 44px);
+  --h3-card: 24px;
+
+  --section-pad: 96px;  /* 64px at <=960px, 48px at <=480px */
+  --btn-height: var(--hit);
+  --btn-border: 1.5px;
+  --shadow-output: 0 24px 60px rgba(14, 17, 22, .28); /* hero alert card only */
+  --motion-fast: 120ms; /* wrap in prefers-reduced-motion: no-preference */
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #15171B;

@@ -63,7 +63,7 @@ describe('/licenses', () => {
     const first = await screen.findByRole('region', {name: 'License lic_1'});
     expect(within(first).getByText(/KW1-••••••f3a9Qk/)).toBeInTheDocument();
     expect(within(first).getByText('active')).toBeInTheDocument();
-    expect(within(first).getByText(/Free during early access · ends/)).toBeInTheDocument();
+    expect(within(first).getByText(/^Ends /)).toBeInTheDocument();
     expect(within(await screen.findByRole('group', {name: 'Cluster for license lic_1'})).getByText('7c1e04ab')).toBeInTheDocument();
     const second = screen.getByRole('region', {name: 'License lic_2'});
     expect(within(second).getByText(/Not attached yet/)).toBeInTheDocument();

@@ -122,7 +122,7 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
   Benefits, in this order: installation help; your feature requests first;
   kwatch fixes first (security reports always first). Limit: `There is no
   guaranteed reply time.` Community: `GitHub issues and Discussions, best
-  effort.` Pro channel: app.kwatch.dev > Get help (never a public address).
+  effort.` Pro channel: app.kwatch.dev/help, named "Get help" (never a public address).
   Never say who answers (no "maintainer", "team", "one person"). Never:
   "24/7", "SLA", "guaranteed", "priority" without saying over what,
   response-time numbers.

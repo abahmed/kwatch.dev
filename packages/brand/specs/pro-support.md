@@ -63,10 +63,10 @@ Verified in the repos:
   Community. No Pro-only label or category exists.
 - `hello@kwatch.dev` is the general contact (privacy, terms, app).
 
-Recommendation: **app.kwatch.dev > Get help is the Pro channel.** It proves
+Decided: **Get help at app.kwatch.dev/help (Help.tsx) is the Pro channel.** Every surface links straight to `https://app.kwatch.dev/help` and uses the name "Get help" as the app does. The app copy already says "we" and names nobody, so the app stays unchanged. It proves
 the license, attaches cluster facts, and keeps the address out of public
 pages. Do not publish `support@kwatch.dev` as a link. Do not add a Pro GitHub
-label. Surfaces link to `https://app.kwatch.dev` and say "choose Get help".
+label. 
 
 Dependency: spec `pro-readiness-rc21.md` open question 6 (does the
 `support@kwatch.dev` mailbox exist and who reads it) must be answered
@@ -87,8 +87,7 @@ Add a row to the editions table:
 Add under the table, before "When a Pro license ends":
 
 > Pro includes dedicated support. There is no guaranteed
-> reply time. Sign in at [app.kwatch.dev](https://app.kwatch.dev)
-> and choose **Get help**. Community support is on
+> reply time. Go to [**Get help**](https://app.kwatch.dev/help). Community support is on
 > [GitHub](https://github.com/abahmed/kwatch/issues).
 
 README FAQ entry:
@@ -117,8 +116,7 @@ Replace the two bullets:
 > - **Community:** open an issue on [GitHub](https://github.com/abahmed/kwatch/issues/new)
 >   or start a Discussion. Issues are public, so remove anything private first.
 >   Answers are best effort.
-> - **Pro:** sign in to [app.kwatch.dev](https://app.kwatch.dev) and choose
->   **Get help**. You get dedicated support: help with
+> - **Pro:** go to [**Get help**](https://app.kwatch.dev/help). You get dedicated support: help with
 >   installation, and your feature requests and kwatch fixes come first.
 >   Pro is free during early access.
 
@@ -142,7 +140,7 @@ Comparison table, new group "Support" (last group, after Operations/Account):
 
 | What you get | Community | Pro |
 | --- | --- | --- |
-| Where to ask | GitHub issues and Discussions | Get help at app.kwatch.dev |
+| Where to ask | GitHub issues and Discussions | [Get help](https://app.kwatch.dev/help) |
 | Support from | Community, best effort | Dedicated support |
 | Installation help | Docs and GitHub | Yes |
 | Your feature requests | Read on GitHub | Weighed first |
@@ -162,7 +160,7 @@ the three bullets in one short block above the table:
 
 License details dl, new row:
 
-> **Support** · Get help at app.kwatch.dev, for accounts with an active Pro license. Community support is on GitHub.
+> **Support** · [Get help](https://app.kwatch.dev/help), for accounts with an active Pro license. Community support is on GitHub.
 
 ### Website home (`apps/web/src/pages/index.astro`, editions)
 

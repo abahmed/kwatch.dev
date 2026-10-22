@@ -10,7 +10,7 @@ const links = [
   { id: 'terms', href: '/terms', label: 'Terms of service' },
 ];
 ---
-<Base title={`${f.title} · kwatch`} description={f.description} minimalHeader>
+<Base title={`kwatch ${f.title.toLowerCase()} · Kubernetes monitoring`} description={f.description} minimalHeader>
   <div class="wrap legal">
     <nav aria-label="Legal">
       {links.map((l) => <a href={l.href} aria-current={l.id === f.page ? 'page' : undefined}>{l.label}</a>)}

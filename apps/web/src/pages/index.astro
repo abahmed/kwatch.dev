@@ -94,7 +94,7 @@ const jsonLd = [
     name: 'kwatch',
     url: site,
     logo: `${site}/apple-touch-icon.png`,
-    sameAs: ['https://github.com/abahmed/kwatch'],
+    sameAs: ['https://github.com/abahmed/kwatch', 'https://docs.kwatch.dev'],
     email: 'hello@kwatch.dev',
   },
   { '@context': 'https://schema.org', '@type': 'WebSite', name: 'kwatch', url: site },
@@ -106,14 +106,14 @@ const jsonLd = [
 ];
 ---
 <Base
-  title="Kubernetes alerts with the root cause · kwatch"
-  description="kwatch runs in your cluster and turns CrashLoopBackOff, OOMKilled and more into one incident with the root cause and fix, sent to Slack or 50+ channels."
+  title="kwatch: Kubernetes monitoring and alerts with the root cause"
+  description="kwatch is Kubernetes monitoring and alerting that runs in your cluster and turns CrashLoopBackOff, OOMKilled and more into one incident with the root cause and fix, sent to Slack or 50+ channels."
   jsonLd={jsonLd}
 >
   <section class="hero wrap">
     <div class="hero-text">
       <p class="mono-line">03:07 · #prod-alerts · 47 new messages</p>
-      <h1>Fifty alerts.<br /><span class="mark">One cause.</span></h1>
+      <h1><span class="sr-only">kwatch: </span>Fifty alerts.<br /><span class="mark">One cause.</span></h1>
       <p class="lede">When something breaks in your Kubernetes cluster, kwatch tells you what broke, why, and what to do, in Slack, Discord, email and 50+ other channels.</p>
       <p class="lede-sub">kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.</p>
       <div class="actions">

@@ -31,6 +31,7 @@ const { title, sub, as: Tag = 'div', tone = 'default' } = Astro.props;
   .panel-foot:empty { display: none; }
   .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 16px; }
   .panels.editions { grid-template-columns: 5fr 7fr; }
+  .panels.editions .rows { margin-top: auto; padding-top: 16px; }
   .panels.editions .panel.soft { border-color: var(--control-border); }
   @media (max-width: 960px) { .panels.editions { grid-template-columns: 1fr; } }
   @media (max-width: 700px) { .panels { grid-template-columns: 1fr; } }

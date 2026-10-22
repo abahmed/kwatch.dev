@@ -428,10 +428,6 @@ export default function Licenses() {
                 Want an alert if kwatch stops?{' '}
                 <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>Set up the dead man&rsquo;s switch.</a>
               </p>
-              <p>
-                Only optional anonymous usage stats and a daily Pro license check reach kwatch.dev. Never cluster
-                names, pod names, logs or events. Alerts go only to the channels you set up.
-              </p>
             </div>
           )}
         </>

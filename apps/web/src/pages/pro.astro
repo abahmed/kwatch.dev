@@ -45,11 +45,24 @@ const groups: { name: string; rows: Row[] }[] = [
       ['Account needed', 'No', 'Yes, email only'],
     ],
   },
+  {
+    name: 'SUPPORT',
+    rows: [
+      ['Where to ask', 'GitHub issues and Discussions', '[Get help](https://app.kwatch.dev/help)'],
+      ['Support from', 'Community support on GitHub', 'Dedicated support'],
+      ['Installation help', 'Docs and GitHub', 'Yes'],
+      ['Your feature requests', 'Read on GitHub', 'Weighed first'],
+      ['kwatch fixes', 'In the normal queue', 'Looked at first'],
+    ],
+  },
 ];
+
+const link = (s: string) => s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
 const license: [string, string][] = [
   ['One cluster', 'A key runs one cluster. Move it to another up to 3 times in 30 days, from the installer or your account.'],
   ['If it can\'t reach kwatch.dev', 'Pro keeps working for up to 7 days after its last successful license check, then falls back to Community features. Monitoring continues.'],
+  ['Support', '[Get help](https://app.kwatch.dev/help), for accounts with an active Pro license. Community support is on GitHub.'],
   ['When it ends', 'kwatch falls back to Community. Alerts never stop.'],
 ];
 ---
@@ -90,6 +103,7 @@ const license: [string, string][] = [
           <li>Recent changes and who made them</li>
           <li>Affected services and log excerpts</li>
           <li>Unlimited channels, routing, incident history, audit log</li>
+          <li>Dedicated support.</li>
         </ul>
       </div>
     </div>
@@ -130,6 +144,10 @@ const license: [string, string][] = [
 
   <section class="wrap compare">
     <h2 class="display">Community and Pro, side by side</h2>
+    <div class="support">
+      <h3>Dedicated support</h3>
+      <p>Installation help. Your feature requests first. kwatch fixes first.</p>
+    </div>
     <div class="scroll" role="region" aria-label="Community and Pro comparison table" tabindex="0">
       <table>
         <thead>
@@ -142,7 +160,7 @@ const license: [string, string][] = [
               <tr>
                 <th scope="row">{label}</th>
                 <td class:list={{ none: c === '—' }}>{c}</td>
-                <td class="pro-col">{p}</td>
+                <td class="pro-col"><Fragment set:html={link(p)} /></td>
               </tr>
             ))}
           </tbody>
@@ -167,7 +185,7 @@ const license: [string, string][] = [
     <div class="wrap license">
       <h2 class="display">How the license works</h2>
       <dl>
-        {license.map(([k, v]) => (<><dt>{k}</dt><dd>{v}</dd></>))}
+        {license.map(([k, v]) => (<><dt>{k}</dt><dd><Fragment set:html={link(v)} /></dd></>))}
       </dl>
     </div>
   </section>
@@ -224,6 +242,9 @@ const license: [string, string][] = [
 
   .compare { padding-block: 24px 100px; }
   .compare h2 { font-size: clamp(30px, 1.6vw + 24px, 44px); }
+  .support { margin-top: 20px; max-width: 760px; }
+  .support h3 { font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+  .support p { margin-top: 6px; color: var(--text-soft); }
   .scroll { margin-top: 32px; overflow-x: auto; border-radius: 6px; }
   table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 16px; }
   thead th { text-align: left; padding: 14px 0; border-bottom: 2px solid var(--text); }

@@ -35,19 +35,17 @@ Sub-line (use where there is room):
 1. **Installation help.** Stuck on the installer, Helm values or RBAC? Ask and
    get an answer.
 2. **Feature requests first.** Pro requests are read and weighed ahead of
-   Community ones. Security reports are always first.
+   Community ones.
 3. **Fixes first.** When a Pro cluster hits a kwatch bug, it is looked at
-   ahead of other open issues. Security reports are always first.
+   ahead of other open issues.
 
-Small print, under the bullets wherever they appear:
-
-> There is no guaranteed reply time.
+No small print. Support copy states benefits only: no caveats, limits or reply-time lines.
 
 ## Community gets
 
-GitHub issues and Discussions, answered on a best-effort basis. Everything in the docs. Same kwatch, same alerts.
+GitHub issues and Discussions. Everything in the docs. Same kwatch, same alerts.
 
-> Community support is on GitHub, best effort.
+> Community support on GitHub.
 
 ## Channel (what exists today)
 
@@ -55,7 +53,7 @@ Verified in the repos:
 
 - `kwatch-api/src/routes/support.ts`: `POST /support`, signed-in, active Pro
   license required, sends one email to `SUPPORT_INBOX` = `support@kwatch.dev`.
-  3 requests per account per UTC day; no reply time promised.
+  3 requests per account per UTC day.
 - `kwatch.dev/apps/app/src/pages/Help.tsx`: **Get help** at app.kwatch.dev,
   Pro only. Non-Pro accounts see "Get help is for Pro. Community support is
   on GitHub." with an Open an issue button.
@@ -82,27 +80,24 @@ Add a row to the editions table:
 
 | | Community | Pro |
 | --- | --- | --- |
-| Support | GitHub issues and Discussions, best effort | Dedicated support: installation help, and your feature requests and fixes come first |
+| Support | GitHub issues and Discussions | Dedicated support: installation help, and your feature requests and fixes come first |
 
 Add under the table, before "When a Pro license ends":
 
-> Pro includes dedicated support. There is no guaranteed
-> reply time. Go to [**Get help**](https://app.kwatch.dev/help). Community support is on
+> Pro includes dedicated support. Go to [**Get help**](https://app.kwatch.dev/help). Community support is on
 > [GitHub](https://github.com/abahmed/kwatch/issues).
 
 README FAQ entry:
 
 > **What does Pro support include?**
-> Community questions go to GitHub issues and Discussions, answered on a
-> best-effort basis. Pro includes dedicated support:
+> Community questions go to GitHub issues and Discussions, Pro includes dedicated support:
 > installation help, and your feature requests and kwatch fixes come first.
-> There is no guaranteed reply time.
 
 ### Docs: Editions (`apps/docs/docs/editions.md`)
 
 At-a-glance table, new row after Operations:
 
-| Support | GitHub issues and Discussions, best effort | Dedicated support: installation help, feature requests and fixes first |
+| Support | GitHub issues and Discussions | Dedicated support: installation help, feature requests and fixes first |
 
 In the `## Pro` section, append one paragraph:
 
@@ -115,22 +110,20 @@ Replace the two bullets:
 
 > - **Community:** open an issue on [GitHub](https://github.com/abahmed/kwatch/issues/new)
 >   or start a Discussion. Issues are public, so remove anything private first.
->   Answers are best effort.
+>  
 > - **Pro:** go to [**Get help**](https://app.kwatch.dev/help). You get dedicated support: help with
 >   installation, and your feature requests and kwatch fixes come first.
 >   Pro is free during early access.
 
 Add after the bullets:
 
-> There is no guaranteed reply time.
 > Attach a diagnostics file (below) to get to the cause faster.
 
 Docs FAQ (editions or getting-help):
 
 > **What does Pro support cover?**
 > Installing and configuring kwatch, your feature requests, and problems in
-> kwatch itself. It does not cover running your cluster or your applications.
-> Requests are read in order of when they arrive, with Pro ahead of Community.
+> kwatch itself.
 
 The last sentence is a claim we must be able to keep. 
 
@@ -141,7 +134,7 @@ Comparison table, new group "Support" (last group, after Operations/Account):
 | What you get | Community | Pro |
 | --- | --- | --- |
 | Where to ask | GitHub issues and Discussions | [Get help](https://app.kwatch.dev/help) |
-| Support from | Community, best effort | Dedicated support |
+| Support from | Community support on GitHub | Dedicated support |
 | Installation help | Docs and GitHub | Yes |
 | Your feature requests | Read on GitHub | Weighed first |
 | kwatch fixes | In the normal queue | Looked at first |
@@ -156,7 +149,6 @@ the three bullets in one short block above the table:
 
 > **Dedicated support**
 > Installation help. Your feature requests first. kwatch fixes first.
-> There is no guaranteed reply time.
 
 License details dl, new row:
 
@@ -195,13 +187,13 @@ focus. "Get help" is bold in running text, as for other UI labels.
 - "Installation help", "feature requests first", "fixes first": policy
   claims, not code. We must agree to keep them (decision 3, closed).
 - "Pro only" on Get help: matches Help.tsx / support.ts (active Pro license).
-- No reply time, no SLA, no price, no "trial".
+- No reply-time lines, caveats, SLA, no price, no "trial".
 
 ## Decisions (closed by the user)
 
 1. Mailbox: proceed; the lead confirms `support@kwatch.dev` before go-live.
-2. No guaranteed reply time.
-3. "First" applies, with one carve-out: security reports are always first.
+2. No reply-time wording anywhere.
+3. "First" applies. Internal note only, never on marketing surfaces: security reports are handled first under the security policy.
 4. Get help at app.kwatch.dev is the only Pro channel.
 5. Never say who answers: no "maintainer", "team" or "one person".
 6. No line about what happens after early access.

@@ -28,6 +28,7 @@ advance.
 | Incidents | Basic dedup and noise control, state in memory | Flapping detection, startup summary, state kept on disk across restarts, changes made while kwatch was down, gap report (next release) |
 | Delivery | 1 provider, namespace filters and silences | All providers, routing by scope, threads, text templates, audit log |
 | Operations | RBAC audit, secret redaction, health, short text `/status` | Prometheus `/metrics`, severity overrides, maintenance holds, runbook links, heartbeat, `/status` JSON, flight recorder and `replay-export` |
+| Support | GitHub issues and Discussions | Dedicated support: installation help, feature requests and fixes first |
 
 The per-capability list is on the [Pro page](https://kwatch.dev/pro) and in the
 [generated feature reference](/reference/generated/features). Every
@@ -71,6 +72,8 @@ log, heartbeat and probes, persistence, the flight recorder, `/status` JSON
 and more. Configuration for Pro features is accepted in
 Community and ignored; `kwatch lint` prints an `info:` line for each one, and
 the file stays valid when you upgrade.
+
+Pro also includes dedicated support. See [Getting help](/getting-help).
 
 ## How Pro licensing works
 

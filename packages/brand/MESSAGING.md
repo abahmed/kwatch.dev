@@ -120,9 +120,9 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
 - When a Pro license ends, kwatch falls back to Community. Alerts never stop.
 - Support (spec `specs/pro-support.md`): `Pro includes dedicated support.`
   Benefits, in this order: installation help; your feature requests first;
-  kwatch fixes first (security reports always first). Limit: `There is no
-  guaranteed reply time.` Community: `GitHub issues and Discussions, best
-  effort.` Pro channel: app.kwatch.dev/help, named "Get help" (never a public address).
+  kwatch fixes first. Community: `Community support on GitHub` /
+  `GitHub issues and Discussions.` Support copy states benefits only: no
+  caveats, limits, reply-time lines or "best effort". Pro channel: app.kwatch.dev/help, named "Get help" (never a public address).
   Never say who answers (no "maintainer", "team", "one person"). Never:
   "24/7", "SLA", "guaranteed", "priority" without saying over what,
   response-time numbers.

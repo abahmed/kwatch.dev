@@ -84,10 +84,7 @@ Left-aligned, never centred; faq H2 aligns to the same left edge as the others.
    value (`clamp(48px, 4vw+32px, 92px)`). Buttons: solid + line.
 2. **Failure strip:** token fix only: `.item i` uses `--ink-muted`. Respect reduced
    motion (already).
-3. **Data band** (case 1 of Panel): `.band`. Left: H2, lede, small print, link,
-   then `.facts` become three `Panel` rows? No: keep `.facts` as a quiet list
-   with 10px radius. Full width below: two `Panel tone=default` (see content),
-   then the Never-sent strip. Table, `.sends-wrap` and horizontal scroll removed.
+3. **Data band** (case 1 of Panel): `.band`. Heading, lede, small print and link as today; `.facts` stay a quiet list with 10px radius. Full width below: two `Panel tone=default`, then the Never-sent strip. Table, `.sends-wrap` and horizontal scroll removed.
 4. **Quick steps + benefits:** shared header pattern; benefits grid radius 10px;
    steps h3 24px (already). `.glossary` uses Panel box (10px).
 5. **How:** keep the 4/5/3 uneven grid and 2px rule (the one emphasis); step h3 28px

@@ -1,8 +1,7 @@
 # Pro support spec
 
 Owner: kwatch-designer (copy). Implementers: kwatch-core (README), kwatch-docs,
-kwatch-web. Copy follows `../MESSAGING.md`. Status: draft, waiting on the
-open decisions at the end.
+kwatch-web. Copy follows `../MESSAGING.md`. Status: approved; decisions at the end.
 
 ## Research notes (patterns, not quotes)
 
@@ -19,13 +18,13 @@ for this spec, so treat as direction.
 - Avoid: "24/7", "enterprise-grade", "white-glove", "SLA", "guaranteed",
   "priority" without saying priority over what.
 
-Direction for kwatch: **a named person, a narrow list of what they help with,
-no clock.** "Prioritized" is honest only as "ahead of Community requests",
+Direction for kwatch: **a narrow list of what support covers, no clock, no
+statement about who answers.** "Prioritized" is honest only as "ahead of Community requests",
 so write it that way.
 
 ## Positioning line
 
-> Pro includes direct support from the maintainer.
+> Pro includes dedicated support.
 
 Sub-line (use where there is room):
 
@@ -34,21 +33,19 @@ Sub-line (use where there is room):
 ## Benefit bullets (order is fixed)
 
 1. **Installation help.** Stuck on the installer, Helm values or RBAC? Ask and
-   get an answer from the maintainer.
+   get an answer.
 2. **Feature requests first.** Pro requests are read and weighed ahead of
-   Community ones.
+   Community ones. Security reports are always first.
 3. **Fixes first.** When a Pro cluster hits a kwatch bug, it is looked at
-   ahead of other open issues.
+   ahead of other open issues. Security reports are always first.
 
 Small print, under the bullets wherever they appear:
 
-> Support is one person, so there is no guaranteed reply time. Early access:
-> this is part of Pro, which is free for now.
+> There is no guaranteed reply time.
 
 ## Community gets
 
-GitHub issues and Discussions, answered by the maintainer and community on a
-best-effort basis. Everything in the docs. Same kwatch, same alerts.
+GitHub issues and Discussions, answered on a best-effort basis. Everything in the docs. Same kwatch, same alerts.
 
 > Community support is on GitHub, best effort.
 
@@ -77,7 +74,7 @@ before any surface goes live. See decision 1.
 
 ## Exact copy per surface
 
-Wording uses "the maintainer" because the product is solo-run today.
+Wording never says who answers.
 
 ### README (`kwatch/README.md`, Editions)
 
@@ -85,12 +82,12 @@ Add a row to the editions table:
 
 | | Community | Pro |
 | --- | --- | --- |
-| Support | GitHub issues and Discussions, best effort | Direct support from the maintainer: installation help, and your feature requests and fixes come first |
+| Support | GitHub issues and Discussions, best effort | Dedicated support: installation help, and your feature requests and fixes come first |
 
 Add under the table, before "When a Pro license ends":
 
-> Pro includes direct support from the maintainer. It is one person, so there
-> is no guaranteed reply time. Sign in at [app.kwatch.dev](https://app.kwatch.dev)
+> Pro includes dedicated support. There is no guaranteed
+> reply time. Sign in at [app.kwatch.dev](https://app.kwatch.dev)
 > and choose **Get help**. Community support is on
 > [GitHub](https://github.com/abahmed/kwatch/issues).
 
@@ -106,11 +103,11 @@ README FAQ entry:
 
 At-a-glance table, new row after Operations:
 
-| Support | GitHub issues and Discussions, best effort | Direct support from the maintainer: installation help, feature requests and fixes first |
+| Support | GitHub issues and Discussions, best effort | Dedicated support: installation help, feature requests and fixes first |
 
 In the `## Pro` section, append one paragraph:
 
-> Pro also includes direct support from the maintainer. See
+> Pro also includes dedicated support. See
 > [Getting help](/getting-help).
 
 ### Docs: Getting help (`apps/docs/docs/getting-help.md`)
@@ -121,13 +118,13 @@ Replace the two bullets:
 >   or start a Discussion. Issues are public, so remove anything private first.
 >   Answers are best effort.
 > - **Pro:** sign in to [app.kwatch.dev](https://app.kwatch.dev) and choose
->   **Get help**. You get direct support from the maintainer: help with
+>   **Get help**. You get dedicated support: help with
 >   installation, and your feature requests and kwatch fixes come first.
 >   Pro is free during early access.
 
 Add after the bullets:
 
-> kwatch is maintained by one person, so there is no guaranteed reply time.
+> There is no guaranteed reply time.
 > Attach a diagnostics file (below) to get to the cause faster.
 
 Docs FAQ (editions or getting-help):
@@ -137,8 +134,7 @@ Docs FAQ (editions or getting-help):
 > kwatch itself. It does not cover running your cluster or your applications.
 > Requests are read in order of when they arrive, with Pro ahead of Community.
 
-The last sentence is a claim the maintainer must be able to keep. See
-decision 3.
+The last sentence is a claim the maintainer must be able to keep. 
 
 ### Website Pro page (`apps/web/src/pages/pro.astro`)
 
@@ -147,22 +143,22 @@ Comparison table, new group "Support" (last group, after Operations/Account):
 | What you get | Community | Pro |
 | --- | --- | --- |
 | Where to ask | GitHub issues and Discussions | Get help at app.kwatch.dev |
-| Answers from | The maintainer and community, best effort | The maintainer, directly |
+| Answers from | Community, best effort | Dedicated support |
 | Installation help | Docs and GitHub | Yes |
 | Your feature requests | Read on GitHub | Weighed first |
 | kwatch fixes | In the normal queue | Looked at first |
 
 "Community and Pro in one glance" card, Pro list: add as the last line
 
-> Direct support from the maintainer.
+> Dedicated support.
 
 New section between "Free during early access" and "How to get Pro" is not
 needed. Instead extend the hero sub-line? No: keep the hero unchanged and put
 the three bullets in one short block above the table:
 
-> **Support from the maintainer**
+> **Dedicated support**
 > Installation help. Your feature requests first. kwatch fixes first.
-> It is one person, so there is no guaranteed reply time.
+> There is no guaranteed reply time.
 
 License details dl, new row:
 
@@ -176,7 +172,7 @@ Community card body: unchanged. Add after body:
 
 Pro card body, append one sentence:
 
-> Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks. Direct support from the maintainer.
+> Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks. Dedicated support.
 
 Keep one button per card. Signal stays on the single primary button.
 
@@ -197,30 +193,17 @@ focus. "Get help" is bold in running text, as for other UI labels.
 ## Claims check (before merge)
 
 - "Direct support from the maintainer": true only if the mailbox exists and
-  is read (decision 1).
+  is read (decision 1, closed).
 - "Installation help", "feature requests first", "fixes first": policy
-  claims, not code. The maintainer must agree to keep them (decision 3).
+  claims, not code. The maintainer must agree to keep them (decision 3, closed).
 - "Pro only" on Get help: matches Help.tsx / support.ts (active Pro license).
 - No reply time, no SLA, no price, no "trial".
 
-## Open decisions for the user
+## Decisions (closed by the user)
 
-1. **Support mailbox.** Does `support@kwatch.dev` exist, accept mail, and do
-   you read it? `kwatch-api` already sends Get help requests there, but
-   the rc21 spec left this unconfirmed. No surface should go live until this
-   is yes.
-2. **Reply time.** Recommended: promise none ("no guaranteed reply time").
-   Alternative if you want one: "We aim to reply within 2 business days",
-   stated as a goal, not a guarantee. Which?
-3. **What "first" means.** Is "Pro requests and fixes are looked at ahead of
-   Community ones" a policy you will keep when a Community issue is more
-   serious (for example a security bug)? Suggested carve-out: security
-   reports are always first, per the security policy.
-4. **Channel.** Confirm Get help at app.kwatch.dev as the only Pro channel
-   (recommended), or also add a public address or a Pro label on GitHub.
-5. **"Maintainer" wording.** Keep "the maintainer" while it is one person, or
-   use "the kwatch team"? Recommended: keep "the maintainer"; it is honest
-   and is the draw.
-6. **After early access.** Support stays a Pro benefit. Do you want any line
-   about that now? Recommended: no, covered by "If that ever changes, you
-   will hear well in advance."
+1. Mailbox: proceed; the lead confirms `support@kwatch.dev` before go-live.
+2. No guaranteed reply time.
+3. "First" applies, with one carve-out: security reports are always first.
+4. Get help at app.kwatch.dev is the only Pro channel.
+5. Never say who answers: no "maintainer", "team" or "one person".
+6. No line about what happens after early access.

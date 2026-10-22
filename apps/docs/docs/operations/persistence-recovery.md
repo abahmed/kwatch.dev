@@ -58,10 +58,10 @@ Something that changed and changed back is not shown. Objects that are still bro
 
 Community reports the gap time only, and mentions that Pro adds the gap report.
 
-## Detecting a hung kwatch
-
-On the leader, `/healthz` fails when the pipeline loop makes no progress for 5 minutes, so the kubelet restarts a hung process. To fail over to another node sooner, kwatch's chart tolerates `not-ready` and `unreachable` nodes for 30 seconds. See [Replication and failover](/operations/replication-and-failover). To be told when kwatch is down, use the [heartbeat monitor](/heartbeat-monitor-configuration).
-
 If a copy is wanted before an upgrade, copy `/var/lib/kwatch/state.db` from the volume while the Pod is stopped. See [Replication and failover](/operations/replication-and-failover) for the volume requirements.
 
 Never assume a notification was delivered exactly once. Delivery is at least once; use incident state, the audit log, provider logs and dead letters to reconcile.
+
+## Detecting a hung kwatch
+
+On the leader, `/healthz` fails when the pipeline loop makes no progress for 5 minutes, so the kubelet restarts a hung process. To fail over to another node sooner, kwatch's chart tolerates `not-ready` and `unreachable` nodes for 30 seconds. See [Replication and failover](/operations/replication-and-failover). To be told when kwatch is down, use the [heartbeat monitor](/heartbeat-monitor-configuration).

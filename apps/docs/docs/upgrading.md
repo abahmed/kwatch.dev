@@ -38,7 +38,7 @@ See the [installer guide](/kwatch-manager) for every menu option.
 | State | In memory, lost on every restart | Kept on a 2Gi volume with <span className="kw-pro">Pro</span>; Community keeps it in memory |
 | Replicas | Deployment default strategy | One replica with the `Recreate` strategy; no high availability in v1 |
 | Credentials | Inline in the config | Only `${file:/absolute/path}` references to a mounted Secret; the installer does this for you |
-| Endpoints | `/healthz`, `/health` | Adds `/readyz`, `/availabilityz`, `/metrics` and the opt-in `/status` |
+| Endpoints | `/healthz`, `/health` | Adds `/readyz`, `/availabilityz`, `/metrics` (Pro; 404 in Community) and the opt-in `/status` |
 | Memory | 128Mi limit | 512Mi limit |
 
 Other things to know:

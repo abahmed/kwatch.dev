@@ -42,6 +42,26 @@ A kill at any moment (SIGKILL, OOM, node loss) leaves a file that opens at the n
 
 The state file can be removed to reset kwatch: it then starts cold and sends one startup summary. To recover, scale the Deployment to zero, restore or remove the file on the volume, and start one replica. Open incidents are restored from the file, and kwatch compares saved object fingerprints with the live cluster to record changes made while it was down.
 
+## Gap report after downtime
+
+:::info Pro, from the next kwatch release
+The gap report is part of kwatch Pro, which is free during early access. It is not in a released kwatch yet.
+:::
+
+When kwatch was down for 5 minutes or more, it sends one message after it syncs with the cluster. The message states when it was not running, then compares the cluster before and after the gap and reports only the net difference:
+
+- **Changed objects.** What differs from before, with the changed path. Who made the change is unknown, because kwatch was down.
+- **Crashed containers.** Containers whose last stop happened inside the gap, with the exit code or `OOMKilled` and the total restart count. Clean exits are skipped.
+- **Nodes that went not-ready in the gap** are skipped for crashes, and the message says how many, because a quick reboot may be missed.
+
+Something that changed and changed back is not shown. Objects that are still broken after the restart are reported as normal incidents, not repeated in the gap report. Baselines do not learn during the 10-minute grace after a gap, so the startup storm does not become normal behavior.
+
+Community reports the gap time only, and mentions that Pro adds the gap report.
+
 If a copy is wanted before an upgrade, copy `/var/lib/kwatch/state.db` from the volume while the Pod is stopped. See [Replication and failover](/operations/replication-and-failover) for the volume requirements.
 
 Never assume a notification was delivered exactly once. Delivery is at least once; use incident state, the audit log, provider logs and dead letters to reconcile.
+
+## Detecting a hung kwatch
+
+On the leader, `/healthz` fails when the pipeline loop makes no progress for 5 minutes, so the kubelet restarts a hung process. When its node fails, kwatch's chart moves it to a healthy node sooner: it tolerates `not-ready` and `unreachable` nodes for 30 seconds only. The state volume still has to detach first. See [Replication and failover](/operations/replication-and-failover). To be told when kwatch is down, use the [heartbeat monitor](/heartbeat-monitor-configuration).

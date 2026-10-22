@@ -118,6 +118,14 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
 - Get a key at app.kwatch.dev, then installer > License / Pro > Add or
   replace key.
 - When a Pro license ends, kwatch falls back to Community. Alerts never stop.
+- Support (spec `specs/pro-support.md`, wording pending the user's go):
+  Positioning: `Pro includes direct support from the maintainer.`
+  Benefits, in this order: installation help; your feature requests first;
+  kwatch fixes first. Honest limit: `It is one person, so there is no
+  guaranteed reply time.` Community: `GitHub issues and Discussions, best
+  effort.` Pro channel: app.kwatch.dev > Get help (never a public address).
+  Never: "24/7", "SLA", "guaranteed", "priority" without saying over what,
+  response-time numbers.
 
 ## 8. Numbers and words to avoid
 

@@ -9,8 +9,6 @@ import {useSession} from '../session';
 import {useClusters} from '../useClusters';
 import {DOCS_URL} from '../config';
 
-export const MIN_REFRESH_MS = 400;
-const REFRESH_ERROR = 'Could not refresh. Check your connection and try again.';
 
 const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
 
@@ -23,8 +21,8 @@ function LastSeen({unix, skewMs}: {unix: number; skewMs: number}) {
   return <span title={fmtUtcFull(unix)}>Last seen {fmtLastSeenAgo(unix, now + skewMs)}</span>;
 }
 
-function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'} {
-  if (l.status === 'active') return {label: 'active', tone: 'neutral'};
+function statusOf(l: License): {label: string; tone: 'ok' | 'warn' | 'bad'} {
+  if (l.status === 'active') return {label: 'active', tone: 'ok'};
   if (l.status === 'suspended') return {label: l.status, tone: 'warn'};
   return {label: l.status, tone: 'bad'};
 }
@@ -313,31 +311,11 @@ export default function Licenses() {
   const reloadAll = useCallback(async () => {
     await Promise.all([reload(), reloadClusters()]);
   }, [reload, reloadClusters]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshFailed, setRefreshFailed] = useState(false);
-  const [announce, setAnnounce] = useState('');
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setTick(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
-  // Manual refresh: busy state stays up for at least MIN_REFRESH_MS so it registers.
-  async function refresh() {
-    setRefreshing(true);
-    setRefreshFailed(false);
-    setAnnounce('');
-    try {
-      const [results] = await Promise.all([
-        Promise.all([reload(), reloadClusters()]),
-        new Promise((r) => setTimeout(r, MIN_REFRESH_MS)),
-      ]);
-      const failed = results.some((ok) => !ok);
-      setRefreshFailed(failed);
-      setAnnounce(failed ? REFRESH_ERROR : 'Refreshed');
-    } finally {
-      setRefreshing(false);
-    }
-  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>('');
   const [trialKey, setTrialKey] = useState<{lid: string; key: string} | null>(null);
@@ -400,38 +378,15 @@ export default function Licenses() {
               {free && (
                 <span className="small muted">
                   <span className="mono count">{free.used} of {free.limit}</span> free Pro licenses used
-                  {where ? ` · ${where}` : ''}
                 </span>
               )}
               <span className="small muted" title={fmtUtcFull(updatedAt / 1000)}>
                 {fmtRefreshed(updatedAt, Math.max(tick, updatedAt))}
               </span>
-              <span className="sr-only" aria-live="polite">{announce}</span>
-              <button
-                type="button"
-                className="icon-btn"
-                aria-label={refreshing ? 'Refreshing…' : 'Refresh'}
-                title="Refresh"
-                disabled={refreshing}
-                aria-busy={refreshing || undefined}
-                onClick={() => void refresh()}
-              >
-                {refreshing ? (
-                  <span className="spinner" aria-hidden="true" />
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                    <path d="M21 3v6h-6" />
-                  </svg>
-                )}
-              </button>
             </div>
           </div>
           {error && <div className="alert" role="alert">{error}</div>}
-          {refreshFailed && !refreshing && (
-            <div className="alert">{REFRESH_ERROR}</div>
-          )}
-          <div aria-busy={refreshing}>
+          <div>
           {sorted.map((l) => (
             <LicenseCard
               key={l.lid}
@@ -456,14 +411,7 @@ export default function Licenses() {
             <div className="get-more">
               <button type="button" className="btn-action" disabled={busy} onClick={getFree}>
                 {busy ? 'Getting your license…' : 'Get another free Pro license'}
-              </button>            </div>
-          )}
-          {!empty && (
-            <div className="small muted">
-              <p>
-                Want an alert if kwatch stops?{' '}
-                <a href={`${DOCS_URL}/heartbeat-monitor-configuration`}>Set up the dead man&rsquo;s switch.</a>
-              </p>
+              </button>
             </div>
           )}
         </>

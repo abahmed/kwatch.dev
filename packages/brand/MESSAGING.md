@@ -48,16 +48,16 @@ only to the channels you set up.
 
 ### Surfaces to update
 
-- [ ] kwatch README: benefits list order; 🔒 heading and bold line in the data
+- [x] kwatch README: benefits list order; 🔒 heading and bold line in the data
       section; small print under it.
-- [ ] kwatch.dev home: benefits grid order and copy (BenefitIcon, no emoji);
+- [x] kwatch.dev home: benefits grid order and copy (BenefitIcon, no emoji);
       new section under the hero with the bold line as its heading, the
       one-line copy and the small print.
-- [ ] docs intro: benefits order and copy; docs data page (what stays, what
+- [x] docs intro: benefits order and copy; docs data page (what stays, what
       is sent) uses the same small print.
-- [ ] kwatch.dev Pro page: data point per `specs/pro-page.md`.
+- [x] kwatch.dev Pro page: data point per `specs/pro-page.md`.
 - [ ] app.kwatch.dev: any benefits list follows the new order.
-- [ ] Check each claim against the code with kwatch-core before merging.
+- [x] Check each claim against the code with kwatch-core before merging.
 
 ## 3. Emoji rules
 

@@ -36,7 +36,7 @@ variable (default `/config/config.yaml`).
 
 ```shell
 kwatch version
-# version v1.0.0 (commit abc1234, built 2026-01-01T00:00:00Z)
+# version v1.1.0 (commit abc1234, built 2026-01-01T00:00:00Z)
 
 kwatch version --json
 ```

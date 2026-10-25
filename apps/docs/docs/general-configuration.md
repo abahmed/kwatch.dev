@@ -30,7 +30,7 @@ alert channel; the defaults already cover the common Kubernetes failures.
 1. Change one setting.
 2. Run `kwatch lint`.
 3. Apply the config through `kwatch.sh` and wait for the Pod to become ready.
-4. Use `kwatch lint --check` or `/test-alert` after changing a provider.
+4. Use `kwatch lint --check` or `kwatch test-alert` after changing a provider.
 
 Every default below is the value used by the binary unless the installation
 method says otherwise. TLS, heartbeat, and active probes are opt-in. Metrics

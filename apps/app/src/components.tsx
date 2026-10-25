@@ -47,8 +47,8 @@ export function Shell() {
       if ((err as ApiError)?.status !== 401) {
         setSignOutError(
           (err as ApiError)?.code === 'network'
-            ? 'Could not sign you out. Check your connection and try again.'
-            : 'Could not sign you out. Please try again.',
+            ? 'Could not sign you out. Check your connection, then try again.'
+            : 'Could not sign you out. Try again.',
         );
         return;
       }

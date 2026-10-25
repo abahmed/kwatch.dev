@@ -70,7 +70,7 @@ export async function apiFetch<T = unknown>(
     res = await fetch(`${API_URL}${path}`, {
       method: init.method ?? 'GET',
       credentials: 'include',
-      headers: init.body ? {'Content-Type': 'application/json'} : undefined,
+      headers: init.method && init.method !== 'GET' ? {'Content-Type': 'application/json'} : undefined,
       body: init.body ? JSON.stringify(init.body) : undefined,
     });
   } catch {
@@ -95,15 +95,15 @@ export async function apiFetch<T = unknown>(
   return (text ? JSON.parse(text) : {}) as T;
 }
 
-const post = (path: string, body?: unknown) => apiFetch(path, {method: 'POST', body});
+const post = <T = unknown>(path: string, body?: unknown) => apiFetch<T>(path, {method: 'POST', body});
 const lic = (lid: string, action: string) => `/account/licenses/${encodeURIComponent(lid)}/${action}`;
 
 export const getAccount = () => apiFetch<AccountResponse>('/account');
 export const startSignin = (email: string, turnstileToken: string) =>
   post('/auth/start', {email, turnstile_token: turnstileToken});
-export const verifySignin = (t: string) => post('/auth/verify', {t});
+export const verifySignin = (t: string) => post<{ok?: boolean; email?: string}>('/auth/verify', {t});
 export const logout = () => post('/auth/logout');
-export const logoutAll = () => post('/auth/logout-all');
+export const logoutAll = () => post<{ok: boolean; revoked?: number}>('/auth/logout-all');
 export const getFreeLicense = () => apiFetch<{license?: License; key?: string}>('/account/trial', {method: 'POST'});
 export const moveLicense = (lid: string) => post(lic(lid, 'transfer'));
 export const replaceKey = (lid: string) => apiFetch<{key?: string}>(lic(lid, 'regenerate'), {method: 'POST'});

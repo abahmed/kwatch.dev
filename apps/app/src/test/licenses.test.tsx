@@ -138,7 +138,7 @@ describe('/licenses', () => {
     const user = userEvent.setup();
     renderAt('/licenses');
     await user.click(await screen.findByRole('button', {name: 'Show key'}));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Too many key requests');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Too many requests');
   });
 
   it('shows the new free license key once', async () => {

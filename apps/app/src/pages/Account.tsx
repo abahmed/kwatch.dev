@@ -42,7 +42,7 @@ export default function Account() {
       await logoutAll();
       navigate('/signin', {replace: true});
     } catch (err) {
-      setAllError(errorMessage(err, 'Could not sign you out everywhere. Please try again.'));
+      setAllError(errorMessage(err, 'Could not sign you out of every device. Try again.'));
       setAllBusy(false);
     }
   }
@@ -63,7 +63,7 @@ export default function Account() {
         <p className="body">Signs you out on every browser and device, including this one.</p>
         {allError && <div className="alert" role="alert">{allError}</div>}
         <button type="button" className="btn btn-sm" disabled={allBusy} onClick={signOutEverywhere}>
-          {allBusy ? 'Logging out…' : 'Log out of all devices'}
+          {allBusy ? 'Signing out…' : 'Sign out of all devices'}
         </button>
       </section>
       <section className="danger">

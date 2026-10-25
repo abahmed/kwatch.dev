@@ -29,8 +29,8 @@ function Confirm({t}: {t: string}) {
     setBusy(true);
     setError('');
     try {
-      await verifySignin(t);
-      navigate('/licenses', {replace: true});
+      const r = await verifySignin(t);
+      navigate('/licenses', {replace: true, state: r?.email ? {signedInAs: r.email} : undefined});
     } catch (err) {
       if ((err as ApiError).code === 'link_expired') setExpired(true);
       else setError(errorMessage(err, 'Something went wrong. Please try again.'));

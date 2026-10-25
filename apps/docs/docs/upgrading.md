@@ -57,6 +57,12 @@ Other things to know:
 - Telemetry is on by default and can be turned off with `telemetry.enabled: false`
   under **Edit settings**. The update check is controlled by
   `upgrader.disableUpdateCheck`. See [General configuration](/general-configuration#-minimal-adoption-telemetry).
+- **Annotation prefix migration.** Since v1.1.0, kwatch reads annotations and
+  labels under `kwatch.dev/` instead of `kwatch.io/`. Existing objects annotated
+  with `kwatch.io/maintenance`, `kwatch.io/maintenance-until`, `kwatch.io/ack`,
+  `kwatch.io/owner` or `kwatch.io/skip-probe` are no longer recognized. Re-annotate
+  them with the `kwatch.dev/` prefix, or set the `maintenance.annotation` /
+  `maintenance.untilAnnotation` config keys explicitly.
 - Open the cluster port 10250 to the nodes if you run a NetworkPolicy: kwatch reads
   node stats directly from each kubelet.
 
@@ -86,8 +92,8 @@ kwatch is down until the new manifests are applied.
 ## If you use Helm (advanced)
 
 Helm is a short pointer here; the installer is the supported path. The chart
-repository is `https://kwatch.dev/charts`, and the `v1.0.0` release ships
-chart `1.0.0`. `helm upgrade` with your existing values from `v0.10.x` works.
+repository is `https://kwatch.dev/charts`, and the `v1.1.0` release ships
+chart `1.1.0`. `helm upgrade` with your existing values from `v0.10.x` works.
 The default `rbac.mode` is `least-privilege`; pass `--set rbac.mode=full` to
 watch custom resources and kinds added later. The chart rejects unknown
 values, so compare your values file with the chart's `values.yaml` before

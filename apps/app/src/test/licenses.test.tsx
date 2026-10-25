@@ -141,14 +141,6 @@ describe('/licenses', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Too many key requests');
   });
 
-  it('falls back to masking a legacy full key', async () => {
-    mockApi({'GET /account': {body: account({licenses: [license({key_masked: undefined, key: 'KW1-abcdefghijklmnopqrstuvwxyz-f3a9Qk'})]})}});
-    renderAt('/licenses');
-    const card = await screen.findByRole('region', {name: 'License lic_1'});
-    expect(card.textContent).toContain('KW1-••••••f3a9Qk');
-    expect(card.textContent).not.toContain('abcdefgh');
-  });
-
   it('shows the new free license key once', async () => {
     let created = false;
     mockApi({

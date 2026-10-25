@@ -182,7 +182,16 @@ function Request({linkExpired}: {linkExpired: boolean}) {
 
 export default function Signin() {
   const [params] = useSearchParams();
-  const t = params.get('t');
+  // Keep the one-time token in state, then remove it from the URL (history, referrers).
+  const [t] = useState(() => params.get('t'));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('t')) {
+      const rest = new URLSearchParams(window.location.search);
+      rest.delete('t');
+      const qs = rest.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+  }, []);
   if (t) return <Confirm t={t} />;
   return <Request linkExpired={params.get('error') === 'link_expired'} />;
 }

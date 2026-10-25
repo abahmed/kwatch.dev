@@ -1,5 +1,4 @@
 import {API_URL} from './config';
-import {maskKey} from './format';
 
 export type License = {
   lid: string;
@@ -7,10 +6,8 @@ export type License = {
   status: 'active' | 'revoked' | 'suspended' | 'expired';
   issued_at: number;
   expires_at: number;
-  /** Masked key for display. Older API versions sent the full `key` instead. */
+  /** Masked key for display. The API never lists the full key. */
   key_masked?: string | null;
-  /** Legacy: present only on API versions before masking. Never stored. */
-  key?: string;
   activation: null | {
     cluster: string;
     first_seen: number;
@@ -106,16 +103,15 @@ export const startSignin = (email: string, turnstileToken: string) =>
   post('/auth/start', {email, turnstile_token: turnstileToken});
 export const verifySignin = (t: string) => post('/auth/verify', {t});
 export const logout = () => post('/auth/logout');
+export const logoutAll = () => post('/auth/logout-all');
 export const getFreeLicense = () => apiFetch<{license?: License; key?: string}>('/account/trial', {method: 'POST'});
 export const moveLicense = (lid: string) => post(lic(lid, 'transfer'));
 export const replaceKey = (lid: string) => apiFetch<{key?: string}>(lic(lid, 'regenerate'), {method: 'POST'});
 export const deleteAccount = () => apiFetch('/account', {method: 'DELETE'});
 export const revealKey = (lid: string) => apiFetch<{lid: string; key: string}>(lic(lid, 'key'), {method: 'POST'});
 
-/** Masked key text for a license view; tolerates the pre-masking API shape. */
 export function displayKey(l: License): string {
-  if (l.key_masked) return l.key_masked;
-  return l.key ? maskKey(l.key) : '';
+  return l.key_masked ?? '';
 }
 export const getClusters = () => apiFetch<{clusters: Cluster[]; srv_time?: number; latest_version?: string | null}>('/account/clusters');
 export const sendSupport = (req: SupportRequest) => apiFetch<{ref: string}>('/support', {method: 'POST', body: req});

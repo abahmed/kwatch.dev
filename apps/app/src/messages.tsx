@@ -53,6 +53,14 @@ export function errorMessage(err: unknown, fallback: string, limit?: number): Re
       return 'Disposable email addresses are not accepted. Please use a permanent address.';
     case 'invalid_email':
       return 'That does not look like a valid email address.';
+    case 'wrong_browser':
+    case 'browser_mismatch':
+    case 'different_browser':
+      return 'Open the link in the browser where you asked for it, or get a new link here.';
+    case 'reauth_required':
+    case 'recent_login_required':
+    case 'stale_session':
+      return 'For your security, sign in again first. Then try again.';
     case 'turnstile_failed':
       return 'The verification check failed. Please try again.';
   }

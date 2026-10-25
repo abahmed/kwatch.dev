@@ -1,7 +1,8 @@
-import {useEffect, useId, useRef} from 'react';
+import {useEffect, useId, useRef, useState} from 'react';
 import type {ReactNode, RefObject} from 'react';
 import {NavLink, Outlet, useNavigate} from 'react-router-dom';
-import {logout} from './api';
+import {logout, logoutAll} from './api';
+import type {ApiError} from './api';
 import {DOCS_URL, SITE_URL} from './config';
 import {useSession} from './session';
 
@@ -35,11 +36,22 @@ export function Shell() {
   const {data} = useSession();
   const navigate = useNavigate();
 
-  async function signOut() {
+  const [signOutError, setSignOutError] = useState('');
+
+  async function signOut(all = false) {
+    setSignOutError('');
     try {
-      await logout();
-    } catch {
-      /* leave regardless */
+      await (all ? logoutAll() : logout());
+    } catch (err) {
+      // 401 means the session is already gone; anything else may have left it active.
+      if ((err as ApiError)?.status !== 401) {
+        setSignOutError(
+          (err as ApiError)?.code === 'network'
+            ? 'Could not sign you out. Check your connection and try again.'
+            : 'Could not sign you out. Please try again.',
+        );
+        return;
+      }
     }
     navigate('/signin', {replace: true});
   }
@@ -62,9 +74,10 @@ export function Shell() {
         </a>
         <span className="who">
           {data.account.email} ·{' '}
-          <button type="button" className="link" onClick={signOut}>
+          <button type="button" className="link" onClick={() => signOut()}>
             Sign out
           </button>
+          {signOutError && <span className="alert" role="alert">{signOutError}</span>}
         </span>
       </nav>
       <div className="main">

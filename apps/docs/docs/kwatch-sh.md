@@ -22,7 +22,7 @@ Requirements:
   resources
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 To inspect it before running it:
@@ -75,7 +75,7 @@ screen after it connects to a cluster.
 The manager is intentionally run without lifecycle arguments:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 After selecting a cluster, it detects the running kwatch Deployment and shows

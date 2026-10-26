@@ -416,7 +416,7 @@ Server error: `We could not send your request. Nothing was sent. Try again, and 
 Heading `Request sent`
 Body: `We will reply by e-mail to {email}. Replies come from our support address, so check your spam folder if you do not see one.`
 Reference: `Reference KW-4F7A2C` (mono, selectable, Copy button; 6 characters from a confusion-free alphabet).
-Line `When we do, reply with your diagnostics file attached.` Block `Make the diagnostics file now`: `1 Run the installer: /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` `2 Choose Save diagnostics to file.` `3 Keep the file ready. Secrets are removed and nothing is uploaded.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
+Line `When we do, reply with your diagnostics file attached.` Block `Make the diagnostics file now`: `1 Run the installer: bash <(curl -fsSL https://kwatch.dev/kwatch.sh)` `2 Choose Save diagnostics to file.` `3 Keep the file ready. Secrets are removed and nothing is uploaded.` Buttons: `Back to clusters` (secondary). We do not promise a reply time.
 
 The page keeps the reference only in memory; refreshing returns to the empty form (no thread storage).
 

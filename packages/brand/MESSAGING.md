@@ -105,7 +105,7 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
 - Installer: "One command, and it walks you through it." Always first.
 - Helm: "Already use Helm?" with the chart as the alternative. RBAC modes,
   values and Secrets access live below, collapsed.
-- Command: `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"`
+- Command: `bash <(curl -fsSL https://kwatch.dev/kwatch.sh)`
 - Licenses are managed only through the installer's License / Pro menu.
 
 ## 7. Editions

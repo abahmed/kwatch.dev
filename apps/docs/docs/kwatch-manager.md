@@ -26,7 +26,7 @@ You need:
 Run:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 If you prefer to inspect the script first:
@@ -84,7 +84,7 @@ different namespace:
 
 ```bash
 KWATCH_NAMESPACE=platform-monitoring \
-  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+  bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 The default release name is `kwatch`. To run a second managed instance, give
@@ -94,7 +94,7 @@ own namespace):
 ```bash
 KWATCH_RELEASE=payments-monitor \
 KWATCH_NAMESPACE=payments-monitoring \
-  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+  bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 If the namespace already exists and is shared with other workloads, the manager
@@ -103,7 +103,7 @@ explicitly opt in only when appropriate:
 
 ```bash
 KWATCH_ALLOW_NAMESPACE_LABELS=true \
-  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+  bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 New namespaces created by the manager are marked as managed. Uninstall removes

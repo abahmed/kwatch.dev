@@ -9,7 +9,7 @@ import {fmtAgoLong, fmtDate} from '../format';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
 
-const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
+const INSTALLER = 'bash <(curl -fsSL https://kwatch.dev/kwatch.sh)';
 const MIN = 20;
 const MAX = 4000;
 const TOPICS: [string, string][] = [

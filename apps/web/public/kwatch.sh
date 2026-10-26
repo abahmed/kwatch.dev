@@ -3926,7 +3926,7 @@ migrate_legacy_silences() {
       ignoreNodeMessages) rule_key=nodeMessages ;;
     esac
     values=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
-      -o "jsonpath={range .spec.$field[*]}{.}{\"\\n\"}{end}" 2>/dev/null || true)
+      -o "jsonpath={range .spec.${field}[*]}{.}{\"\\n\"}{end}" 2>/dev/null || true)
     [ -n "$values" ] || continue
     first=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
       -o 'jsonpath={.spec.silences}' 2>/dev/null || true)

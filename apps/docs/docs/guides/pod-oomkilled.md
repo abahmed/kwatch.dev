@@ -51,7 +51,7 @@ Community includes OOM detection and the root-cause headline. Pro adds log excer
 One command, and it walks you through it.
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 Community is free forever; Pro is free during early access. See

@@ -55,7 +55,7 @@ Owner: kwatch-web (`apps/web/src/pages/pro.astro`). Copy follows
 ### 4. How to get Pro (`id="get-pro"`)
 - Heading: `Get Pro in three steps`
 1. `Get a key` / `Sign in at app.kwatch.dev with your email and press "Get a free Pro license". Your key appears right away.`
-2. `Run the installer` / `One command, and it walks you through it.` then the mono block `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` with a copy button. Note: `Already installed? Run it again.`
+2. `Run the installer` / `One command, and it walks you through it.` then the mono block `bash <(curl -fsSL https://kwatch.dev/kwatch.sh)` with a copy button. Note: `Already installed? Run it again.`
 3. `Add the key` / `Choose License / Pro, then Add or replace key.`
 - Helper line: `Licenses are managed only through the installer.` Do not show a
   helm values path for keys.

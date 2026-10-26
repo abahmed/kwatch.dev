@@ -14,7 +14,7 @@ Update kwatch with the same [`kwatch.sh` installer](/kwatch-sh) you used to inst
 1. Run the installer against the cluster kwatch runs in:
 
    ```bash
-   /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+   bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
    ```
 
 2. Choose **Upgrade kwatch**.

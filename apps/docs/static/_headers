@@ -9,6 +9,7 @@
 # index is a same-origin JSON file). img-src allows https: because some doc
 # pages embed external badges and screenshots.
 /*
+  ! Access-Control-Allow-Origin
   Strict-Transport-Security: max-age=15552000; includeSubDomains
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY

@@ -22,8 +22,8 @@ function LastSeen({unix, skewMs}: {unix: number; skewMs: number}) {
   return <span title={fmtUtcFull(unix)}>{fmtLastSeenAgo(unix, now + skewMs)}</span>;
 }
 
-function statusOf(l: License): {label: string; tone: 'ok' | 'warn' | 'bad'} {
-  if (l.status === 'active') return {label: 'active', tone: 'ok'};
+function statusOf(l: License): {label: string; tone: 'neutral' | 'warn' | 'bad'} {
+  if (l.status === 'active') return {label: 'active', tone: 'neutral'};
   if (l.status === 'suspended') return {label: l.status, tone: 'warn'};
   return {label: l.status, tone: 'bad'};
 }

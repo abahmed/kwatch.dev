@@ -126,7 +126,7 @@ const license: [string, string][] = [
         <h3>Run the installer</h3>
         <p>One command, and it walks you through it.</p>
         <div class="cmd">
-          <code id="install-cmd">/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"</code>
+          <code id="install-cmd">bash <(curl -fsSL https://kwatch.dev/kwatch.sh)</code>
           <button type="button" class="copy" data-copy="install-cmd" aria-label="Copy install command">Copy</button>
         </div>
         <p class="note">Already installed? Run it again.</p>

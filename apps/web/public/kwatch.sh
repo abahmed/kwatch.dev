@@ -3904,9 +3904,10 @@ migration_notice() {
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = deprecated ] || continue
     current=$(config_value "$path")
-    [ -n "$current" ] &&
+    [ -z "$current" ] ||
       ui_warn "⚠️ Deprecated config detected: $path (use $replacement)"
   done
+  return 0
 }
 
 migrate_legacy_silences() {

@@ -20,7 +20,8 @@ exception is the anonymous telemetry ping described below.
 | Data | When | Why |
 | --- | --- | --- |
 | Email address | You sign up or sign in | To create your account, send sign-in links and send license notices (for example, a license about to expire) |
-| Session cookie (`kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
+| Session cookie (`__Host-kw_session`) | You sign in | To keep you signed in. It is strictly necessary; we store only a hash of it |
+| Sign-in binding cookie (`__Host-kw_signin`) | You ask for a sign-in link | To make sure the link is opened in the same browser. It is strictly necessary and short-lived |
 | License usage: license ID, hashed cluster ID, cluster proof hash, instance public key, kwatch version, node count, last renewal time | A licensed kwatch activates, or checks its license once a day | To bind one license to one cluster, prevent key sharing and show the cluster on your account page |
 | License event log: activations, moves, renewals that failed, emails sent | License changes | To enforce transfer and free-license limits and investigate abuse |
 | Free-license records: a one-way hash of your email and, for work email domains, the domain name (for example `acme.com`) | You get a free Pro license | To limit free Pro licenses to 2 clusters per account or per company domain |

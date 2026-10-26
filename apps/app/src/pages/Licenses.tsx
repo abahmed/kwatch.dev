@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useState} from 'react';
 import type {ReactNode} from 'react';
+import {useLocation} from 'react-router-dom';
 import {getFreeLicense, displayKey, moveLicense, replaceKey, revealKey} from '../api';
 import type {Cluster, License} from '../api';
 import {Dialog, usePageTitle} from '../components';
@@ -358,8 +359,11 @@ export default function Licenses() {
     </button>
   );
 
+  const signedInAs = (useLocation().state as {signedInAs?: string} | null)?.signedInAs;
+
   return (
     <>
+      {signedInAs && <p className="notice" role="status">Signed in as {signedInAs}</p>}
       {empty && data.trial_available ? (
         <div className="empty">
           <div>

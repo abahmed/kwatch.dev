@@ -48,11 +48,15 @@ export function errorMessage(err: unknown, fallback: string, limit?: number): Re
     case 'not_found':
       return 'We could not find that license. Reload the page and try again.';
     case 'rate_limited':
-      return 'Too many key requests. Please wait a minute and try again.';
+      return 'Too many requests. Wait a minute, then try again.';
     case 'disposable_email':
       return 'Disposable email addresses are not accepted. Please use a permanent address.';
     case 'invalid_email':
       return 'That does not look like a valid email address.';
+    case 'link_other_browser':
+      return 'This link only works in the browser where you asked for it. Open it there, or get a new link.';
+    case 'reauth_required':
+      return 'This needs a recent sign-in. Sign in again, then try again.';
     case 'turnstile_failed':
       return 'The verification check failed. Please try again.';
   }

@@ -632,9 +632,18 @@ case "$LAST_COMMAND_ERROR" in
   *) echo "mismatch message unclear: $LAST_COMMAND_ERROR" >&2; exit 1 ;;
 esac
 
-# A release with no SHA256SUMS (rc.19 and older) warns and continues when not interactive.
-warning=$(verify_release_file v1.0.0-rc.19 deploy/deploy.yaml "$manifest" 2>&1 </dev/null) || {
-  echo "a release without SHA256SUMS was refused" >&2
+# A release with no SHA256SUMS (rc.19 and older) fails closed when not interactive.
+if verify_release_file v1.0.0-rc.19 deploy/deploy.yaml "$manifest" >/dev/null 2>&1 </dev/null; then
+  echo "a release without SHA256SUMS was accepted non-interactively" >&2
+  exit 1
+fi
+case "$LAST_COMMAND_ERROR" in
+  *KWATCH_ALLOW_UNVERIFIED*) ;;
+  *) echo "unverified message unclear: $LAST_COMMAND_ERROR" >&2; exit 1 ;;
+esac
+# KWATCH_ALLOW_UNVERIFIED=1 is the explicit opt-out.
+warning=$(KWATCH_ALLOW_UNVERIFIED=1 verify_release_file v1.0.0-rc.19 deploy/deploy.yaml "$manifest" 2>&1 </dev/null) || {
+  echo "the explicit opt-out was refused" >&2
   exit 1
 }
 grep -Fq 'publishes no SHA256SUMS' <<<"$warning"

@@ -29,8 +29,8 @@ function Confirm({t}: {t: string}) {
     setBusy(true);
     setError('');
     try {
-      await verifySignin(t);
-      navigate('/licenses', {replace: true});
+      const r = await verifySignin(t);
+      navigate('/licenses', {replace: true, state: r?.email ? {signedInAs: r.email} : undefined});
     } catch (err) {
       if ((err as ApiError).code === 'link_expired') setExpired(true);
       else setError(errorMessage(err, 'Something went wrong. Please try again.'));
@@ -182,7 +182,16 @@ function Request({linkExpired}: {linkExpired: boolean}) {
 
 export default function Signin() {
   const [params] = useSearchParams();
-  const t = params.get('t');
+  // Keep the one-time token in state, then remove it from the URL (history, referrers).
+  const [t] = useState(() => params.get('t'));
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('t')) {
+      const rest = new URLSearchParams(window.location.search);
+      rest.delete('t');
+      const qs = rest.toString();
+      window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+  }, []);
   if (t) return <Confirm t={t} />;
   return <Request linkExpired={params.get('error') === 'link_expired'} />;
 }

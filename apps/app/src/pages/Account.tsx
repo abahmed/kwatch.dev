@@ -1,7 +1,7 @@
 import {useState} from 'react';
 import type {ReactNode} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {deleteAccount} from '../api';
+import {deleteAccount, logoutAll} from '../api';
 import {usePageTitle} from '../components';
 import {fmtDate} from '../format';
 import {errorMessage} from '../messages';
@@ -32,6 +32,21 @@ export default function Account() {
     }
   }
 
+  const [allBusy, setAllBusy] = useState(false);
+  const [allError, setAllError] = useState<ReactNode>('');
+
+  async function signOutEverywhere() {
+    setAllBusy(true);
+    setAllError('');
+    try {
+      await logoutAll();
+      navigate('/signin', {replace: true});
+    } catch (err) {
+      setAllError(errorMessage(err, 'Could not sign you out of every device. Try again.'));
+      setAllBusy(false);
+    }
+  }
+
   return (
     <>
       <h1>Account</h1>
@@ -43,6 +58,14 @@ export default function Account() {
         <dt>Member since</dt>
         <dd>{fmtDate(data.account.created_at)}</dd>
       </dl>
+      <section>
+        <p className="danger-title">Sign-in sessions</p>
+        <p className="body">Signs you out on every browser and device, including this one.</p>
+        {allError && <div className="alert" role="alert">{allError}</div>}
+        <button type="button" className="btn btn-sm" disabled={allBusy} onClick={signOutEverywhere}>
+          {allBusy ? 'Signing out…' : 'Sign out of all devices'}
+        </button>
+      </section>
       <section className="danger">
         <p className="danger-title">Delete account</p>
         <p className="body">

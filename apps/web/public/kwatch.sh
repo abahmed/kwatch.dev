@@ -4474,7 +4474,8 @@ sha256_of_file() {
 # deploy/crd.yaml). Returns 0 when the file is verified, or when the release
 # predates SHA256SUMS and the operator accepts that. Returns 1 with
 # LAST_COMMAND_ERROR set on a mismatch, a missing entry, a failed signature
-# or when the checksums cannot be fetched: those are never skipped.
+# or when the checksums cannot be fetched: those are never skipped. A release
+# without SHA256SUMS fails when non-interactive unless KWATCH_ALLOW_UNVERIFIED=1.
 verify_release_file() {
   local version="$1" repo_path="$2" file="$3"
   local sums bundle code expected actual
@@ -4489,8 +4490,13 @@ verify_release_file() {
       rm -f "$sums" "$bundle"
       ui_warn "⚠️ $version publishes no SHA256SUMS, so $repo_path cannot be verified."
       ui_detail "   Releases from v1.0.0-rc.20 on are checksummed; older ones are not."
-      if [ -t 0 ] && ! confirm_action "Continue without verification" "n"; then
-        LAST_COMMAND_ERROR="download of $repo_path for $version was not verified and you declined to continue"
+      if [ -t 0 ]; then
+        if ! confirm_action "Continue without verification" "n"; then
+          LAST_COMMAND_ERROR="download of $repo_path for $version was not verified and you declined to continue"
+          return 1
+        fi
+      elif [ "${KWATCH_ALLOW_UNVERIFIED:-}" != "1" ]; then
+        LAST_COMMAND_ERROR="$version publishes no SHA256SUMS and this run is non-interactive, so $repo_path was not applied. Set KWATCH_ALLOW_UNVERIFIED=1 to install without verification."
         return 1
       fi
       return 0

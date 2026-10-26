@@ -62,13 +62,14 @@ Verified in the repos:
 - `hello@kwatch.dev` is the general contact (privacy, terms, app).
 
 Decided: **Get help at app.kwatch.dev/help (Help.tsx) is the Pro channel.** Every surface links straight to `https://app.kwatch.dev/help` and uses the name "Get help" as the app does. The app copy already says "we" and names nobody, so the app stays unchanged. It proves
-the license, attaches cluster facts, and keeps the address out of public
-pages. Do not publish `support@kwatch.dev` as a link. Do not add a Pro GitHub
-label. 
+the license, attaches cluster facts, and stays the primary channel.
+`support@kwatch.dev` is a real, monitored mailbox (Zoho Mail; `hello@` is the main
+mailbox, `support@` and `ab@` are aliases) and may be published as a secondary contact,
+always after the Get help link. Transactional emails set `Reply-To: support@kwatch.dev` and say
+"Reply to this email or get help at app.kwatch.dev/help". Do not add a Pro GitHub
+label.
 
-Dependency: spec `pro-readiness-rc21.md` open question 6 (does the
-`support@kwatch.dev` mailbox exist and who reads it) must be answered
-before any surface goes live. See decision 1.
+Mailbox confirmed by the lead (pro-readiness-rc21.md open question 6 is closed).
 
 ## Exact copy per surface
 
@@ -191,7 +192,7 @@ focus. "Get help" is bold in running text, as for other UI labels.
 
 ## Decisions (closed by the user)
 
-1. Mailbox: proceed; the lead confirms `support@kwatch.dev` before go-live.
+1. Mailbox: confirmed live and monitored; `support@kwatch.dev` may be published.
 2. No reply-time wording anywhere.
 3. "First" applies. Internal note only, never on marketing surfaces: security reports are handled first under the security policy.
 4. Get help at app.kwatch.dev is the only Pro channel.

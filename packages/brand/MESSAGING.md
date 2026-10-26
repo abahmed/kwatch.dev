@@ -122,7 +122,7 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
   Benefits, in this order: installation help; your feature requests first;
   kwatch fixes first. Community: `Community support on GitHub` /
   `GitHub issues and Discussions.` Support copy states benefits only: no
-  caveats, limits, reply-time lines or "best effort". Pro channel: app.kwatch.dev/help, named "Get help" (never a public address).
+  caveats, limits, reply-time lines or "best effort". Pro channel: app.kwatch.dev/help, named "Get help" (primary). `support@kwatch.dev` is a monitored mailbox and may be published as a secondary contact; transactional emails set Reply-To to it and say `Reply to this email or get help at app.kwatch.dev/help`.
   Never say who answers (no "maintainer", "team", "one person"). Never:
   "24/7", "SLA", "guaranteed", "priority" without saying over what,
   response-time numbers.

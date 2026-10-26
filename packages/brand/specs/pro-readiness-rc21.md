@@ -458,4 +458,4 @@ Real `<label>`s, errors in `aria-live="polite"` beside the field plus a summary 
 3. **Namespace in messages:** the next step in the app uses `kwatch`. Should the ping carry the installed namespace so the command is exact?
 4. **Test alert and paging providers:** can each resolve a test event? Otherwise exclude them from "all providers".
 5. **Redaction source of truth:** one Go list in `internal/redact` called through the pod (`kwatch redact`), or a shell subset?
-6. **Support inbox replies:** `support@kwatch.dev` must accept mail from users (Reply-To replies go there and back); confirm the mailbox exists and who reads it.
+6. **Support inbox replies:** `support@kwatch.dev` must accept mail from users (Reply-To replies go there and back); mailbox confirmed live and monitored (closed).

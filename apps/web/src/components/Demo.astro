@@ -1,0 +1,111 @@
+---
+// Product demo: asciinema-player plays a real install and the alert it sends.
+// The player is an npm dependency, loaded only when this section nears the viewport.
+---
+<section id="demo" class="demo wrap section" aria-labelledby="demo-h">
+  <p class="eyebrow">See it work</p>
+  <h2 id="demo-h">One command to install. One message when something breaks.</h2>
+  <p class="demo-lede">Install kwatch on a fresh cluster, connect Discord, deploy a failing app. The message names what broke, why, and the command to run.</p>
+
+  <figure class="demo-still">
+    <img src="/demo/kwatch-demo-last.png" width="900" height="572" loading="lazy" decoding="async" alt="A terminal after kubectl apply shows checkout-api in CrashLoopBackOff. A Discord message from kwatch says checkout-api has never worked since it was created, that it fails with connection refused to port 6379, and to run kubectl rollout status deployment/checkout-api -n default." />
+  </figure>
+
+  <div class="stage" hidden>
+    <div class="win" aria-hidden="true">
+      <div class="bar"><i></i><i></i><i></i><span>laborant@k3s: kwatch</span></div>
+      <div class="term"></div>
+    </div>
+    <div class="alert" role="group" aria-label="The alert kwatch sends to Discord">
+      <div class="hd"><div class="av">k</div><div><span class="nm">kwatch</span><span class="app">APP</span><span class="tm">just now</span><div class="ch"># kwatch-demo</div></div></div>
+      <div class="body">
+        <p>🟠 <b>checkout-api</b> in <b>default</b> has never worked since it was created.<br />
+        It fails with <code>FATAL: dial tcp 10.96.0.42:6379: connect: connection refused</code>.<br />
+        Its last run lasted two seconds; four restarts since its pod was created three minutes ago.<br />
+        It runs a single replica.<br />
+        It has recovered and failed again six times recently.<br />
+        To see the rollout state, run</p>
+        <pre>kubectl rollout status deployment/checkout-api -n default</pre>
+        <em>Checked: node node01 is healthy for 3 other pods.</em>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const root = document.getElementById('demo');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (root && !reduce) {
+    const stage = root.querySelector<HTMLElement>('.stage')!;
+    const still = root.querySelector<HTMLElement>('.demo-still')!;
+    const term = root.querySelector<HTMLElement>('.term')!;
+    const alert = root.querySelector<HTMLElement>('.alert')!;
+    stage.hidden = false;
+    still.hidden = true;
+
+    let player: any;
+    let AP: any;
+
+    const run = () => {
+      alert.classList.remove('on');
+      term.replaceChildren();
+      player = AP.create('/demo/kwatch-demo.cast', term, {
+        autoPlay: true, speed: 1.5, idleTimeLimit: 1.2, fit: 'width', terminalFontSize: '15px', controls: false,
+      });
+      player.addEventListener('ended', () => {
+        window.setTimeout(() => alert.classList.add('on'), 400);
+        window.setTimeout(() => { player.dispose(); run(); }, 9000);
+      });
+    };
+
+    const load = async () => {
+      await import('asciinema-player/dist/bundle/asciinema-player.css');
+      AP = await import('asciinema-player');
+      run();
+    };
+
+    const io = new IntersectionObserver((es) => {
+      if (es.some((e) => e.isIntersecting)) { io.disconnect(); load(); }
+    }, { rootMargin: '300px' });
+    io.observe(root);
+  }
+</script>
+
+<style>
+  .demo { border-bottom: 1px solid var(--line); }
+  h2 { margin-top: 10px; font-family: var(--font-display); font-weight: 800; font-size: clamp(32px, 2.4vw + 18px, 52px); line-height: 1.02; letter-spacing: -0.035em; max-width: 20ch; }
+  .demo-lede { margin-top: 16px; color: var(--text-soft); max-width: var(--measure); }
+  .demo-still { margin: 40px 0 0; }
+  .demo-still img { display: block; width: 100%; max-width: 900px; height: auto; border-radius: 12px; border: 1px solid var(--ink-line); }
+  .stage { position: relative; margin-top: 40px; max-width: 1000px; padding-bottom: 28px; }
+  .stage[hidden] { display: none; }
+  .win { border-radius: 12px; overflow: hidden; background: #0d1117; border: 1px solid var(--ink-line); box-shadow: 0 24px 60px rgba(14, 17, 22, .28); }
+  .bar { height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #161b22; border-bottom: 1px solid var(--ink-line); }
+  .bar i { width: 12px; height: 12px; border-radius: 50%; display: block; background: #3a3f47; }
+  .bar span { margin-left: 10px; color: var(--ink-muted); font-family: var(--font-mono); font-size: 13px; }
+  .term { aspect-ratio: 110 / 33; min-width: 0; }
+  .alert {
+    position: absolute; right: -8px; bottom: 0; width: min(500px, 88%); background: #313338; border-radius: 10px; padding: 16px 18px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .45); font: 15px/1.45 system-ui, -apple-system, 'Noto Sans', sans-serif; color: #dbdee1;
+    opacity: 0; transform: translateY(30px) scale(.97); transition: opacity .6s cubic-bezier(.2, .8, .2, 1), transform .6s cubic-bezier(.2, .8, .2, 1);
+  }
+  .alert.on { opacity: 1; transform: none; }
+  .hd { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .av { width: 38px; height: 38px; flex: none; border-radius: 50%; background: #1f6feb; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; }
+  .nm { font-weight: 600; color: #f2f3f5; }
+  .app { background: #5865f2; color: #fff; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 4px; margin-left: 4px; }
+  .tm, .ch { color: #949ba4; font-size: 12px; }
+  .tm { margin-left: 6px; }
+  .alert b { color: #f2f3f5; }
+  .alert code { background: #2b2d31; border-radius: 4px; padding: 1px 4px; font: 13px var(--font-mono); overflow-wrap: anywhere; }
+  .alert pre { background: #2b2d31; border: 1px solid #1e1f22; border-radius: 6px; padding: 8px 10px; margin: 8px 0 6px; font: 13px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .alert p { margin: 0; }
+  .alert em { color: #b5bac1; }
+  @media (max-width: 760px) {
+    .stage { padding-bottom: 0; }
+    .alert { position: static; width: auto; margin-top: 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .alert { transition: none; }
+  }
+</style>

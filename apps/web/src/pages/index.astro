@@ -3,6 +3,7 @@ import Base from '../layouts/Base.astro';
 import BenefitIcon from '../components/BenefitIcon.astro';
 import Panel from '../components/Panel.astro';
 import DataFlows from '../components/DataFlows.astro';
+import Demo from '../components/Demo.astro';
 
 const failures = ['CrashLoopBackOff', 'OOMKilled', 'ImagePullBackOff', 'NodeNotReady', 'FailedScheduling', 'CertificateExpiring', 'PVC Pending', 'WebhookTimeout', 'RolloutStuck', 'CronJob missed'];
 
@@ -147,6 +148,8 @@ const jsonLd = [
       ))}
     </div>
   </div>
+
+  <Demo />
 
   <DataFlows facts />
 

@@ -72,6 +72,8 @@ generated: true
 | `app.hideProHints` | boolean | `false` | active | Remove the note that names what kwatch Pro adds from Community messages. |
 | `license.key` | string | `empty` | active | kwatch Pro license key; reference it as $&#123;KWATCH_LICENSE_KEY&#125;. The KWATCH_LICENSE_KEY variable wins over this setting. Empty runs the Community edition. |
 | `app.communityProvider` | string | `empty` | active | Alert provider the Community edition keeps when several are configured; empty keeps the first by name. |
+| `dashboard.enabled` | boolean | `false` | active | Serve the read-only incident dashboard API on a separate listener; Pro only, off by default. |
+| `dashboard.port` | integer | `8061` | active | Port for the dashboard API listener; must not equal healthCheck.port. |
 
 ## Security
 
@@ -82,6 +84,7 @@ generated: true
 | `heartbeatMonitor.url` | string | `empty` | secret | External dead-man heartbeat URL; stored only through a mounted Secret. |
 | `kubelet.insecureSkipVerify` | boolean | `false` | active | Skip kubelet serving certificate verification for direct node stats reads; only for self-signed kubelet certificates. |
 | `healthCheck.statusEndpoint` | boolean | `false` | active | Serve the read-only /status view (object names, no authentication) on the health port; off by default. |
+| `dashboard.mode` | string | `local` | active | How people reach the dashboard: local (port-forward) or shared (Ingress, https only; sign-in over plain http is refused). |
 
 ## Noise reduction
 

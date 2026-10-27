@@ -111,7 +111,7 @@ kubectl cluster-info
 ### 2. Run the installer
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 The installer asks where alerts should go, stores credentials safely in a

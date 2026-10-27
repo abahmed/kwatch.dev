@@ -51,7 +51,7 @@ Community detects image pull failures. The parts of these messages that name the
 One command, and it walks you through it.
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 Community is free forever; Pro is free during early access. See

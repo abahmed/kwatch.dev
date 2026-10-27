@@ -68,7 +68,7 @@ Copy (exact):
 - Subhead (MESSAGING section 1): `kwatch runs inside your Kubernetes cluster, traces every failure back to what started it, and sends one message: what broke, why, who changed it, and what to do next.`
 - Install block (the primary action): a Geist Mono command field with a Copy button.
   - Label above, 13px mono: `Install in one command`
-  - Field: `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"`
+  - Field: `bash <(curl -fsSL https://kwatch.dev/kwatch.sh)`
   - Copy button label: `Copy`; after click, `Copied` for 2s, announced via `aria-live="polite"`. No-JS: the command is plain selectable text in the page; the Copy button is progressive enhancement, rendered `hidden` and revealed by a small script, so without JS the visitor still sees and selects the command.
   - Under the field, 15px `--text-muted`: `It walks you through it and checks your cluster before it changes anything.`
 - Secondary row: one link, `Pro is free during early access →` (to `#editions`). No Helm link in the hero; Helm lives in docs and the FAQ answer "Can I install with Helm?".

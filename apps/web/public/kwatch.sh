@@ -3904,9 +3904,10 @@ migration_notice() {
     IFS='|' read -r path type default category description status replacement <<<"$entry"
     [ "$status" = deprecated ] || continue
     current=$(config_value "$path")
-    [ -n "$current" ] &&
+    [ -z "$current" ] ||
       ui_warn "⚠️ Deprecated config detected: $path (use $replacement)"
   done
+  return 0
 }
 
 migrate_legacy_silences() {
@@ -3925,7 +3926,7 @@ migrate_legacy_silences() {
       ignoreNodeMessages) rule_key=nodeMessages ;;
     esac
     values=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
-      -o "jsonpath={range .spec.$field[*]}{.}{\"\\n\"}{end}" 2>/dev/null || true)
+      -o "jsonpath={range .spec.${field}[*]}{.}{\"\\n\"}{end}" 2>/dev/null || true)
     [ -n "$values" ] || continue
     first=$(kubectl -n "$NAMESPACE" get kwatchconfig "$RELEASE" \
       -o 'jsonpath={.spec.silences}' 2>/dev/null || true)

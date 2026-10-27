@@ -30,7 +30,7 @@ The [kwatch.sh installer](/kwatch-sh) is the way to set up a license.
 Run it:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 Then open **License / Pro** and choose **Add or replace key**, and paste your
@@ -42,7 +42,7 @@ same command, and the installer stores and applies the key without prompting:
 
 ```bash
 KWATCH_LICENSE_KEY=YOUR_KEY \
-  /bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+  bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 ## How activation works
@@ -97,7 +97,7 @@ both count toward the same limit of 3 moves per 30 days.
 [kwatch.sh installer](/kwatch-sh):
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 Choose **License / Pro**, then **Move license to this cluster**. The installer

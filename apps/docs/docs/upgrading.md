@@ -17,7 +17,7 @@ tells you what to expect when you move to it. The upgrade runs through the
 Run the installer and select your cluster:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 - **A running `v0.10.x`.** The installer offers **Uninstall legacy kwatch and

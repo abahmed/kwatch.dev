@@ -566,7 +566,7 @@ letter case; an empty value counts as unset, and any other text fails startup
 
 ## 🔑 License
 
-Setup is through the installer's **License / Pro** menu (run `/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"` and choose **Add or replace key**). One license covers one cluster. See [Community vs Pro](/editions) and [License](/license).
+Setup is through the installer's **License / Pro** menu (run `bash <(curl -fsSL https://kwatch.dev/kwatch.sh)` and choose **Add or replace key**). One license covers one cluster. See [Community vs Pro](/editions) and [License](/license).
 
 Without a key kwatch runs the Community edition and makes no license call.
 With a key, the leader replica activates it against `https://api.kwatch.dev`

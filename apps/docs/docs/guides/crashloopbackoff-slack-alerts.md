@@ -53,7 +53,7 @@ Community detects crash loops and sends the root-cause headline to one channel. 
 One command, and it walks you through it.
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 Community is free forever; Pro is free during early access. See

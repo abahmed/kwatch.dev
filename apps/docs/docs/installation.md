@@ -51,7 +51,7 @@ default. kwatch runs as one pod; there is no high availability in v1.
 Run one command:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
 ```
 
 The manager will:

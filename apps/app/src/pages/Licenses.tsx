@@ -11,7 +11,7 @@ import {useClusters} from '../useClusters';
 import {DOCS_URL} from '../config';
 
 
-const INSTALLER = '/bin/bash -c "$(curl -fsSL https://kwatch.dev/kwatch.sh)"';
+const INSTALLER = 'bash <(curl -fsSL https://kwatch.dev/kwatch.sh)';
 
 function LastSeen({unix, skewMs}: {unix: number; skewMs: number}) {
   const [now, setNow] = useState(() => Date.now());

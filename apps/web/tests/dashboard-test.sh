@@ -307,6 +307,97 @@ eq "emoji dropped without UTF-8 under NO_COLOR" "$out" "Ingress"
 out=$(TERM=xterm dash_e 🌐 Ingress)
 has "emoji kept normally" "$out" "🌐"
 
+# ---- Community sees only the Pro hint; nothing is created ------------------------------
+license_is_community() { return 0; }
+: >"$LOG"
+out=$(dashboard_flow 2>&1 </dev/null)
+has "community hint" "$out" "The dashboard is part of Pro, which is free during early access."
+has "community key hint" "$out" 'choose "License / Pro" in the main menu'
+hasnt "community: no dashboard action reaches the cluster" "$(cat "$LOG")" "apply"
+hasnt "community: no patch" "$(cat "$LOG")" "patch"
+hasnt "community: no secret" "$(cat "$LOG")" "create secret"
+out=$(dash_share_flow 2>&1 </dev/null)
+hasnt "community share creates nothing" "$(cat "$LOG")" "apply"
+license_is_community() { return 1; }
+
+# ---- Turn off returns the Deployment to the plain manifest -------------------------------
+if command -v python3 >/dev/null 2>&1; then
+  TMPD=$(mktemp -d)
+  cat >"$TMPD/base.json" <<'JSON'
+{"spec":{"template":{"spec":{"containers":[{"name":"kwatch","image":"ghcr.io/abahmed/kwatch:v1.3.0","env":[{"name":"CONFIG_FILE","value":"/config/config.yaml"},{"name":"KWATCH_LICENSE_KEY","valueFrom":{"secretKeyRef":{"name":"kwatch-license","key":"license-key","optional":true}}}],"ports":[{"name":"health","containerPort":8060}],"volumeMounts":[{"name":"data","mountPath":"/var/lib/kwatch"}]}],"volumes":[{"name":"data","emptyDir":{}}]}}}}
+JSON
+  cat >"$TMPD/merge.py" <<'PY'
+import json, sys
+KEYS = {"env": "name", "ports": "containerPort", "volumeMounts": "mountPath", "volumes": "name", "containers": "name"}
+def merge(base, patch, field=None):
+    if isinstance(patch, dict):
+        if not isinstance(base, dict):
+            return patch
+        out = dict(base)
+        for k, v in patch.items():
+            if k == "$patch":
+                continue
+            out[k] = merge(base.get(k), v, k) if k in base else strip(v)
+        return out
+    if isinstance(patch, list) and field in KEYS:
+        key = KEYS[field]
+        out = list(base or [])
+        for item in patch:
+            idx = next((i for i, b in enumerate(out) if b.get(key) == item.get(key)), None)
+            if item.get("$patch") == "delete":
+                if idx is not None:
+                    out.pop(idx)
+            elif idx is None:
+                out.append(strip(item))
+            else:
+                out[idx] = merge(out[idx], item, field)
+        return out
+    return patch
+def strip(v):
+    if isinstance(v, dict):
+        return {k: strip(x) for k, x in v.items() if k != "$patch"}
+    if isinstance(v, list):
+        return [strip(x) for x in v if not (isinstance(x, dict) and x.get("$patch") == "delete")]
+    return v
+base = json.load(open(sys.argv[1]))
+for p in sys.argv[2:]:
+    base = merge(base, json.load(open(p)))
+print(json.dumps(base, sort_keys=True))
+PY
+  canon() { python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])), sort_keys=True))' "$1"; }
+  for combo in "local false " "shared true " "shared false kwatch-dashboard-tls"; do
+    # shellcheck disable=SC2086
+    set -- $combo
+    dash_deployment_patch kwatch "$1" "$2" "${3:-}" >"$TMPD/on.json"
+    dash_deployment_patch kwatch off false "" >"$TMPD/off.json"
+    after=$(python3 "$TMPD/merge.py" "$TMPD/base.json" "$TMPD/on.json" "$TMPD/off.json")
+    eq "turn off restores the plain Deployment ($combo)" "$after" "$(canon "$TMPD/base.json")"
+    on_state=$(python3 "$TMPD/merge.py" "$TMPD/base.json" "$TMPD/on.json")
+    hasnt "baseline differs from on-state ($combo)" "$on_state" "$(canon "$TMPD/base.json")"
+    has "on-state sets the env ($combo)" "$on_state" "KWATCH_DASHBOARD_ENABLED"
+  done
+  rm -rf "$TMPD"
+fi
+
+# Turn off deletes the Service, Secret and recorded exposure objects, labelled only.
+reset_fixtures
+DASH_STATE=shared
+dash_record_load() { DASH_REC_OBJECTS="ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"; DASH_REC_ADDR=kwatch.example.com; DASH_REC_CERT=auto; DASH_REC_CTYPE=nginx; }
+ask_yes_no() { printf 'true'; }
+dash_apply_values() { printf 'apply-values %s\n' "$1" >>"$LOG"; return 0; }
+: >"$LOG"; F_OWNER="installer"
+dash_off_flow >/dev/null 2>&1
+l=$(cat "$LOG")
+has "off removes ingress" "$l" "delete ingress kwatch-dashboard"
+has "off removes certificate" "$l" "delete certificate.cert-manager.io kwatch-dashboard-tls"
+has "off removes issued secret" "$l" "delete secret kwatch-dashboard-tls"
+has "off removes password secret" "$l" "delete secret kwatch-dashboard "
+has "off removes service" "$l" "delete service kwatch-dashboard"
+has "off strips the Deployment" "$l" "apply-values off"
+: >"$LOG"; F_OWNER=""
+dash_off_flow >/dev/null 2>&1
+hasnt "off leaves unlabelled objects" "$(cat "$LOG")" "delete ingress"
+
 # ---- questions end to end with piped answers (plain, non-tty prompts) ------------
 reset_fixtures
 F_CLASSES=$'nginx|k8s.io/ingress-nginx|true\n'; dash_detect >/dev/null 2>&1

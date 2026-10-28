@@ -9627,7 +9627,14 @@ dash_off_flow() {
   ui_detail "The link stops working and the password is deleted. Your issues and alerts are not affected.$extra"
   [ "$(ask_yes_no "Continue" "y")" = true ] || return 0
   ui_busy "Turning off the dashboard"
-  [ "$DASH_STATE" = shared ] && dash_remove_recorded
+  if [ "$DASH_STATE" = shared ]; then
+    dash_remove_recorded
+    # cert-manager writes the issued Secret itself, so it has no label; it
+    # exists only because of the Certificate removed above.
+    if [ "$DASH_REC_CERT" = auto ]; then
+      kubectl -n "$NAMESPACE" delete secret "$(dash_tls_name)" --ignore-not-found >/dev/null 2>&1 || true
+    fi
+  fi
   dash_apply_values off false "" || rc=$?
   dash_delete_if_ours secret "$(dash_name)" || true
   dash_delete_if_ours secret "$(dash_tls_name)" || true

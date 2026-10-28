@@ -30,6 +30,8 @@ const sidebars: SidebarsConfig = {
       label: 'Use',
       collapsible: false,
       items: [
+      'dashboard',
+      'dashboard-setup',
       {
         type: 'category',
         label: 'Alerts and channels',
@@ -101,6 +103,7 @@ const sidebars: SidebarsConfig = {
         'cli-commands',
         'configuration-reference',
         'feature-reference',
+        'dashboard-api',
         {
           type: 'category',
           label: 'Generated reference',

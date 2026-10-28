@@ -7992,22 +7992,33 @@ dash_state_text() {
 
 # ---- preflight and common output -------------------------------------------
 
-DASH_MIN_VERSION="v1.3.0-rc.0"
+DASH_MIN_VERSION="v1.2.0-rc.0"
+
+# True when the installed kwatch has the dashboard (v1.2.0-rc.N and newer).
+# An unknown or unparseable version counts as too old.
+dash_version_ok() {
+  local version="${INSTALL_VERSION:-}"
+  valid_release_version "$version" || return 1
+  [ "$(compare_release_versions "$version" "$DASH_MIN_VERSION")" != "-1" ]
+}
+
+# Prints the one-line notice and returns 1 when kwatch is too old.
+dash_version_gate() {
+  dash_version_ok && return 0
+  ui_info "This version of kwatch doesn't have the dashboard yet. Upgrade kwatch from the main menu first (it needs v1.2 or newer)."
+  return 1
+}
 
 # Prints the failure copy (3.2, 3.8) and returns 1 when the dashboard cannot be
 # used right now. Silent and 0 when fine.
 dash_preflight() {
   local deployment
+  dash_version_gate || return 1
   LICENSE_COMMUNITY_CACHE=""
   if license_is_community; then
     ui_info "The dashboard is part of Pro, which is free during early access."
     ui_info "Add your key first: choose \"License / Pro\" in the main menu."
     ui_info "Get a free key at https://app.kwatch.dev"
-    return 1
-  fi
-  if [ -n "${INSTALL_VERSION:-}" ] &&
-    [ "$(compare_release_versions "$INSTALL_VERSION" "$DASH_MIN_VERSION")" = "-1" ]; then
-    ui_info "This version of kwatch doesn't have the dashboard yet. Upgrade kwatch from the main menu first (it needs v1.3 or newer)."
     return 1
   fi
   if ! kubectl cluster-info >/dev/null 2>&1; then
@@ -9671,17 +9682,15 @@ dashboard_flow() {
   local choice label
   while true; do
     ui_screen "dashboard"
+    if ! dash_version_gate; then
+      ui_pause
+      break
+    fi
     LICENSE_COMMUNITY_CACHE=""
     if license_is_community; then
       ui_info "The dashboard is part of Pro, which is free during early access."
       ui_info "Add your key first: choose \"License / Pro\" in the main menu."
       ui_info "Get a free key at https://app.kwatch.dev"
-      ui_pause
-      break
-    fi
-    if [ -n "${INSTALL_VERSION:-}" ] &&
-      [ "$(compare_release_versions "$INSTALL_VERSION" "$DASH_MIN_VERSION")" = "-1" ]; then
-      ui_info "This version of kwatch doesn't have the dashboard yet. Upgrade kwatch from the main menu first (it needs v1.3 or newer)."
       ui_pause
       break
     fi

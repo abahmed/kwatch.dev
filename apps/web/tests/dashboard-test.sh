@@ -307,6 +307,22 @@ eq "emoji dropped without UTF-8 under NO_COLOR" "$out" "Ingress"
 out=$(TERM=xterm dash_e 🌐 Ingress)
 has "emoji kept normally" "$out" "🌐"
 
+# ---- version gate: v1.2.0-rc.N and newer only ---------------------------------------------
+license_is_community() { return 1; }
+for v in v1.1.0 v1.1.0-rc.4 v1.1.9 v1.0.0 v0.10.5 "" garbage; do
+  INSTALL_VERSION="$v"; : >"$LOG"
+  out=$(dashboard_flow 2>&1 </dev/null)
+  has "blocked $v: needs v1.2" "$out" "it needs v1.2 or newer"
+  eq "blocked $v: no cluster calls" "$(wc -c <"$LOG" | tr -d ' ')" "0"
+  out=$(dash_share_flow 2>&1 </dev/null)
+  eq "blocked $v: share makes no cluster calls" "$(wc -c <"$LOG" | tr -d ' ')" "0"
+done
+for v in v1.2.0-rc.1 v1.2.0-rc.0 v1.2.0 v1.2.3 v1.10.0 v2.0.0; do
+  INSTALL_VERSION="$v"
+  if dash_version_ok; then ok "allowed $v"; else fail "allowed $v"; fi
+done
+INSTALL_VERSION=v1.2.0
+
 # ---- Community sees only the Pro hint; nothing is created ------------------------------
 license_is_community() { return 0; }
 : >"$LOG"

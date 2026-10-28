@@ -84,7 +84,7 @@ Lists incidents, newest first.
 |---|---|
 | `state` | `active` (default list) or `resolved`. To narrow the active list, also use `settling`, `open`, `recovering` or `flapping`. Repeat the parameter or separate values with commas |
 | `namespace` | One namespace name |
-| `severity` | `page`, `notify`, `digest` or `silent`. Repeatable. In the dashboard these show as Urgent (`page`), Needs attention (`notify`) and Low (`digest`). Silent incidents are not listed |
+| `severity` | `page`, `notify`, `digest` or `silent`. Repeatable. In the dashboard these show as Urgent (`page`), Needs attention (`notify`) and Low (`digest`). Silent incidents are left out unless you ask for `silent` |
 | `q` | Search text, up to 200 characters |
 | `since` | A duration back from now, like `24h`, or an RFC 3339 time. For resolved issues it is when they resolved; for active ones, when they were last seen |
 | `limit` | How many to return. Default `100`, largest `500` |

@@ -6701,11 +6701,3021 @@ show_legacy_menu() {
   MENU_EXIT=true
 }
 
+# ---------------------------------------------------------------------------
+# Dashboard (Pro). Spec: packages/brand/specs/dashboard-phase2.md, sections 3
+# and 7c. The manager installs from the release manifest, not Helm, so it does
+# what the chart would: it creates the <release>-dashboard Secret and Service
+# and wires the KWATCH_DASHBOARD_* variables the chart's Deployment template
+# sets (enabled, port, mode, trust proxy, tls) onto the Deployment. Everything
+# that exposes the dashboard (Ingress, HTTPRoute, VirtualService, Route,
+# LoadBalancer or NodePort Service, Certificate, TLS Secret) is created here
+# and labelled app.kwatch.dev/managed-by=installer; only labelled objects are
+# ever deleted.
+# ---------------------------------------------------------------------------
+DASH_PORT=8061
+DASH_LABEL_KEY="app.kwatch.dev/managed-by"
+DASH_LABEL_VALUE="installer"
+DASH_ALPHABET='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+DASH_POLL_INTERVAL="${KWATCH_DASHBOARD_POLL_INTERVAL:-5}"
+DASH_POLL_MAX="${KWATCH_DASHBOARD_POLL_MAX:-120}"
+DASH_ADDRESS_WAIT="${KWATCH_DASHBOARD_ADDRESS_WAIT:-60}"
+
+# Answers collected by the share flow (reset by dash_reset_answers).
+DASH_WAY=""        # local ingress gateway istio route lb nodeport proxy service
+DASH_ADDR=""
+DASH_ADDR_IP=false # the address is an IP (or, for a load balancer, not chosen yet)
+DASH_CLASS=""      # ingress class name
+DASH_CTYPE=""      # nginx traefik haproxy haproxytech contour kong alb gke agic tailscale ngrok other
+DASH_GW_NS=""
+DASH_GW_NAME=""
+DASH_CERT=""       # auto own self acm google handled none
+DASH_ISSUER=""
+DASH_ISSUER_KIND=""
+DASH_TLS_SECRET="" # Secret kwatch serves from (or the ingress presents)
+DASH_IPS=""        # comma separated
+DASH_ALB_INTERNAL=true
+DASH_ACM_ARN=""
+DASH_GKE_IP=""
+DASH_AGIC_PRIVATE=true
+DASH_TS_NAME=""
+DASH_LB_INTERNAL=true
+DASH_LB_POOL=""
+DASH_LB_IP=""
+DASH_NODEPORT=""
+
+dash_reset_answers() {
+  DASH_WAY=""; DASH_ADDR=""; DASH_ADDR_IP=false; DASH_CLASS=""; DASH_CTYPE=""
+  DASH_GW_NS=""; DASH_GW_NAME=""; DASH_CERT=""; DASH_ISSUER=""
+  DASH_ISSUER_KIND=""; DASH_TLS_SECRET=""; DASH_IPS=""; DASH_ALB_INTERNAL=true
+  DASH_ACM_ARN=""; DASH_GKE_IP=""; DASH_AGIC_PRIVATE=true; DASH_TS_NAME=""
+  DASH_LB_INTERNAL=true; DASH_LB_POOL=""; DASH_LB_IP=""; DASH_NODEPORT=""
+  return 0
+}
+
+dash_name() { printf '%s-dashboard' "$RELEASE"; }
+dash_tls_name() { printf '%s-dashboard-tls' "$RELEASE"; }
+dash_backend_tls_name() { printf '%s-dashboard-backend-tls' "$RELEASE"; }
+
+# Emoji are decoration: drop them where the terminal cannot show them.
+dash_emoji_ok() {
+  case "${TERM:-}" in dumb) return 1 ;; esac
+  if [ -n "${NO_COLOR:-}" ]; then
+    case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+      *UTF-8*|*utf-8*|*UTF8*|*utf8*) ;;
+      *) return 1 ;;
+    esac
+  fi
+  return 0
+}
+
+# dash_e <emoji> <text>
+dash_e() {
+  if dash_emoji_ok; then printf '%s %s' "$1" "$2"; else printf '%s' "$2"; fi
+}
+
+dash_lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+dash_trim() {
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"
+  v="${v%"${v##*[![:space:]]}"}"
+  printf '%s' "$v"
+}
+
+dash_is_ipv4() {
+  local ip="$1" part
+  [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || return 1
+  local IFS=.
+  for part in $ip; do
+    [ "$((10#$part))" -le 255 ] || return 1
+  done
+  return 0
+}
+
+dash_is_ipv6() {
+  [[ "$1" =~ ^[0-9a-fA-F:]+$ ]] && [[ "$1" == *:*:* ]]
+}
+
+dash_is_ip() { dash_is_ipv4 "$1" || dash_is_ipv6 "$1"; }
+
+dash_is_private_ip() {
+  local ip="$1" second
+  dash_is_ipv4 "$ip" || return 1
+  case "$ip" in
+    10.*|192.168.*|127.*) return 0 ;;
+    172.*)
+      second="${ip#172.}"; second="${second%%.*}"
+      [ "$second" -ge 16 ] && [ "$second" -le 31 ] && return 0
+      return 1
+      ;;
+  esac
+  return 1
+}
+
+dash_ip_to_int() {
+  local a b c d
+  IFS=. read -r a b c d <<<"$1"
+  printf '%s' "$(((10#$a << 24) + (10#$b << 16) + (10#$c << 8) + 10#$d))"
+}
+
+# True when an IPv4 address lies in one pool entry: "a-b" or "a/len".
+dash_ip_in_range() {
+  local ip="$1" range="$2" lo hi n len base size
+  dash_is_ipv4 "$ip" || return 1
+  n=$(dash_ip_to_int "$ip")
+  case "$range" in
+    */*)
+      base="${range%/*}"; len="${range#*/}"
+      dash_is_ipv4 "$base" || return 1
+      [[ "$len" =~ ^[0-9]+$ ]] && [ "$len" -le 32 ] || return 1
+      size=$((1 << (32 - len)))
+      lo=$(($(dash_ip_to_int "$base") / size * size))
+      hi=$((lo + size - 1))
+      ;;
+    *-*)
+      lo=$(dash_trim "${range%-*}"); hi=$(dash_trim "${range#*-}")
+      dash_is_ipv4 "$lo" && dash_is_ipv4 "$hi" || return 1
+      lo=$(dash_ip_to_int "$lo"); hi=$(dash_ip_to_int "$hi")
+      ;;
+    *) return 1 ;;
+  esac
+  [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ]
+}
+
+dash_yaml_quote() {
+  local v="${1//\\/\\\\}"
+  v="${v//\"/\\\"}"
+  printf '"%s"' "$v"
+}
+
+dash_tty_out() { [ -t 1 ]; }
+
+# ---- address and IP list validation ----------------------------------------
+
+DASH_ADDR_CLEAN=""
+DASH_ADDR_ERR=""
+dash_normalize_address() {
+  local v
+  DASH_ADDR_CLEAN=""
+  DASH_ADDR_ERR=""
+  v=$(dash_lower "$(dash_trim "$1")")
+  case "$v" in
+    http://*)
+      DASH_ADDR_ERR="kwatch only shares the dashboard over https. Type just the address, like kwatch.example.com."
+      return 1
+      ;;
+    https://*) v="${v#https://}" ;;
+  esac
+  while [[ "$v" == */ ]]; do v="${v%/}"; done
+  if dash_is_ip "$v"; then
+    DASH_ADDR_ERR="Use a name, not an IP address. A certificate needs a name."
+    return 1
+  fi
+  case "$v" in
+    *"*"*|*/*|*:*|*[[:space:]]*)
+      DASH_ADDR_ERR="Type just the address, like kwatch.example.com."
+      return 1
+      ;;
+  esac
+  if [ "${#v}" -gt 253 ] ||
+    ! [[ "$v" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$ ]]; then
+    DASH_ADDR_ERR="That doesn't look like an address. Try kwatch.example.com."
+    return 1
+  fi
+  DASH_ADDR_CLEAN="$v"
+  return 0
+}
+
+# One IP or CIDR (IPv4 or IPv6).
+dash_valid_cidr() {
+  local v="$1" ip len="" max
+  ip="${v%%/*}"
+  [ "$ip" != "$v" ] && len="${v#*/}"
+  if dash_is_ipv4 "$ip"; then max=32
+  elif dash_is_ipv6 "$ip"; then max=128
+  else return 1
+  fi
+  if [ -n "$len" ]; then
+    [[ "$len" =~ ^[0-9]+$ ]] && [ "$len" -le "$max" ] || return 1
+  fi
+  return 0
+}
+
+# Parses "a, b c" into DASH_IPS_CLEAN. Returns 1 on a bad entry, 3 for 0.0.0.0/0.
+DASH_IPS_CLEAN=""
+DASH_IPS_ERR=""
+DASH_IPS_ALL_PRIVATE=false
+dash_parse_ips() {
+  local raw="$1" item list="" all_private=true count=0
+  DASH_IPS_CLEAN=""
+  DASH_IPS_ERR=""
+  DASH_IPS_ALL_PRIVATE=false
+  raw="${raw//,/ }"
+  for item in $raw; do
+    case "$item" in
+      0.0.0.0/0|::/0)
+        DASH_IPS_ERR="0.0.0.0/0 means everyone. Leave this empty instead."
+        return 3
+        ;;
+    esac
+    if ! dash_valid_cidr "$item"; then
+      DASH_IPS_ERR="\"$item\" isn't an IP address or range. Try 203.0.113.0/24."
+      return 1
+    fi
+    dash_is_private_ip "${item%%/*}" || all_private=false
+    list="${list:+$list,}$item"
+    count=$((count + 1))
+  done
+  DASH_IPS_CLEAN="$list"
+  if [ "$count" -gt 0 ] && [ "$all_private" = true ]; then DASH_IPS_ALL_PRIVATE=true; fi
+  return 0
+}
+
+DASH_ARN_ERR=""
+dash_valid_arn() {
+  DASH_ARN_ERR=""
+  if ! [[ "$1" =~ ^arn:aws:acm:[a-z0-9-]+:[0-9]{12}:certificate/[A-Za-z0-9-]+$ ]]; then
+    DASH_ARN_ERR="That doesn't look like an ACM certificate ARN.
+It starts with arn:aws:acm: and ends with certificate/ and an ID."
+    return 1
+  fi
+  return 0
+}
+
+dash_valid_label() {
+  [[ "$1" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]]
+}
+
+# ---- detection (7c.1) ------------------------------------------------------
+
+DASH_D_CLASSES=""   # name|controller|default(true/false)
+DASH_D_GWAPI=false
+DASH_D_GATEWAYS=""  # kind|ns|name|usable|label    kind: gateway|istio
+DASH_D_GW_HIDDEN=0
+DASH_D_ISTIO=false
+DASH_D_OPENSHIFT=false
+DASH_D_APPS_DOMAIN=""
+DASH_D_CLOUD="none" # aws gce azure other none
+DASH_D_REGION=""
+DASH_D_LB=false
+DASH_D_LB_KIND=""   # cloud metallb kube-vip existing
+DASH_D_POOLS=""     # name|addresses (comma separated)
+DASH_D_NODEIP=false
+DASH_D_NODES=""     # name|address
+DASH_D_CERTMGR=false
+DASH_D_ISSUERS=""   # name|kind|type
+
+dash_controller_type() {
+  case "$1" in
+    k8s.io/ingress-nginx) printf 'nginx' ;;
+    traefik.io/ingress-controller) printf 'traefik' ;;
+    haproxy-ingress.github.io/controller) printf 'haproxy' ;;
+    haproxy.org/ingress-controller) printf 'haproxytech' ;;
+    projectcontour.io/ingress-controller) printf 'contour' ;;
+    ingress-controllers.konghq.com/kong) printf 'kong' ;;
+    ingress.k8s.aws/alb) printf 'alb' ;;
+    k8s.io/ingress-gce) printf 'gke' ;;
+    azure/application-gateway) printf 'agic' ;;
+    tailscale.com/ts-ingress) printf 'tailscale' ;;
+    ngrok.com/ingress-controller) printf 'ngrok' ;;
+    *) printf 'other' ;;
+  esac
+}
+
+dash_type_label() {
+  case "$1" in
+    nginx) printf 'nginx' ;;
+    traefik) printf 'Traefik' ;;
+    haproxy|haproxytech) printf 'HAProxy' ;;
+    contour) printf 'Contour' ;;
+    kong) printf 'Kong' ;;
+    alb) printf 'AWS ALB' ;;
+    gke) printf 'GKE' ;;
+    agic) printf 'Azure AGIC' ;;
+    tailscale) printf 'Tailscale' ;;
+    ngrok) printf 'ngrok' ;;
+    *) printf 'other' ;;
+  esac
+}
+
+dash_cloud_label() {
+  case "$1" in
+    aws) printf 'AWS' ;;
+    gce) printf 'Google Cloud' ;;
+    azure) printf 'Azure' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+dash_has_crd() {
+  kubectl get crd "$1" -o name >/dev/null 2>&1
+}
+
+# Read-only kubectl calls, once per Share flow.
+dash_detect() {
+  local name controller def provider zone normalised="" nodes="" ext int
+  DASH_D_CLASSES=""; DASH_D_GWAPI=false; DASH_D_GATEWAYS=""; DASH_D_GW_HIDDEN=0
+  DASH_D_ISTIO=false; DASH_D_OPENSHIFT=false; DASH_D_APPS_DOMAIN=""
+  DASH_D_CLOUD="none"; DASH_D_REGION=""; DASH_D_LB=false; DASH_D_LB_KIND=""
+  DASH_D_POOLS=""; DASH_D_NODEIP=false; DASH_D_NODES=""; DASH_D_CERTMGR=false
+  DASH_D_ISSUERS=""
+
+  DASH_D_CLASSES=$(kubectl get ingressclass -o \
+    'jsonpath={range .items[*]}{.metadata.name}{"|"}{.spec.controller}{"|"}{.metadata.annotations.ingressclass\.kubernetes\.io/is-default-class}{"\n"}{end}' \
+    2>/dev/null || true)
+  while IFS='|' read -r name controller def; do
+    [ -n "$name" ] || continue
+    [ "$def" = true ] || def=false
+    normalised="${normalised:+$normalised
+}$name|$controller|$def"
+  done <<<"$DASH_D_CLASSES"
+  DASH_D_CLASSES="$normalised"
+
+  if dash_has_crd gateways.gateway.networking.k8s.io; then
+    dash_detect_gateways gateway
+    if printf '%s\n' "$DASH_D_GATEWAYS" | grep -q '^gateway|'; then DASH_D_GWAPI=true; fi
+  fi
+  if dash_has_crd virtualservices.networking.istio.io; then
+    DASH_D_ISTIO=true
+    dash_detect_gateways istio
+  fi
+
+  if kubectl api-versions 2>/dev/null | grep -qx 'route.openshift.io/v1'; then
+    DASH_D_OPENSHIFT=true
+    DASH_D_APPS_DOMAIN=$(kubectl get ingresses.config.openshift.io cluster \
+      -o 'jsonpath={.spec.domain}' 2>/dev/null || true)
+  fi
+
+  provider=$(kubectl get nodes -o 'jsonpath={.items[0].spec.providerID}' \
+    2>/dev/null || true)
+  case "$provider" in
+    aws:*)
+      DASH_D_CLOUD=aws
+      zone="${provider#aws:///}"; zone="${zone%%/*}"
+      DASH_D_REGION="${zone%[a-z]}"
+      ;;
+    gce:*) DASH_D_CLOUD=gce ;;
+    azure:*) DASH_D_CLOUD=azure ;;
+    "") DASH_D_CLOUD=none ;;
+    *) DASH_D_CLOUD=other ;;
+  esac
+
+  case "$DASH_D_CLOUD" in
+    aws|gce|azure) DASH_D_LB=true; DASH_D_LB_KIND=cloud ;;
+    *)
+      if dash_has_crd ipaddresspools.metallb.io; then
+        DASH_D_LB=true; DASH_D_LB_KIND=metallb
+        DASH_D_POOLS=$(kubectl get ipaddresspools.metallb.io -A -o \
+          'jsonpath={range .items[*]}{.metadata.name}{"|"}{range .spec.addresses[*]}{@}{","}{end}{"\n"}{end}' \
+          2>/dev/null || true)
+        DASH_D_POOLS=$(printf '%s\n' "$DASH_D_POOLS" | sed 's/,$//' | sed '/^$/d')
+      elif [ -n "$(kubectl -n kube-system get pods -l app.kubernetes.io/name=kube-vip-ds \
+        -o name 2>/dev/null || true)" ]; then
+        DASH_D_LB=true; DASH_D_LB_KIND=kube-vip
+      elif [ -n "$(kubectl get svc -A -o \
+        'jsonpath={range .items[?(@.spec.type=="LoadBalancer")]}{.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}{"\n"}{end}' \
+        2>/dev/null | sed '/^$/d' | head -1 || true)" ]; then
+        DASH_D_LB=true; DASH_D_LB_KIND=existing
+      fi
+      ;;
+  esac
+
+  DASH_D_NODES=$(kubectl get nodes -o \
+    'jsonpath={range .items[*]}{.metadata.name}{"|"}{.status.addresses[?(@.type=="ExternalIP")].address}{"|"}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' \
+    2>/dev/null || true)
+  while IFS='|' read -r name ext int; do
+    [ -n "$name" ] || continue
+    ext="${ext%% *}"; int="${int%% *}"
+    if [ -n "$ext" ]; then
+      nodes="${nodes:+$nodes
+}$name|$ext"
+    elif [ -n "$int" ]; then
+      case "$DASH_D_CLOUD" in aws|gce|azure) ;; *) nodes="${nodes:+$nodes
+}$name|$int" ;; esac
+    fi
+  done <<<"$DASH_D_NODES"
+  DASH_D_NODES="$nodes"
+  if [ -n "$DASH_D_NODES" ]; then DASH_D_NODEIP=true; fi
+
+  if dash_has_crd certificates.cert-manager.io; then
+    DASH_D_CERTMGR=true
+    DASH_D_ISSUERS=$(dash_detect_issuers)
+  fi
+  return 0
+}
+
+# Gateways (Gateway API) or Istio Gateways: kind|ns|name|usable|label
+dash_detect_gateways() {
+  local kind="$1" out ns name protos froms hosts usable label
+  if [ "$kind" = gateway ]; then
+    out=$(kubectl get gateway.gateway.networking.k8s.io -A -o \
+      'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{range .spec.listeners[*]}{.protocol}{","}{end}{"|"}{range .spec.listeners[*]}{.allowedRoutes.namespaces.from}{","}{end}{"|"}{range .spec.listeners[*]}{.hostname}{","}{end}{"\n"}{end}' \
+      2>/dev/null || true)
+  else
+    out=$(kubectl get gateways.networking.istio.io -A -o \
+      'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{range .spec.servers[*]}{.port.protocol}{","}{end}{"|"}{"All,"}{"|"}{range .spec.servers[*]}{range .hosts[*]}{@}{","}{end}{end}{"\n"}{end}' \
+      2>/dev/null || true)
+  fi
+  while IFS='|' read -r ns name protos froms hosts; do
+    [ -n "$name" ] || continue
+    usable=true
+    case ",$protos" in *,HTTPS,*|*,TLS,*) ;; *) usable=false ;; esac
+    if [ "$kind" = gateway ] && [ "$usable" = true ]; then
+      case ",$froms" in
+        *,All,*|*,Selector,*) ;;
+        *) [ "$ns" = "$NAMESPACE" ] || usable=false ;;
+      esac
+    fi
+    if [ "$usable" = false ]; then
+      DASH_D_GW_HIDDEN=$((DASH_D_GW_HIDDEN + 1))
+      continue
+    fi
+    hosts="${hosts%,}"
+    label="namespace $ns"
+    if [ -n "$hosts" ]; then label="$label · https for ${hosts//,/, }"; fi
+    DASH_D_GATEWAYS="${DASH_D_GATEWAYS:+$DASH_D_GATEWAYS
+}$kind|$ns|$name|true|$label"
+  done <<<"$out"
+  return 0
+}
+
+# name|kind|type for each usable issuer (SelfSigned ones are ignored).
+dash_detect_issuers() {
+  local out name kind acme ca ss type result=""
+  out=$(kubectl get clusterissuers.cert-manager.io -o \
+    'jsonpath={range .items[*]}{.metadata.name}{"|ClusterIssuer|"}{.spec.acme.server}{"|"}{.spec.ca.secretName}{"|"}{.spec.selfSigned}{"\n"}{end}' \
+    2>/dev/null || true)
+  out="$out
+$(kubectl -n "$NAMESPACE" get issuers.cert-manager.io -o \
+    'jsonpath={range .items[*]}{.metadata.name}{"|Issuer|"}{.spec.acme.server}{"|"}{.spec.ca.secretName}{"|"}{.spec.selfSigned}{"\n"}{end}' \
+    2>/dev/null || true)"
+  while IFS='|' read -r name kind acme ca ss; do
+    [ -n "$name" ] || continue
+    if [ -n "$acme" ]; then type=ACME
+    elif [ -n "$ca" ]; then type=CA
+    elif [ -n "$ss" ]; then continue
+    else type=other
+    fi
+    result="${result:+$result
+}$name|$kind|$type"
+  done <<<"$out"
+  printf '%s' "$result"
+}
+
+# Returns 0 when decided, 1 when none, 2 when the user has to choose.
+dash_pick_issuer() {
+  local count first
+  DASH_ISSUER=""; DASH_ISSUER_KIND=""
+  [ -n "$DASH_D_ISSUERS" ] || return 1
+  count=$(printf '%s\n' "$DASH_D_ISSUERS" | sed '/^$/d' | wc -l | tr -d ' ')
+  first=$(printf '%s\n' "$DASH_D_ISSUERS" | grep -m1 '^letsencrypt-prod|' || true)
+  if [ -z "$first" ] && [ "$count" -eq 1 ]; then
+    first=$(printf '%s\n' "$DASH_D_ISSUERS" | sed -n 1p)
+  fi
+  [ -n "$first" ] || return 2
+  DASH_ISSUER="${first%%|*}"
+  first="${first#*|}"
+  DASH_ISSUER_KIND="${first%%|*}"
+  return 0
+}
+
+# ---- options (7c.2) --------------------------------------------------------
+
+DASH_OPTIONS=""
+DASH_RECOMMENDED=""
+
+dash_class_count() {
+  [ -n "$DASH_D_CLASSES" ] || { printf '0'; return 0; }
+  printf '%s\n' "$DASH_D_CLASSES" | sed '/^$/d' | wc -l | tr -d ' '
+}
+
+dash_has_default_class() {
+  printf '%s\n' "$DASH_D_CLASSES" | grep -q '|true$'
+}
+
+dash_options() {
+  local opts="1" classes
+  classes=$(dash_class_count)
+  if [ "$classes" -gt 0 ]; then opts="$opts 2"; fi
+  if [ "$DASH_D_GWAPI" = true ] || [ "$DASH_D_ISTIO" = true ]; then opts="$opts 3"; fi
+  if [ "$DASH_D_OPENSHIFT" = true ]; then opts="$opts 4"; fi
+  if [ "$DASH_D_LB" = true ]; then opts="$opts 5"; fi
+  if [ "$DASH_D_NODEIP" = true ]; then
+    case "$DASH_D_CLOUD" in aws|gce|azure) ;; *) opts="$opts 6" ;; esac
+  fi
+  opts="$opts 7 8"
+  DASH_OPTIONS="$opts"
+  DASH_RECOMMENDED=""
+  if [ "$DASH_D_OPENSHIFT" = true ]; then DASH_RECOMMENDED=4
+  elif [ "$classes" -gt 0 ] && { dash_has_default_class || [ "$classes" -eq 1 ]; }; then DASH_RECOMMENDED=2
+  elif [ "$DASH_D_GWAPI" = true ]; then DASH_RECOMMENDED=3
+  elif [ "$DASH_D_LB" = true ]; then DASH_RECOMMENDED=5
+  fi
+  return 0
+}
+
+dash_option_way() {
+  case "$1" in
+    1) printf 'local' ;;
+    2) printf 'ingress' ;;
+    3) if [ "$DASH_D_GWAPI" = true ]; then printf 'gateway'; else printf 'istio'; fi ;;
+    4) printf 'route' ;;
+    5) printf 'lb' ;;
+    6) printf 'nodeport' ;;
+    7) printf 'proxy' ;;
+    8) printf 'service' ;;
+  esac
+}
+
+dash_found_types() {
+  local controller out="" label
+  while IFS='|' read -r _ controller _; do
+    [ -n "$controller" ] || continue
+    label=$(dash_type_label "$(dash_controller_type "$controller")")
+    case ", $out," in *", $label,"*) continue ;; esac
+    out="${out:+$out, }$label"
+  done <<<"$DASH_D_CLASSES"
+  printf '%s' "$out"
+}
+
+# ---- steps per option (7c.5) ----------------------------------------------
+
+dash_steps() {
+  case "$DASH_WAY" in
+    ingress)
+      case "$DASH_CTYPE" in
+        alb) printf 'class addr alb_scheme alb_arn ips' ;;
+        gke) printf 'class addr gke_notice gke_ip' ;;
+        agic) printf 'class addr agic_pub tls' ;;
+        tailscale) printf 'class ts_name' ;;
+        ngrok) printf 'class ngrok_domain' ;;
+        contour|kong|other) printf 'class addr tls' ;;
+        *) printf 'class addr tls ips' ;;
+      esac
+      ;;
+    gateway|istio) printf 'gw_pick addr' ;;
+    route) printf 'addr tls ips' ;;
+    lb) printf 'lb_who lb_pool lb_ip addr tls ips' ;;
+    nodeport) printf 'np_port addr tls' ;;
+    proxy) printf 'addr proxy_gate' ;;
+    service) printf 'addr tls' ;;
+  esac
+}
+
+# Whether the platform can enforce an IP limit (enforcement table).
+dash_ips_enforced() {
+  case "$DASH_WAY" in
+    route|lb) return 0 ;;
+    ingress)
+      case "$DASH_CTYPE" in nginx|traefik|haproxy|haproxytech|alb) return 0 ;; esac
+      ;;
+  esac
+  return 1
+}
+
+# Pod side values the chart would take: "mode trustProxy tlsSecret".
+dash_values() {
+  case "$DASH_WAY" in
+    local) printf 'local false ' ;;
+    ingress)
+      case "$DASH_CTYPE" in
+        alb|gke|agic) printf 'shared false %s' "$(dash_backend_tls_name)" ;;
+        *) printf 'shared true ' ;;
+      esac
+      ;;
+    gateway|istio|route|proxy) printf 'shared true ' ;;
+    lb|nodeport|service) printf 'shared false %s' "$DASH_TLS_SECRET" ;;
+    *) printf 'local false ' ;;
+  esac
+}
+
+# ---- objects the installer creates -----------------------------------------
+
+# Resource word kubectl understands for a short kind.
+dash_kind() {
+  case "$1" in
+    httproute) printf 'httproute.gateway.networking.k8s.io' ;;
+    virtualservice) printf 'virtualservice.networking.istio.io' ;;
+    route) printf 'route.route.openshift.io' ;;
+    certificate) printf 'certificate.cert-manager.io' ;;
+    managedcertificate) printf 'managedcertificate.networking.gke.io' ;;
+    frontendconfig) printf 'frontendconfig.networking.gke.io' ;;
+    middleware) printf 'middleware.traefik.io' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+DASH_NETPOL=false
+
+# Whether the setup needs an installer-made front certificate object.
+dash_front_cert_needed() {
+  case "$DASH_WAY" in
+    ingress)
+      case "$DASH_CTYPE" in
+        alb|gke|tailscale|ngrok) return 1 ;;
+      esac
+      ;;
+    lb|nodeport|service) ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+# What will be created, one "resource|name|hidden" per line, in order. Used by
+# the confirm screen, the apply step and the cleanup, so they cannot disagree.
+dash_plan_objects() {
+  local svc tls
+  svc=$(dash_name)
+  tls=$(dash_tls_name)
+  case "$DASH_WAY" in
+    ingress)
+      printf 'ingress|%s|0\n' "$svc"
+      case "$DASH_CTYPE" in
+        gke)
+          printf 'managedcertificate|%s|0\n' "$svc"
+          printf 'frontendconfig|%s|0\n' "$svc"
+          ;;
+        traefik)
+          if [ -n "$DASH_IPS" ]; then printf 'middleware|%s-allow|0\n' "$svc"; fi
+          ;;
+      esac
+      case "$DASH_CTYPE" in alb|gke|agic) printf 'secret|%s|1\n' "$(dash_backend_tls_name)" ;; esac
+      ;;
+    gateway) printf 'httproute|%s|0\n' "$svc" ;;
+    istio) printf 'virtualservice|%s|0\n' "$svc" ;;
+    route) printf 'route|%s|0\n' "$svc" ;;
+    lb) printf 'service|%s-lb|0\n' "$svc" ;;
+    nodeport) printf 'service|%s-nodeport|0\n' "$svc" ;;
+  esac
+  if dash_front_cert_needed || { [ "$DASH_WAY" = ingress ] && [ "$DASH_CTYPE" = agic ]; }; then
+    case "$DASH_CERT" in
+      auto) printf 'certificate|%s|0\n' "$tls" ;;
+      self) printf 'secret|%s|0\n' "$tls" ;;
+    esac
+  fi
+  if [ "$DASH_NETPOL" = true ]; then
+    case "$DASH_WAY" in
+      ingress|gateway|istio|route|lb|nodeport) printf 'networkpolicy|%s-allow|1\n' "$svc" ;;
+    esac
+  fi
+  return 0
+}
+
+dash_objects_csv() {
+  dash_plan_objects | awk -F'|' 'NF { printf "%s%s/%s", sep, $1, $2; sep="," }'
+}
+
+# "an Ingress named kwatch-dashboard"
+dash_object_phrase() {
+  local resource="$1" name="$2"
+  case "$resource" in
+    ingress) printf 'an Ingress named %s' "$name" ;;
+    httproute) printf 'an HTTPRoute named %s' "$name" ;;
+    virtualservice) printf 'a VirtualService named %s' "$name" ;;
+    route) printf 'a Route named %s' "$name" ;;
+    service)
+      case "$DASH_WAY" in
+        lb) printf 'a Service of type LoadBalancer named %s' "$name" ;;
+        nodeport) printf 'a Service of type NodePort named %s' "$name" ;;
+        *) printf 'a Service named %s' "$name" ;;
+      esac
+      ;;
+    certificate) printf 'a Certificate named %s' "$name" ;;
+    managedcertificate) printf 'a ManagedCertificate named %s' "$name" ;;
+    frontendconfig) printf 'a FrontendConfig named %s' "$name" ;;
+    middleware) printf 'a Middleware named %s' "$name" ;;
+    secret) printf 'a Secret named %s (a self-signed certificate)' "$name" ;;
+    networkpolicy) printf 'a NetworkPolicy named %s' "$name" ;;
+    *) printf '%s %s' "$resource" "$name" ;;
+  esac
+}
+
+# ---- manifest generation ---------------------------------------------------
+
+DASH_ANN=""
+dash_ann() { DASH_ANN="$DASH_ANN    $1: $(dash_yaml_quote "$2")
+"; }
+dash_ann_single() { DASH_ANN="$DASH_ANN    $1: '$2'
+"; }
+
+dash_meta() {
+  local name="$1"
+  printf 'metadata:\n  name: %s\n  namespace: %s\n  labels:\n    %s: %s\n    app.kubernetes.io/instance: %s\n' \
+    "$name" "$NAMESPACE" "$DASH_LABEL_KEY" "$DASH_LABEL_VALUE" "$RELEASE"
+  if [ -n "$DASH_ANN" ]; then
+    printf '  annotations:\n%s' "$DASH_ANN"
+  fi
+}
+
+# key=value lines of the Deployment's pod selector.
+dash_selector_pairs() {
+  local deployment pairs
+  deployment=$(deployment_name 2>/dev/null || true)
+  pairs=$(kubectl -n "$NAMESPACE" get deployment "$deployment" -o \
+    'go-template={{range $k, $v := .spec.selector.matchLabels}}{{$k}}={{$v}}{{"\n"}}{{end}}' \
+    2>/dev/null || true)
+  [ -n "$pairs" ] || pairs="app=kwatch"
+  printf '%s\n' "$pairs"
+}
+
+dash_selector_yaml() {
+  local indent="$1" pair
+  while IFS= read -r pair; do
+    [ -n "$pair" ] || continue
+    printf '%s%s: %s\n' "$indent" "${pair%%=*}" "$(dash_yaml_quote "${pair#*=}")"
+  done < <(dash_selector_pairs)
+}
+
+dash_gen_base_service() {
+  DASH_ANN=""
+  if [ "$DASH_WAY" = ingress ] && [ "$DASH_CTYPE" = gke ]; then
+    dash_ann_single "cloud.google.com/app-protocols" '{"dashboard":"HTTPS"}'
+    dash_ann_single "cloud.google.com/neg" '{"ingress":true}'
+  fi
+  printf -- '---\napiVersion: v1\nkind: Service\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  type: ClusterIP\n  selector:\n'
+  dash_selector_yaml '    '
+  printf '  ports:\n  - name: dashboard\n    port: %s\n    targetPort: dashboard\n    protocol: TCP\n' "$DASH_PORT"
+}
+
+dash_ingress_annotations() {
+  case "$DASH_CTYPE" in
+    nginx)
+      dash_ann "nginx.ingress.kubernetes.io/ssl-redirect" "true"
+      dash_ann "nginx.ingress.kubernetes.io/force-ssl-redirect" "true"
+      if [ -n "$DASH_IPS" ]; then dash_ann "nginx.ingress.kubernetes.io/whitelist-source-range" "$DASH_IPS"; fi
+      ;;
+    traefik)
+      dash_ann "traefik.ingress.kubernetes.io/router.entrypoints" "websecure"
+      dash_ann "traefik.ingress.kubernetes.io/router.tls" "true"
+      if [ -n "$DASH_IPS" ]; then
+        dash_ann "traefik.ingress.kubernetes.io/router.middlewares" \
+          "${NAMESPACE}-$(dash_name)-allow@kubernetescrd"
+      fi
+      ;;
+    haproxy)
+      dash_ann "haproxy-ingress.github.io/ssl-redirect" "true"
+      if [ -n "$DASH_IPS" ]; then dash_ann "haproxy-ingress.github.io/allowlist-source-range" "$DASH_IPS"; fi
+      ;;
+    haproxytech)
+      dash_ann "haproxy.org/ssl-redirect" "true"
+      if [ -n "$DASH_IPS" ]; then dash_ann "haproxy.org/allow-list" "$DASH_IPS"; fi
+      ;;
+    contour)
+      dash_ann "ingress.kubernetes.io/force-ssl-redirect" "true"
+      ;;
+    kong)
+      dash_ann "konghq.com/protocols" "https"
+      dash_ann "konghq.com/https-redirect-status-code" "301"
+      ;;
+    alb)
+      if [ "$DASH_ALB_INTERNAL" = true ]; then
+        dash_ann "alb.ingress.kubernetes.io/scheme" "internal"
+      else
+        dash_ann "alb.ingress.kubernetes.io/scheme" "internet-facing"
+      fi
+      dash_ann "alb.ingress.kubernetes.io/target-type" "ip"
+      dash_ann_single "alb.ingress.kubernetes.io/listen-ports" '[{"HTTP":80},{"HTTPS":443}]'
+      dash_ann "alb.ingress.kubernetes.io/ssl-redirect" "443"
+      dash_ann "alb.ingress.kubernetes.io/backend-protocol" "HTTPS"
+      dash_ann "alb.ingress.kubernetes.io/certificate-arn" "$DASH_ACM_ARN"
+      if [ -n "$DASH_IPS" ]; then dash_ann "alb.ingress.kubernetes.io/inbound-cidrs" "$DASH_IPS"; fi
+      ;;
+    gke)
+      dash_ann "networking.gke.io/managed-certificates" "$(dash_name)"
+      dash_ann "networking.gke.io/v1beta1.FrontendConfig" "$(dash_name)"
+      if [ -n "$DASH_GKE_IP" ]; then dash_ann "kubernetes.io/ingress.global-static-ip-name" "$DASH_GKE_IP"; fi
+      ;;
+    agic)
+      dash_ann "appgw.ingress.kubernetes.io/ssl-redirect" "true"
+      dash_ann "appgw.ingress.kubernetes.io/backend-protocol" "https"
+      if [ "$DASH_AGIC_PRIVATE" = true ]; then
+        dash_ann "appgw.ingress.kubernetes.io/use-private-ip" "true"
+      else
+        dash_ann "appgw.ingress.kubernetes.io/use-private-ip" "false"
+      fi
+      ;;
+  esac
+  return 0
+}
+
+dash_gen_ingress() {
+  local svc
+  svc=$(dash_name)
+  DASH_ANN=""
+  dash_ingress_annotations
+  printf -- '---\napiVersion: networking.k8s.io/v1\nkind: Ingress\n'
+  dash_meta "$svc"
+  printf 'spec:\n  ingressClassName: %s\n' "$DASH_CLASS"
+  if [ "$DASH_CTYPE" = tailscale ]; then
+    printf '  defaultBackend:\n    service:\n      name: %s\n      port:\n        name: dashboard\n' "$svc"
+    printf '  tls:\n  - hosts:\n    - %s\n' "$DASH_TS_NAME"
+    return 0
+  fi
+  case "$DASH_CTYPE" in
+    nginx|traefik|haproxy|haproxytech|contour|kong|other|agic)
+      printf '  tls:\n  - hosts:\n    - %s\n    secretName: %s\n' "$DASH_ADDR" "$DASH_TLS_SECRET"
+      ;;
+  esac
+  printf '  rules:\n  - host: %s\n    http:\n      paths:\n      - path: /\n        pathType: Prefix\n        backend:\n          service:\n            name: %s\n            port:\n              name: dashboard\n' \
+    "$DASH_ADDR" "$svc"
+}
+
+dash_gen_middleware() {
+  local item
+  DASH_ANN=""
+  printf -- '---\napiVersion: traefik.io/v1alpha1\nkind: Middleware\n'
+  dash_meta "$(dash_name)-allow"
+  printf 'spec:\n  ipAllowList:\n    sourceRange:\n'
+  for item in ${DASH_IPS//,/ }; do printf '    - %s\n' "$item"; done
+}
+
+dash_gen_certificate() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: cert-manager.io/v1\nkind: Certificate\n'
+  dash_meta "$(dash_tls_name)"
+  printf 'spec:\n  secretName: %s\n  dnsNames:\n  - %s\n  issuerRef:\n    name: %s\n    kind: %s\n' \
+    "$(dash_tls_name)" "$DASH_ADDR" "$DASH_ISSUER" "$DASH_ISSUER_KIND"
+}
+
+dash_gen_managed_certificate() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: networking.gke.io/v1\nkind: ManagedCertificate\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  domains:\n  - %s\n' "$DASH_ADDR"
+}
+
+dash_gen_frontend_config() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: networking.gke.io/v1beta1\nkind: FrontendConfig\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  redirectToHttps:\n    enabled: true\n'
+}
+
+dash_gen_httproute() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: gateway.networking.k8s.io/v1\nkind: HTTPRoute\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  parentRefs:\n  - name: %s\n    namespace: %s\n  hostnames:\n  - %s\n  rules:\n  - backendRefs:\n    - name: %s\n      port: %s\n' \
+    "$DASH_GW_NAME" "$DASH_GW_NS" "$DASH_ADDR" "$(dash_name)" "$DASH_PORT"
+}
+
+dash_gen_virtualservice() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: networking.istio.io/v1beta1\nkind: VirtualService\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  hosts:\n  - %s\n  gateways:\n  - %s/%s\n  http:\n  - route:\n    - destination:\n        host: %s.%s.svc.cluster.local\n        port:\n          number: %s\n' \
+    "$DASH_ADDR" "$DASH_GW_NS" "$DASH_GW_NAME" "$(dash_name)" "$NAMESPACE" "$DASH_PORT"
+}
+
+dash_b64d() { base64 -d 2>/dev/null || base64 -D 2>/dev/null; }
+
+# PEM from a TLS Secret, indented for a YAML block scalar.
+dash_secret_pem() {
+  local secret="$1" key="$2" indent="$3" data
+  data=$(kubectl -n "$NAMESPACE" get secret "$secret" \
+    -o "jsonpath={.data.${key//./\\.}}" 2>/dev/null | dash_b64d || true)
+  printf '%s\n' "$data" | sed "s/^/$indent/"
+}
+
+dash_gen_route() {
+  DASH_ANN=""
+  if [ -n "$DASH_IPS" ]; then dash_ann "haproxy.router.openshift.io/ip_whitelist" "${DASH_IPS//,/ }"; fi
+  printf -- '---\napiVersion: route.openshift.io/v1\nkind: Route\n'
+  dash_meta "$(dash_name)"
+  printf 'spec:\n  host: %s\n  to:\n    kind: Service\n    name: %s\n    weight: 100\n  port:\n    targetPort: dashboard\n  tls:\n    termination: edge\n    insecureEdgeTerminationPolicy: Redirect\n' \
+    "$DASH_ADDR" "$(dash_name)"
+  if [ "$DASH_CERT" = own ]; then
+    printf '    certificate: |\n'
+    dash_secret_pem "$DASH_TLS_SECRET" tls.crt '      '
+    printf '    key: |\n'
+    dash_secret_pem "$DASH_TLS_SECRET" tls.key '      '
+  fi
+}
+
+dash_lb_annotations() {
+  if [ "$DASH_LB_INTERNAL" = true ]; then
+    case "$DASH_D_CLOUD" in
+      aws) dash_ann "service.beta.kubernetes.io/aws-load-balancer-internal" "true" ;;
+      gce) dash_ann "networking.gke.io/load-balancer-type" "Internal" ;;
+      azure) dash_ann "service.beta.kubernetes.io/azure-load-balancer-internal" "true" ;;
+    esac
+  fi
+  if [ "$DASH_D_LB_KIND" = metallb ]; then
+    if [ -n "$DASH_LB_POOL" ]; then dash_ann "metallb.universe.tf/address-pool" "$DASH_LB_POOL"; fi
+    if [ -n "$DASH_LB_IP" ]; then dash_ann "metallb.universe.tf/loadBalancerIPs" "$DASH_LB_IP"; fi
+  fi
+  return 0
+}
+
+dash_gen_lb_service() {
+  local item
+  DASH_ANN=""
+  dash_lb_annotations
+  printf -- '---\napiVersion: v1\nkind: Service\n'
+  dash_meta "$(dash_name)-lb"
+  printf 'spec:\n  type: LoadBalancer\n'
+  if [ "$DASH_D_LB_KIND" = kube-vip ] && [ -n "$DASH_LB_IP" ]; then
+    printf '  loadBalancerIP: %s\n' "$DASH_LB_IP"
+  fi
+  if [ -n "$DASH_IPS" ]; then
+    printf '  loadBalancerSourceRanges:\n'
+    for item in ${DASH_IPS//,/ }; do printf '  - %s\n' "$item"; done
+  fi
+  printf '  selector:\n'
+  dash_selector_yaml '    '
+  printf '  ports:\n  - name: https\n    port: 443\n    targetPort: dashboard\n    protocol: TCP\n'
+}
+
+dash_gen_nodeport_service() {
+  DASH_ANN=""
+  printf -- '---\napiVersion: v1\nkind: Service\n'
+  dash_meta "$(dash_name)-nodeport"
+  printf 'spec:\n  type: NodePort\n  selector:\n'
+  dash_selector_yaml '    '
+  printf '  ports:\n  - name: dashboard\n    port: %s\n    targetPort: dashboard\n    protocol: TCP\n' "$DASH_PORT"
+  if [ -n "$DASH_NODEPORT" ]; then printf '    nodePort: %s\n' "$DASH_NODEPORT"; fi
+  return 0
+}
+
+# Namespace the ingress controller or gateway runs in, for the NetworkPolicy.
+dash_controller_ns() {
+  local label=""
+  case "$DASH_WAY" in
+    istio) printf 'istio-system'; return 0 ;;
+    gateway) printf '%s' "$DASH_GW_NS"; return 0 ;;
+    route) printf 'openshift-ingress'; return 0 ;;
+  esac
+  case "$DASH_CTYPE" in
+    nginx) label='app.kubernetes.io/name=ingress-nginx' ;;
+    traefik) label='app.kubernetes.io/name=traefik' ;;
+    haproxy) label='app.kubernetes.io/name=haproxy-ingress' ;;
+    haproxytech) label='app.kubernetes.io/name=kubernetes-ingress' ;;
+    contour) label='app.kubernetes.io/name=contour' ;;
+    kong) label='app.kubernetes.io/name=kong' ;;
+    *) return 1 ;;
+  esac
+  kubectl get pods -A -l "$label" \
+    -o 'jsonpath={.items[0].metadata.namespace}' 2>/dev/null | head -1
+}
+
+# Lets the controller, or the load balancer's clients, reach the dashboard port
+# when a NetworkPolicy already limits the kwatch Pod (the chart's
+# dashboard.networkPolicyFrom peers).
+dash_gen_networkpolicy() {
+  local ns="" item
+  DASH_ANN=""
+  printf -- '---\napiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\n'
+  dash_meta "$(dash_name)-allow"
+  printf 'spec:\n  podSelector:\n    matchLabels:\n'
+  dash_selector_yaml '      '
+  printf '  policyTypes:\n  - Ingress\n  ingress:\n  - from:\n'
+  case "$DASH_WAY" in
+    gateway|istio|route|ingress) ns=$(dash_controller_ns || true) ;;
+  esac
+  if [ -n "$ns" ]; then
+    printf '    - namespaceSelector:\n        matchLabels:\n          kubernetes.io/metadata.name: %s\n' "$ns"
+  elif [ -n "$DASH_IPS" ]; then
+    for item in ${DASH_IPS//,/ }; do
+      case "$item" in */*) ;; *:*) item="$item/128" ;; *) item="$item/32" ;; esac
+      printf '    - ipBlock:\n        cidr: %s\n' "$item"
+    done
+  else
+    printf '    - ipBlock:\n        cidr: 0.0.0.0/0\n'
+  fi
+  printf '    ports:\n    - port: %s\n      protocol: TCP\n' "$DASH_PORT"
+}
+
+# Everything the chosen setup needs, as one multi-document YAML stream.
+dash_manifests() {
+  local resource name hidden
+  dash_gen_base_service
+  while IFS='|' read -r resource name hidden; do
+    [ -n "$resource" ] || continue
+    case "$resource" in
+      ingress) dash_gen_ingress ;;
+      middleware) dash_gen_middleware ;;
+      certificate) dash_gen_certificate ;;
+      managedcertificate) dash_gen_managed_certificate ;;
+      frontendconfig) dash_gen_frontend_config ;;
+      httproute) dash_gen_httproute ;;
+      virtualservice) dash_gen_virtualservice ;;
+      route) dash_gen_route ;;
+      service)
+        if [ "$DASH_WAY" = lb ]; then dash_gen_lb_service; else dash_gen_nodeport_service; fi
+        ;;
+      networkpolicy) dash_gen_networkpolicy ;;
+    esac
+  done < <(dash_plan_objects)
+  return 0
+}
+
+# ---- secrets and certificates ----------------------------------------------
+
+dash_random() {
+  local len="$1" set="$2" out
+  out=$(head -c 8192 /dev/urandom | LC_ALL=C tr -dc "$set" | head -c "$len" || true)
+  [ "${#out}" -eq "$len" ] || return 1
+  printf '%s' "$out"
+}
+
+dash_new_password() {
+  local raw
+  raw=$(dash_random 16 "$DASH_ALPHABET") || return 1
+  printf '%s-%s-%s-%s' "${raw:0:4}" "${raw:4:4}" "${raw:8:4}" "${raw:12:4}"
+}
+
+dash_label_object() {
+  kubectl -n "$NAMESPACE" label "$1" "$2" \
+    "$DASH_LABEL_KEY=$DASH_LABEL_VALUE" app.kubernetes.io/instance="$RELEASE" \
+    --overwrite >/dev/null 2>&1 || true
+}
+
+dash_secret_exists() {
+  kubectl -n "$NAMESPACE" get secret "$(dash_name)" >/dev/null 2>&1
+}
+
+# Creates the password and token Secret unless it is there; never rewrites it.
+# Values go through files, not the command line.
+dash_ensure_secret() {
+  local dir password token name
+  name=$(dash_name)
+  if dash_secret_exists; then return 0; fi
+  password=$(dash_new_password) || return 1
+  token=$(dash_random 32 'A-Za-z0-9') || return 1
+  dir=$(umask 077 && mktemp -d) || return 1
+  printf '%s' "$password" >"$dir/password"
+  printf '%s' "$token" >"$dir/token"
+  if ! kubectl -n "$NAMESPACE" create secret generic "$name" \
+    --from-file=password="$dir/password" --from-file=token="$dir/token" >/dev/null; then
+    rm -rf "$dir"
+    return 1
+  fi
+  rm -rf "$dir"
+  dash_label_object secret "$name"
+  return 0
+}
+
+dash_read_password() {
+  kubectl -n "$NAMESPACE" get secret "$(dash_name)" \
+    -o 'jsonpath={.data.password}' 2>/dev/null | dash_b64d
+}
+
+dash_set_password() {
+  local password="$1" dir enc rc=0
+  dir=$(umask 077 && mktemp -d) || return 1
+  enc=$(printf '%s' "$password" | base64 | tr -d '\n')
+  printf '{"data":{"password":"%s"}}' "$enc" >"$dir/patch.json"
+  kubectl -n "$NAMESPACE" patch secret "$(dash_name)" --type=merge \
+    --patch-file "$dir/patch.json" >/dev/null || rc=1
+  rm -rf "$dir"
+  return "$rc"
+}
+
+# dash_make_selfsigned <secret> <name-or-ip>...
+dash_make_selfsigned() {
+  local secret="$1" dir san="" item cn rc=0
+  shift
+  cn="$1"
+  command -v openssl >/dev/null 2>&1 || return 1
+  for item in "$@"; do
+    if dash_is_ip "$item"; then san="${san:+$san,}IP:$item"; else san="${san:+$san,}DNS:$item"; fi
+  done
+  dir=$(umask 077 && mktemp -d) || return 1
+  printf '[req]\ndistinguished_name=dn\nx509_extensions=v3\nprompt=no\n[dn]\nCN=%s\n[v3]\nsubjectAltName=%s\nbasicConstraints=CA:FALSE\n' \
+    "$cn" "$san" >"$dir/openssl.cnf"
+  if openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+    -keyout "$dir/tls.key" -out "$dir/tls.crt" -config "$dir/openssl.cnf" \
+    >/dev/null 2>&1; then
+    dash_delete_if_ours secret "$secret" || true
+    kubectl -n "$NAMESPACE" create secret tls "$secret" \
+      --cert="$dir/tls.crt" --key="$dir/tls.key" >/dev/null || rc=1
+    if [ "$rc" -eq 0 ]; then dash_label_object secret "$secret"; fi
+  else
+    rc=1
+  fi
+  rm -rf "$dir"
+  return "$rc"
+}
+
+# Deletes an object only when it carries the installer's label.
+dash_delete_if_ours() {
+  local resource="$1" name="$2" kind owner
+  kind=$(dash_kind "$resource")
+  owner=$(kubectl -n "$NAMESPACE" get "$kind" "$name" \
+    -o "jsonpath={.metadata.labels.app\\.kwatch\\.dev/managed-by}" 2>/dev/null || true)
+  [ "$owner" = "$DASH_LABEL_VALUE" ] || return 0
+  kubectl -n "$NAMESPACE" delete "$kind" "$name" --ignore-not-found >/dev/null 2>&1
+}
+
+# ---- the Deployment (what the chart's template sets) -------------------------
+
+# Strategic-merge patch for the kwatch container. mode "off" removes it all.
+dash_deployment_patch() {
+  local container="$1" mode="$2" trust="$3" tls="$4" name first=true var
+  name=$(dash_name)
+  printf '{"spec":{"template":{"spec":{'
+  printf '"containers":[{"name":"%s",' "$container"
+  if [ "$mode" = off ]; then
+    printf '"env":['
+    for var in KWATCH_DASHBOARD_ENABLED KWATCH_DASHBOARD_PORT KWATCH_DASHBOARD_MODE \
+      KWATCH_DASHBOARD_TRUST_PROXY KWATCH_DASHBOARD_TLS_CERT KWATCH_DASHBOARD_TLS_KEY \
+      KWATCH_DEPLOYMENT_NAME KWATCH_DASHBOARD_TOKEN KWATCH_DASHBOARD_PASSWORD; do
+      if [ "$first" = true ]; then first=false; else printf ','; fi
+      # shellcheck disable=SC2016  # "$patch" is the literal merge directive
+      printf '{"name":"%s","$patch":"delete"}' "$var"
+    done
+    # shellcheck disable=SC2016
+    printf '],"ports":[{"containerPort":%s,"$patch":"delete"}],' "$DASH_PORT"
+    # shellcheck disable=SC2016
+    printf '"volumeMounts":[{"mountPath":"/etc/kwatch/dashboard-tls","$patch":"delete"}]}],'
+    # shellcheck disable=SC2016
+    printf '"volumes":[{"name":"dashboard-tls","$patch":"delete"}]'
+  else
+    printf '"env":['
+    printf '{"name":"KWATCH_DASHBOARD_ENABLED","value":"true"},'
+    printf '{"name":"KWATCH_DASHBOARD_PORT","value":"%s"},' "$DASH_PORT"
+    printf '{"name":"KWATCH_DASHBOARD_MODE","value":"%s"},' "$mode"
+    printf '{"name":"KWATCH_DEPLOYMENT_NAME","value":"%s"},' "$(deployment_name 2>/dev/null || printf '%s' "$RELEASE")"
+    if [ "$trust" = true ]; then
+      printf '{"name":"KWATCH_DASHBOARD_TRUST_PROXY","value":"true"},'
+    else
+      # shellcheck disable=SC2016
+      printf '{"name":"KWATCH_DASHBOARD_TRUST_PROXY","$patch":"delete"},'
+    fi
+    if [ -n "$tls" ]; then
+      printf '{"name":"KWATCH_DASHBOARD_TLS_CERT","value":"/etc/kwatch/dashboard-tls/tls.crt"},'
+      printf '{"name":"KWATCH_DASHBOARD_TLS_KEY","value":"/etc/kwatch/dashboard-tls/tls.key"},'
+    else
+      # shellcheck disable=SC2016
+      printf '{"name":"KWATCH_DASHBOARD_TLS_CERT","$patch":"delete"},{"name":"KWATCH_DASHBOARD_TLS_KEY","$patch":"delete"},'
+    fi
+    printf '{"name":"KWATCH_DASHBOARD_TOKEN","value":null,"valueFrom":{"secretKeyRef":{"name":"%s","key":"token","optional":true}}},' "$name"
+    printf '{"name":"KWATCH_DASHBOARD_PASSWORD","value":null,"valueFrom":{"secretKeyRef":{"name":"%s","key":"password","optional":true}}}' "$name"
+    printf '],"ports":[{"name":"dashboard","containerPort":%s}]' "$DASH_PORT"
+    if [ -n "$tls" ]; then
+      printf ',"volumeMounts":[{"name":"dashboard-tls","mountPath":"/etc/kwatch/dashboard-tls","readOnly":true}]}],'
+      printf '"volumes":[{"name":"dashboard-tls","secret":{"secretName":"%s"}}]' "$tls"
+    else
+      # shellcheck disable=SC2016
+      printf ',"volumeMounts":[{"mountPath":"/etc/kwatch/dashboard-tls","$patch":"delete"}]}],'
+      # shellcheck disable=SC2016
+      printf '"volumes":[{"name":"dashboard-tls","$patch":"delete"}]'
+    fi
+  fi
+  printf '}}}}'
+}
+
+# Current pod side values: "enabled|mode|trust|tlscert".
+dash_env_value() {
+  kubectl -n "$NAMESPACE" get deployment "$1" \
+    -o "jsonpath={.spec.template.spec.containers[*].env[?(@.name==\"$2\")].value}" \
+    2>/dev/null || true
+}
+
+dash_current_values() {
+  local deployment="$1"
+  printf '%s|%s|%s|%s' "$(dash_env_value "$deployment" KWATCH_DASHBOARD_ENABLED)" \
+    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_MODE)" \
+    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_TRUST_PROXY)" \
+    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_TLS_CERT)"
+}
+
+# dash_apply_values <mode|off> <trust> <tls-secret>. 0 ok, 1 failed, 2 rollout slow.
+dash_apply_values() {
+  local mode="$1" trust="$2" tls="$3" deployment container
+  deployment=$(deployment_name) || return 1
+  container=$(kwatch_container_name "$deployment") || container=kwatch
+  kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=strategic \
+    -p "$(dash_deployment_patch "$container" "$mode" "$trust" "$tls")" >/dev/null || return 1
+  if ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
+    --timeout=90s >/dev/null 2>&1; then
+    return 2
+  fi
+  return 0
+}
+
+# ---- recorded setup and state ----------------------------------------------
+
+DASH_STATE="unknown"   # off local shared unknown
+DASH_REC_WAY=""; DASH_REC_CTYPE="";
+DASH_REC_ADDR=""; DASH_REC_CERT=""; DASH_REC_TLS=""
+DASH_REC_IPS=""; DASH_REC_OBJECTS=""; DASH_REC_LINK=""
+
+dash_record_clear() {
+  DASH_REC_WAY=""; DASH_REC_CTYPE="";
+  DASH_REC_ADDR=""; DASH_REC_CERT=""; DASH_REC_TLS=""
+  DASH_REC_IPS=""; DASH_REC_OBJECTS=""; DASH_REC_LINK=""
+}
+
+# Reads what the installer recorded on the dashboard Service.
+dash_record_load() {
+  local out line key value
+  dash_record_clear
+  # shellcheck disable=SC2016  # the go-template variables are not shell
+  out=$(kubectl -n "$NAMESPACE" get service "$(dash_name)" -o \
+    'go-template={{range $k, $v := .metadata.annotations}}{{$k}}={{$v}}{{"\n"}}{{end}}' \
+    2>/dev/null || true)
+  while IFS= read -r line; do
+    case "$line" in app.kwatch.dev/*=*) ;; *) continue ;; esac
+    key="${line%%=*}"; key="${key#app.kwatch.dev/}"
+    value="${line#*=}"
+    case "$key" in
+      way) DASH_REC_WAY="$value" ;;
+      ctype) DASH_REC_CTYPE="$value" ;;
+      address) DASH_REC_ADDR="$value" ;;
+      cert) DASH_REC_CERT="$value" ;;
+      tls-secret) DASH_REC_TLS="$value" ;;
+      ips) DASH_REC_IPS="$value" ;;
+      objects) DASH_REC_OBJECTS="$value" ;;
+      link) DASH_REC_LINK="$value" ;;
+    esac
+  done <<<"$out"
+  return 0
+}
+
+# Records the current answers on the Service.
+dash_record_write() {
+  local link="$1" gw=""
+  if [ -n "$DASH_GW_NAME" ]; then gw="$DASH_GW_NS/$DASH_GW_NAME"; fi
+  kubectl -n "$NAMESPACE" annotate service "$(dash_name)" --overwrite \
+    "app.kwatch.dev/way=$DASH_WAY" "app.kwatch.dev/ctype=$DASH_CTYPE" \
+    "app.kwatch.dev/class=$DASH_CLASS" "app.kwatch.dev/gateway=$gw" \
+    "app.kwatch.dev/address=$DASH_ADDR" "app.kwatch.dev/cert=$DASH_CERT" \
+    "app.kwatch.dev/issuer=$DASH_ISSUER" "app.kwatch.dev/tls-secret=$DASH_TLS_SECRET" \
+    "app.kwatch.dev/ips=$DASH_IPS" "app.kwatch.dev/objects=$(dash_objects_csv)" \
+    "app.kwatch.dev/link=$link" >/dev/null 2>&1 || true
+  return 0
+}
+
+DASH_STATE_ADDR=""
+# Sets DASH_STATE and DASH_STATE_ADDR from the Deployment and the record.
+dash_state() {
+  local deployment values enabled mode
+  DASH_STATE="unknown"
+  DASH_STATE_ADDR=""
+  deployment=$(deployment_name 2>/dev/null || true)
+  [ -n "$deployment" ] || return 0
+  kubectl -n "$NAMESPACE" get deployment "$deployment" -o name >/dev/null 2>&1 || return 0
+  values=$(dash_current_values "$deployment")
+  IFS='|' read -r enabled mode _ _ <<<"$values"
+  if [ "$enabled" != true ]; then
+    DASH_STATE=off
+    return 0
+  fi
+  if [ "$mode" = shared ]; then
+    DASH_STATE=shared
+    dash_record_load
+    DASH_STATE_ADDR="$DASH_REC_LINK"
+    [ -n "$DASH_STATE_ADDR" ] || DASH_STATE_ADDR="$DASH_REC_ADDR"
+    return 0
+  fi
+  DASH_STATE=local
+  return 0
+}
+
+dash_state_text() {
+  case "$DASH_STATE" in
+    off) printf 'off' ;;
+    local) printf 'on, local only' ;;
+    shared)
+      case "$DASH_STATE_ADDR" in
+        "") printf 'shared at your own address' ;;
+        http*) printf 'shared at %s' "$DASH_STATE_ADDR" ;;
+        *) printf 'shared at https://%s' "$DASH_STATE_ADDR" ;;
+      esac
+      ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+# ---- preflight and common output -------------------------------------------
+
+DASH_MIN_VERSION="v1.3.0-rc.0"
+
+# Prints the failure copy (3.2, 3.8) and returns 1 when the dashboard cannot be
+# used right now. Silent and 0 when fine.
+dash_preflight() {
+  local deployment
+  LICENSE_COMMUNITY_CACHE=""
+  if license_is_community; then
+    ui_info "The dashboard is part of Pro, which is free during early access."
+    ui_info "Add your key first: choose \"License / Pro\" in the main menu."
+    ui_info "Get a free key at https://app.kwatch.dev"
+    return 1
+  fi
+  if [ -n "${INSTALL_VERSION:-}" ] &&
+    [ "$(compare_release_versions "$INSTALL_VERSION" "$DASH_MIN_VERSION")" = "-1" ]; then
+    ui_info "This version of kwatch doesn't have the dashboard yet. Upgrade kwatch from the main menu first (it needs v1.3 or newer)."
+    return 1
+  fi
+  if ! kubectl cluster-info >/dev/null 2>&1; then
+    ui_error "I can't reach your cluster."
+    ui_detail "Check that kubectl works: kubectl get nodes"
+    return 1
+  fi
+  deployment=$(deployment_name 2>/dev/null || true)
+  if [ -z "$deployment" ] || ! deployment_is_running "$deployment"; then
+    ui_error "kwatch isn't running yet."
+    ui_detail "Install or repair it from the main menu, then try again."
+    return 1
+  fi
+  return 0
+}
+
+# The block printed once (3.7).
+dash_print_block() {
+  local link="$1" password="$2"
+  {
+    printf '\nYour dashboard is ready.\n\n'
+    printf '  Link      %s\n' "$link"
+    printf '  Password  %s\n\n' "$password"
+    printf 'Save the password now, in your password manager.\n'
+    printf 'You can show it again from Dashboard > Show my access link and password.\n'
+  } >&2
+  if dash_tty_out; then
+    ui_detail "Clear your terminal when you've saved it."
+  fi
+  return 0
+}
+
+dash_open_url() {
+  local url="$1"
+  if [ "$(uname -s)" = Darwin ] && command -v open >/dev/null 2>&1; then
+    open "$url" >/dev/null 2>&1 && return 0
+  fi
+  if command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$url" >/dev/null 2>&1 && return 0
+  fi
+  if command -v wslview >/dev/null 2>&1; then
+    wslview "$url" >/dev/null 2>&1 && return 0
+  fi
+  if command -v cmd.exe >/dev/null 2>&1; then
+    cmd.exe /c start "$url" >/dev/null 2>&1 && return 0
+  fi
+  ui_info "Open this link in your browser:"
+  printf '%s\n' "$url" >&2
+  return 0
+}
+
+dash_port_busy() {
+  (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null
+}
+
+# First free port from 8080 to 8090.
+dash_free_port() {
+  local port
+  for port in 8080 8081 8082 8083 8084 8085 8086 8087 8088 8089 8090; do
+    if ! dash_port_busy "$port"; then
+      printf '%s' "$port"
+      return 0
+    fi
+  done
+  return 1
+}
+
+DASH_PF_PID=""
+# Foreground port-forward; opens the browser; returns when closed.
+dash_port_forward() {
+  local lport="$1" i previous
+  kubectl -n "$NAMESPACE" port-forward "svc/$(dash_name)" "$lport:$DASH_PORT" \
+    >/dev/null 2>&1 &
+  DASH_PF_PID=$!
+  previous=$(trap -p INT)
+  trap 'kill "$DASH_PF_PID" 2>/dev/null || true' INT
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    dash_port_busy "$lport" && break
+    kill -0 "$DASH_PF_PID" 2>/dev/null || break
+    sleep 0.5
+  done
+  if kill -0 "$DASH_PF_PID" 2>/dev/null; then
+    ui_info "Opening the dashboard in your browser. Keep this window open. Press Ctrl-C to close the connection."
+    dash_open_url "http://localhost:$lport"
+  fi
+  wait "$DASH_PF_PID" 2>/dev/null || true
+  if kill -0 "$DASH_PF_PID" 2>/dev/null; then
+    kill "$DASH_PF_PID" 2>/dev/null || true
+    wait "$DASH_PF_PID" 2>/dev/null || true
+    ui_info "Connection closed. The dashboard is still on. Choose \"Open the dashboard\" to connect again."
+  else
+    ui_warn "The connection to the cluster dropped. Choose \"Open the dashboard\" to connect again."
+  fi
+  if [ -n "$previous" ]; then eval "$previous"; else trap - INT; fi
+  DASH_PF_PID=""
+  return 0
+}
+
+# Failure text for a failed kubectl: first line, then the right hint.
+dash_explain_error() {
+  local err="$1" kinds="$2" first
+  first=$(printf '%s\n' "$err" | sed -n '1p')
+  case "$err" in
+    *"admission webhook"*|*denied\ the\ request*)
+      ui_error "Your cluster refused the Ingress: $first"
+      ui_detail "Some clusters have rules for which names or annotations are allowed. Ask whoever runs the cluster, then try again."
+      ;;
+    *[Ff]orbidden*|*"cannot create"*|*"cannot patch"*)
+      ui_error "Kubernetes said no: $first"
+      ui_detail "Your kubectl user needs permission to create $kinds in the \"$NAMESPACE\" namespace."
+      ;;
+    *)
+      ui_error "I couldn't finish: ${first:-kubectl returned an error}."
+      ;;
+  esac
+}
+
+# ---- prompts ---------------------------------------------------------------
+
+dash_q() {
+  ui_busy_clear
+  printf '%s%s%s%s\n' "$UI_BOLD" "$UI_BRAND" "$1" "$UI_RESET" >&2
+}
+
+# dash_choose <default-index>; labels in DASH_M_LABELS, captions in DASH_M_HINTS.
+DASH_M_LABELS=()
+DASH_M_HINTS=()
+dash_choose() {
+  if [ "${#DASH_M_HINTS[@]}" -ne "${#DASH_M_LABELS[@]}" ]; then
+    # Captions are all-or-nothing in ui_select_captioned.
+    ui_select "$1" "${DASH_M_LABELS[@]}"
+    return
+  fi
+  ui_select_captioned "$1" "${#DASH_M_LABELS[@]}" \
+    "${DASH_M_LABELS[@]}" "${DASH_M_HINTS[@]}"
+}
+
+# Enter continues (0), Esc goes back (2), n cancels (1).
+dash_confirm_key() {
+  local prompt="$1" key rest answer
+  if ui_interactive; then
+    ui_detail "$prompt"
+    while true; do
+      IFS= read -rsn1 key || input_ended
+      case "$key" in
+        '') return 0 ;;
+        n|N) return 1 ;;
+        $'\x1b')
+          IFS= read -rsn2 -t "$UI_ESC_TIMEOUT" rest || rest=""
+          if [ -z "$rest" ]; then return 2; fi
+          ;;
+      esac
+    done
+  fi
+  while true; do
+    answer=$(ask "Continue? (y to continue, n to cancel, back to go back)" "y") || exit_expected
+    case "$answer" in
+      y|Y|yes|Yes) return 0 ;;
+      n|N|no|No) return 1 ;;
+      *) if is_back_choice "$answer"; then return 2; fi ;;
+    esac
+  done
+}
+
+# ---- the questions (7c.4 to 7c.6) ------------------------------------------
+# Each returns 0 (answered), 2 (Esc: go back) or 3 (nothing to ask).
+
+dash_class_lines() { printf '%s\n' "$DASH_D_CLASSES" | sed '/^$/d'; }
+
+dash_q_class() {
+  local name controller def count i=0 default=0 label idx
+  count=$(dash_class_count)
+  # One class: use it, no question.
+  if [ "$count" -eq 1 ]; then
+    IFS='|' read -r name controller def <<<"$(dash_class_lines | sed -n 1p)"
+    DASH_CLASS="$name"; DASH_CTYPE=$(dash_controller_type "$controller")
+    return 3
+  fi
+  DASH_M_LABELS=(); DASH_M_HINTS=()
+  while IFS='|' read -r name controller def; do
+    [ -n "$name" ] || continue
+    label="$(dash_type_label "$(dash_controller_type "$controller")")  (class \"$name\""
+    if [ "$def" = true ]; then
+      label="$label, default)"
+      default=$i
+    else
+      label="$label)"
+    fi
+    DASH_M_LABELS+=("$label")
+    i=$((i + 1))
+  done < <(dash_class_lines)
+  dash_q "Which ingress should carry the dashboard?"
+  ui_detail "Your cluster has more than one. Each is a separate front door."
+  idx=$(dash_choose "$default") || return 2
+  IFS='|' read -r name controller def <<<"$(dash_class_lines | sed -n "$((idx + 1))p")"
+  DASH_CLASS="$name"; DASH_CTYPE=$(dash_controller_type "$controller")
+  return 0
+}
+
+dash_q_gw_pick() {
+  local idx kind lines count hidden="$DASH_D_GW_HIDDEN" ns name text
+  if [ "$DASH_D_GWAPI" = true ] && [ "$DASH_D_ISTIO" = true ] &&
+    printf '%s\n' "$DASH_D_GATEWAYS" | grep -q '^istio|'; then
+    DASH_M_LABELS=("Gateway API  (an HTTPRoute)" "Istio  (a VirtualService)")
+    DASH_M_HINTS=("Pick this if your Gateway is a Kubernetes Gateway." "Pick this if you route traffic with Istio's own Gateway.")
+    dash_q "Which should I use?"
+    idx=$(dash_choose 0) || return 2
+    if [ "$idx" = 0 ]; then DASH_WAY=gateway; else DASH_WAY=istio; fi
+  elif [ "$DASH_D_GWAPI" = true ]; then DASH_WAY=gateway
+  else DASH_WAY=istio
+  fi
+  kind="$DASH_WAY"
+  lines=$(printf '%s\n' "$DASH_D_GATEWAYS" | grep "^$kind|" || true)
+  count=$(printf '%s' "$lines" | sed '/^$/d' | wc -l | tr -d ' ')
+  if [ "$count" -eq 0 ]; then
+    ui_error "That Gateway doesn't serve https."
+    ui_detail "Add an https listener with a certificate to it, or pick another."
+    return 2
+  fi
+  if [ "$count" -gt 1 ]; then
+    DASH_M_LABELS=(); DASH_M_HINTS=()
+    while IFS='|' read -r _ ns name _ text; do
+      DASH_M_LABELS+=("$name      $text")
+    done <<<"$lines"
+    dash_q "Which Gateway should carry the dashboard?"
+    ui_detail "A Gateway is a front door set up once for the whole cluster."
+    if [ "$hidden" -gt 0 ]; then ui_detail "$hidden more Gateways don't allow kwatch to use them."; fi
+    idx=$(dash_choose 0) || return 2
+    lines=$(printf '%s\n' "$lines" | sed -n "$((idx + 1))p")
+  fi
+  IFS='|' read -r _ DASH_GW_NS DASH_GW_NAME _ <<<"$lines"
+  return 0
+}
+
+DASH_PREV_ADDR=""
+DASH_PREV_IPS=""
+dash_address_hint() {
+  case "$DASH_WAY" in
+    lb|nodeport) printf 'A name like kwatch.example.com, or press Enter to use the IP address (then your browser will warn about the certificate).' ;;
+    route) printf 'OpenShift gives every app an address like this and already has a certificate for it.' ;;
+    proxy) printf 'The https address people will open, the one your proxy shows. kwatch uses it to check that everything works.' ;;
+    service) printf 'The name you will point at kwatch. kwatch uses it for its certificate.' ;;
+    *) printf "For example kwatch.example.com. You need to control this name at your DNS provider. (DNS is the phone book that turns a name into a machine's address.)" ;;
+  esac
+}
+
+DASH_TAKEN_BY=""
+# Name already used by another object that publishes hosts.
+dash_address_taken() {
+  local addr="$1" out ns name hosts
+  case "$DASH_WAY" in
+    ingress)
+      out=$(kubectl get ingress -A -o \
+        'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{range .spec.rules[*]}{.host}{" "}{end}{"\n"}{end}' 2>/dev/null || true) ;;
+    gateway)
+      out=$(kubectl get httproute.gateway.networking.k8s.io -A -o \
+        'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{range .spec.hostnames[*]}{@}{" "}{end}{"\n"}{end}' 2>/dev/null || true) ;;
+    istio)
+      out=$(kubectl get virtualservice.networking.istio.io -A -o \
+        'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{range .spec.hosts[*]}{@}{" "}{end}{"\n"}{end}' 2>/dev/null || true) ;;
+    route)
+      out=$(kubectl get route.route.openshift.io -A -o \
+        'jsonpath={range .items[*]}{.metadata.namespace}{"|"}{.metadata.name}{"|"}{.spec.host}{"\n"}{end}' 2>/dev/null || true) ;;
+    *) return 1 ;;
+  esac
+  while IFS='|' read -r ns name hosts; do
+    [ -n "$name" ] || continue
+    if [ "$ns" = "$NAMESPACE" ] && [ "$name" = "$(dash_name)" ]; then continue; fi
+    case " $hosts " in
+      *" $addr "*) DASH_TAKEN_BY="(namespace $ns)"; return 0 ;;
+    esac
+  done <<<"$out"
+  return 1
+}
+
+dash_taken_kind() {
+  case "$DASH_WAY" in
+    gateway) printf 'HTTPRoute' ;;
+    istio) printf 'VirtualService' ;;
+    route) printf 'Route' ;;
+    *) printf 'Ingress' ;;
+  esac
+}
+
+dash_q_addr() {
+  local default="" answer rc
+  if [ "$DASH_WAY" = route ] && [ -n "$DASH_D_APPS_DOMAIN" ]; then
+    default="$(dash_name)-$NAMESPACE.$DASH_D_APPS_DOMAIN"
+  fi
+  if [ -z "$default" ] && [ -n "$DASH_PREV_ADDR" ]; then default="$DASH_PREV_ADDR"; fi
+  while true; do
+    dash_q "What address should your team use?"
+    ui_detail "$(dash_address_hint)"
+    rc=0
+    answer=$(ask_or_back "Address" "$default") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if [ -z "$answer" ]; then
+      case "$DASH_WAY" in
+        lb|nodeport) DASH_ADDR=""; DASH_ADDR_IP=true; return 0 ;;
+        service) DASH_ADDR=""; return 0 ;;
+        *) return 2 ;;
+      esac
+    fi
+    if ! dash_normalize_address "$answer"; then
+      ui_warn "$DASH_ADDR_ERR"
+      continue
+    fi
+    if dash_address_taken "$DASH_ADDR_CLEAN"; then
+      ui_error "Another $(dash_taken_kind) already uses $DASH_ADDR_CLEAN $DASH_TAKEN_BY."
+      ui_detail "Pick a different address, or remove that one first."
+      continue
+    fi
+    DASH_ADDR="$DASH_ADDR_CLEAN"
+    DASH_ADDR_IP=false
+    return 0
+  done
+}
+
+dash_tls_secrets() {
+  kubectl -n "$NAMESPACE" get secret --field-selector type=kubernetes.io/tls \
+    -o 'jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null |
+    sed '/^$/d' || true
+}
+
+# Checks a TLS Secret: exists, TLS type, covers the address, not expired.
+dash_check_tls_secret() {
+  local name="$1" type crt text names date covered=false n
+  if ! type=$(kubectl -n "$NAMESPACE" get secret "$name" -o 'jsonpath={.type}' 2>/dev/null); then
+    ui_error "The Secret \"$name\" isn't in the \"$NAMESPACE\" namespace."
+    ui_detail "Create it there, or pick another."
+    return 1
+  fi
+  crt=$(kubectl -n "$NAMESPACE" get secret "$name" -o 'jsonpath={.data.tls\.crt}' 2>/dev/null | dash_b64d || true)
+  if [ "$type" != kubernetes.io/tls ] || [ -z "$crt" ] ||
+    [ -z "$(kubectl -n "$NAMESPACE" get secret "$name" -o 'jsonpath={.data.tls\.key}' 2>/dev/null)" ]; then
+    ui_error "That Secret isn't a TLS Secret."
+    ui_detail "It needs the keys tls.crt and tls.key."
+    return 1
+  fi
+  command -v openssl >/dev/null 2>&1 || return 0
+  if ! printf '%s\n' "$crt" | openssl x509 -noout -checkend 0 >/dev/null 2>&1; then
+    date=$(printf '%s\n' "$crt" | openssl x509 -noout -enddate 2>/dev/null | sed 's/^notAfter=//')
+    ui_error "That certificate expired on ${date:-an earlier date}."
+    ui_detail "Renew it, or pick another."
+    return 1
+  fi
+  if [ -n "$DASH_ADDR" ]; then
+    text=$(printf '%s\n' "$crt" | openssl x509 -noout -text 2>/dev/null || true)
+    names=$(printf '%s\n' "$text" | grep -A1 'Subject Alternative Name' | tail -1 |
+      sed 's/DNS://g; s/,//g; s/IP Address://g')
+    for n in $names; do
+      if [ "$n" = "$DASH_ADDR" ]; then covered=true; fi
+      case "$n" in
+        '*.'*) if [ "${DASH_ADDR#*.}" = "${n#\*.}" ]; then covered=true; fi ;;
+      esac
+    done
+    if [ "$covered" = false ]; then
+      ui_error "That certificate doesn't cover $DASH_ADDR."
+      ui_detail "It covers: ${names:-no names}. Pick another Secret or change the address."
+      return 1
+    fi
+  fi
+  return 0
+}
+
+dash_q_issuer() {
+  local idx name kind type
+  DASH_M_LABELS=(); DASH_M_HINTS=()
+  while IFS='|' read -r name kind type; do
+    [ -n "$name" ] || continue
+    DASH_M_LABELS+=("$name        ($kind, $type)")
+  done <<<"$DASH_D_ISSUERS"
+  dash_q "Which certificate issuer should I use?"
+  ui_detail "An issuer is the thing in your cluster that gets certificates for you (cert-manager)."
+  idx=$(dash_choose 0) || return 2
+  IFS='|' read -r DASH_ISSUER DASH_ISSUER_KIND _ <<<"$(printf '%s\n' "$DASH_D_ISSUERS" | sed -n "$((idx + 1))p")"
+  return 0
+}
+
+dash_q_tls() {
+  local issuer_rc=0 can_auto=false only_own=false only_self=false idx name secrets count rc
+  local -a acts=()
+  DASH_CERT=""; DASH_TLS_SECRET=""
+  if [ "$DASH_WAY" = route ]; then
+    if [ -n "$DASH_D_APPS_DOMAIN" ] && [[ "$DASH_ADDR" == *".$DASH_D_APPS_DOMAIN" ]]; then
+      DASH_CERT=handled
+      return 3
+    fi
+    only_own=true
+  fi
+  if [ "$DASH_ADDR_IP" = true ]; then only_self=true; fi
+  if [ "$DASH_D_CERTMGR" = true ] && [ -n "$DASH_ADDR" ] && [ "$only_own" = false ]; then
+    dash_pick_issuer || issuer_rc=$?
+    if [ "$issuer_rc" -eq 2 ]; then
+      dash_q_issuer || return 2
+      issuer_rc=0
+    fi
+    if [ "$issuer_rc" -eq 0 ]; then can_auto=true; fi
+  fi
+  DASH_M_LABELS=(); DASH_M_HINTS=()
+  if [ "$can_auto" = true ]; then
+    DASH_M_LABELS+=("$(dash_e 🪄 "Automatic, from cert-manager ($DASH_ISSUER)")")
+    DASH_M_HINTS+=("Free, trusted by browsers, renewed for you. Needs your address to be reachable so the issuer can check it.")
+    acts+=(auto)
+  fi
+  if [ "$only_self" = false ]; then
+    DASH_M_LABELS+=("$(dash_e 🔑 "A certificate I already have")")
+    DASH_M_HINTS+=("Use a TLS Secret that is already in the cluster. Pick this if your company issues certificates.")
+    acts+=(own)
+  fi
+  if [ "$only_own" = false ]; then
+    DASH_M_LABELS+=("$(dash_e '⚠️ ' "Make one myself (self-signed)")")
+    DASH_M_HINTS+=("Works right away, but every browser warns until it is told to trust it. Fine for a test, not for a team.")
+    acts+=(self)
+  fi
+  dash_q "How should kwatch get its https certificate?"
+  ui_detail "A certificate is what lets browsers show the lock and trust the address."
+  if [ "$can_auto" = false ] && [ "$only_own" = false ] && [ "$only_self" = false ]; then
+    ui_detail "I didn't find cert-manager, so automatic certificates aren't available."
+  fi
+  if [ "$only_own" = true ]; then
+    ui_detail "The Secret's certificate and key are copied into the Route."
+  fi
+  if [ "${#acts[@]}" -eq 1 ] && [ "${acts[0]}" = self ]; then
+    idx=0
+  else
+    idx=$(dash_choose 0) || return 2
+  fi
+  case "${acts[$idx]}" in
+    auto)
+      DASH_CERT=auto; DASH_TLS_SECRET=$(dash_tls_name)
+      ;;
+    self)
+      ui_warn "Browsers will warn \"not private\" each time until you trust the certificate. Anyone you share the link with will see that."
+      if [ "$(ask_yes_no "Use a self-signed certificate?" "y")" != true ]; then
+        return 2
+      fi
+      DASH_CERT=self; DASH_TLS_SECRET=$(dash_tls_name)
+      ;;
+    own)
+      secrets=$(dash_tls_secrets)
+      DASH_M_LABELS=(); DASH_M_HINTS=()
+      count=0
+      while IFS= read -r name; do
+        [ -n "$name" ] || continue
+        DASH_M_LABELS+=("$name"); count=$((count + 1))
+      done <<<"$secrets"
+      DASH_M_LABELS+=("Type a name")
+      dash_q "Which Secret holds the certificate?"
+      idx=$(dash_choose 0) || return 2
+      if [ "$idx" -ge "$count" ]; then
+        rc=0
+        name=$(ask_or_back "Secret name" "") || rc=$?
+        if [ "$rc" -eq 2 ]; then return 2; fi
+      else
+        name=$(printf '%s\n' "$secrets" | sed -n "$((idx + 1))p")
+      fi
+      dash_check_tls_secret "$name" || { ui_pause; return 2; }
+      DASH_CERT=own; DASH_TLS_SECRET="$name"
+      ;;
+  esac
+  return 0
+}
+
+dash_q_ips() {
+  local answer rc seen_all=false
+  DASH_IPS=""
+  if ! dash_ips_enforced; then return 3; fi
+  while true; do
+    dash_q "Limit it to certain IP addresses?"
+    ui_detail "An IP address is the number a computer connects from. Leave empty to allow everyone with the password."
+    rc=0
+    answer=$(ask_or_back "Example: 203.0.113.0/24, 198.51.100.7  [everyone]" "$DASH_PREV_IPS") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if [ -z "$answer" ]; then DASH_IPS=""; return 0; fi
+    rc=0
+    dash_parse_ips "$answer" || rc=$?
+    if [ "$rc" -eq 3 ]; then
+      if [ "$seen_all" = true ]; then DASH_IPS=""; return 0; fi
+      seen_all=true
+      ui_warn "$DASH_IPS_ERR"
+      continue
+    fi
+    if [ "$rc" -ne 0 ]; then ui_warn "$DASH_IPS_ERR"; continue; fi
+    DASH_IPS="$DASH_IPS_CLEAN"
+    if [ "$DASH_IPS_ALL_PRIVATE" = true ]; then
+      ui_warn "Private addresses (like 10.0.0.5) only work if people connect from inside your network."
+    fi
+    ui_detail "The password is still needed."
+    return 0
+  done
+}
+
+dash_q_alb_scheme() {
+  local idx
+  DASH_M_LABELS=("$(dash_e 🌍 "Anyone on the internet  (internet-facing)")" "$(dash_e 🏢 "Only inside our network  (internal)")")
+  DASH_M_HINTS=("The sign-in page is visible to everyone. Pick this for people outside your network." "Reachable only from your private network or VPN. Pick this for a team that works through a VPN.")
+  dash_q "Who should be able to reach the dashboard?"
+  ui_detail "An ALB is Amazon's own load balancer for web traffic."
+  idx=$(dash_choose 1) || return 2
+  if [ "$idx" = 1 ]; then DASH_ALB_INTERNAL=true; else DASH_ALB_INTERNAL=false; fi
+  return 0
+}
+
+dash_q_alb_arn() {
+  local answer rc region
+  while true; do
+    dash_q "What is the ARN of the certificate in AWS Certificate Manager (ACM)?"
+    ui_detail "An ARN is the long ID AWS gives it. Find it in AWS: Certificate Manager > your certificate."
+    ui_detail "Example: arn:aws:acm:eu-west-1:123456789012:certificate/abcd-..."
+    rc=0
+    answer=$(ask_or_back "ARN" "$DASH_ACM_ARN") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if ! dash_valid_arn "$answer"; then
+      ui_error "${DASH_ARN_ERR%%
+*}"
+      ui_detail "${DASH_ARN_ERR#*
+}"
+      continue
+    fi
+    region=$(printf '%s' "$answer" | cut -d: -f4)
+    if [ -n "$DASH_D_REGION" ] && [ "$region" != "$DASH_D_REGION" ]; then
+      ui_error "That certificate is in $region but your cluster is in $DASH_D_REGION."
+      ui_detail "An ALB can only use certificates from its own region."
+      continue
+    fi
+    DASH_ACM_ARN="$answer"
+    DASH_CERT=acm
+    return 0
+  done
+}
+
+dash_q_gke_notice() {
+  DASH_CERT=google
+  ui_info "Google will create and renew the certificate for ${DASH_ADDR}."
+  ui_info "It starts working after your DNS record exists, and can take a while."
+  return 0
+}
+
+dash_q_gke_ip() {
+  local answer rc=0
+  dash_q "Do you have a reserved static IP in Google Cloud?"
+  ui_detail "Without one, the address can change if the load balancer is recreated. Type its name, or press Enter to skip."
+  answer=$(ask_or_back "Static IP name  [skip]" "") || rc=$?
+  if [ "$rc" -eq 2 ]; then return 2; fi
+  answer=$(dash_trim "$answer")
+  if [ -n "$answer" ] && command -v gcloud >/dev/null 2>&1; then
+    if ! gcloud compute addresses describe "$answer" --global >/dev/null 2>&1; then
+      ui_error "I can't find a global static IP named \"$answer\" in your Google Cloud project."
+      ui_detail "Check the name, or press Enter to skip."
+      return 2
+    fi
+  fi
+  DASH_GKE_IP="$answer"
+  return 0
+}
+
+dash_q_agic_pub() {
+  local idx
+  DASH_M_LABELS=("$(dash_e 🌍 "Public address")" "$(dash_e 🏢 "Private address")")
+  DASH_M_HINTS=("Reachable from the internet." "Reachable only from your Azure network or VPN.")
+  dash_q "Should the gateway use its public or its private address?"
+  ui_detail "Application Gateway is Microsoft's load balancer for web traffic."
+  idx=$(dash_choose 1) || return 2
+  if [ "$idx" = 1 ]; then DASH_AGIC_PRIVATE=true; else DASH_AGIC_PRIVATE=false; fi
+  return 0
+}
+
+dash_q_ts_name() {
+  local answer rc
+  while true; do
+    dash_q "What should the dashboard be called on your Tailscale network?"
+    ui_detail "People on your Tailscale network will open https://<name>.<your-tailnet>.ts.net. Tailscale handles the certificate."
+    rc=0
+    answer=$(ask_or_back "Name" "kwatch") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_lower "$(dash_trim "$answer")")
+    if dash_valid_label "$answer"; then
+      DASH_TS_NAME="$answer"; DASH_CERT=handled
+      return 0
+    fi
+    ui_warn "Use lowercase letters, digits and hyphens, up to 63 characters."
+  done
+}
+
+dash_q_ngrok_domain() {
+  local answer rc
+  while true; do
+    dash_q "Which ngrok domain should the dashboard use?"
+    ui_detail "For example kwatch.ngrok.app, or your own domain set up in ngrok."
+    rc=0
+    answer=$(ask_or_back "Domain" "") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if [ -z "$answer" ]; then
+      ui_warn "Type the domain from your ngrok dashboard."
+      continue
+    fi
+    if ! dash_normalize_address "$answer"; then ui_warn "$DASH_ADDR_ERR"; continue; fi
+    DASH_ADDR="$DASH_ADDR_CLEAN"; DASH_CERT=handled
+    ui_warn "This makes the sign-in page reachable by anyone on the internet, and ngrok sees the traffic when it adds https. The password protects the dashboard."
+    return 0
+  done
+}
+
+dash_q_lb_who() {
+  local idx
+  case "$DASH_D_CLOUD" in aws|gce|azure) ;; *) DASH_LB_INTERNAL=false; return 3 ;; esac
+  DASH_M_LABELS=("$(dash_e 🌍 "Anyone on the internet")" "$(dash_e 🏢 "Only inside our network")")
+  DASH_M_HINTS=("Pick this for people outside your network. The sign-in page is visible to everyone." "Pick this for a team that works through an office network or VPN.")
+  dash_q "Who should be able to reach the dashboard?"
+  idx=$(dash_choose 1) || return 2
+  if [ "$idx" = 1 ]; then DASH_LB_INTERNAL=true; else DASH_LB_INTERNAL=false; fi
+  return 0
+}
+
+dash_q_lb_pool() {
+  local idx count name addrs
+  DASH_LB_POOL=""
+  if [ "$DASH_D_LB_KIND" != metallb ]; then return 3; fi
+  count=$(printf '%s\n' "$DASH_D_POOLS" | sed '/^$/d' | wc -l | tr -d ' ')
+  if [ "$count" -le 1 ]; then
+    if [ "$count" -eq 1 ]; then DASH_LB_POOL="${DASH_D_POOLS%%|*}"; fi
+    return 3
+  fi
+  DASH_M_LABELS=(); DASH_M_HINTS=()
+  while IFS='|' read -r name addrs; do
+    DASH_M_LABELS+=("$name    ${addrs//,/ }")
+  done <<<"$DASH_D_POOLS"
+  dash_q "Which address pool should the load balancer use?"
+  ui_detail "A pool is the range of addresses MetalLB hands out."
+  idx=$(dash_choose 0) || return 2
+  DASH_LB_POOL=$(printf '%s\n' "$DASH_D_POOLS" | sed -n "$((idx + 1))p")
+  DASH_LB_POOL="${DASH_LB_POOL%%|*}"
+  return 0
+}
+
+dash_q_lb_ip() {
+  local answer rc pool_addrs ok range
+  DASH_LB_IP=""
+  case "$DASH_D_LB_KIND" in metallb|kube-vip) ;; *) return 3 ;; esac
+  while true; do
+    dash_q "Want a fixed address from that pool?"
+    rc=0
+    answer=$(ask_or_back "Address  [no, take any free one]" "") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if [ -z "$answer" ]; then return 0; fi
+    if ! dash_is_ipv4 "$answer"; then ui_warn "\"$answer\" isn't an IP address."; continue; fi
+    if [ "$DASH_D_LB_KIND" = metallb ] && [ -n "$DASH_LB_POOL" ]; then
+      pool_addrs=$(printf '%s\n' "$DASH_D_POOLS" | grep "^$DASH_LB_POOL|" | head -1 | cut -d'|' -f2)
+      ok=false
+      for range in ${pool_addrs//,/ }; do
+        if dash_ip_in_range "$answer" "$range"; then ok=true; fi
+      done
+      if [ "$ok" = false ]; then
+        ui_warn "$answer is not inside the pool $DASH_LB_POOL (${pool_addrs//,/ })."
+        continue
+      fi
+    fi
+    DASH_LB_IP="$answer"
+    return 0
+  done
+}
+
+dash_q_np_port() {
+  local answer rc used
+  while true; do
+    dash_q "Which port should open on each machine?"
+    ui_detail "Ports from 30000 to 32767. Press Enter to let the cluster choose."
+    rc=0
+    answer=$(ask_or_back "Port  [automatic]" "") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    if [ -z "$answer" ]; then DASH_NODEPORT=""; return 0; fi
+    if ! [[ "$answer" =~ ^[0-9]+$ ]] || [ "$answer" -lt 30000 ] || [ "$answer" -gt 32767 ]; then
+      ui_warn "Pick a number from 30000 to 32767."
+      continue
+    fi
+    used=$(kubectl get svc -A -o \
+      'jsonpath={range .items[*]}{.metadata.name}{"|"}{.metadata.namespace}{"|"}{range .spec.ports[*]}{.nodePort}{" "}{end}{"\n"}{end}' \
+      2>/dev/null | awk -F'|' -v p="$answer" -v me="$(dash_name)-nodeport" \
+      '$1 != me { n = split($3, a, " "); for (i = 1; i <= n; i++) if (a[i] == p) { print $1 " in " $2; exit } }' || true)
+    if [ -n "$used" ]; then
+      ui_warn "That port is already used by $used."
+      continue
+    fi
+    DASH_NODEPORT="$answer"
+    return 0
+  done
+}
+
+dash_q_proxy_gate() {
+  local answer rc
+  DASH_CERT=none
+  ui_warn "Before you continue"
+  cat >&2 <<EOF
+
+With this choice, kwatch itself does not use https.
+
+Something outside your cluster (for example Cloudflare Tunnel) adds https and
+forwards the traffic to kwatch as plain http. That part of the path is not
+encrypted, and kwatch trusts whoever sends it traffic.
+
+Only use this if all of these are true:
+  - the proxy is the only way to reach kwatch from outside the cluster
+  - the proxy sends people to https://${DASH_ADDR}
+  - you manage who can reach the proxy
+
+kwatch still asks for the password, and refuses sign-in unless the proxy
+says the visit was over https.
+
+EOF
+  while true; do
+    rc=0
+    answer=$(ask_or_back "Type yes to continue, or press Esc to choose another way" "") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    if [ "$answer" = yes ]; then return 0; fi
+    ui_warn "Type the word yes to continue, or press Esc."
+  done
+}
+
+# ---- running the questions -------------------------------------------------
+
+dash_run_steps() {
+  local steps=() i=0 step rc skipped=" " n
+  while true; do
+    # shellcheck disable=SC2207
+    steps=($(dash_steps))
+    n=${#steps[@]}
+    if [ "$i" -ge "$n" ]; then return 0; fi
+    step="${steps[$i]}"
+    rc=0
+    "dash_q_$step" || rc=$?
+    case "$rc" in
+      0) i=$((i + 1)) ;;
+      3) skipped="$skipped$step "; i=$((i + 1)) ;;
+      2)
+        i=$((i - 1))
+        while [ "$i" -ge 0 ] && [[ "$skipped" == *" ${steps[$i]} "* ]]; do i=$((i - 1)); done
+        if [ "$i" -lt 0 ]; then return 2; fi
+        ;;
+      *) return "$rc" ;;
+    esac
+  done
+}
+
+# ---- the confirm screen (7c.7) ---------------------------------------------
+
+dash_way_line() {
+  local who cloud
+  case "$DASH_WAY" in
+    ingress) printf 'Ingress (%s, class "%s")' "$(dash_type_label "$DASH_CTYPE")" "$DASH_CLASS" ;;
+    gateway) printf 'Gateway API (%s/%s)' "$DASH_GW_NS" "$DASH_GW_NAME" ;;
+    istio) printf 'Istio (%s/%s)' "$DASH_GW_NS" "$DASH_GW_NAME" ;;
+    route) printf 'OpenShift Route' ;;
+    lb)
+      who=""; cloud=""
+      case "$DASH_D_CLOUD" in
+        aws|gce|azure)
+          if [ "$DASH_LB_INTERNAL" = true ]; then who=inside; else who=public; fi
+          cloud=$(dash_cloud_label "$DASH_D_CLOUD")
+          ;;
+      esac
+      [ "$DASH_D_LB_KIND" = metallb ] && cloud=MetalLB
+      [ "$DASH_D_LB_KIND" = kube-vip ] && cloud=kube-vip
+      printf 'Load balancer (%s)' "${who:+$who, }$cloud"
+      ;;
+    nodeport) printf 'NodePort %s' "${DASH_NODEPORT:-(chosen by the cluster)}" ;;
+    proxy) printf 'Outside proxy (you provide https)' ;;
+    service) printf 'Service only' ;;
+  esac
+}
+
+dash_cert_line() {
+  case "$DASH_CERT" in
+    auto) printf 'Automatic, from cert-manager ("%s")' "$DASH_ISSUER" ;;
+    own) printf 'Your Secret "%s"' "$DASH_TLS_SECRET" ;;
+    self) printf 'Self-signed (browsers will warn)' ;;
+    acm) printf 'AWS ACM' ;;
+    google) printf 'Google managed' ;;
+    handled)
+      case "$DASH_WAY" in
+        route) printf 'Handled by OpenShift' ;;
+        gateway|istio) printf 'Handled by the Gateway' ;;
+        *) printf 'Handled by %s' "$(dash_type_label "$DASH_CTYPE")" ;;
+      esac
+      ;;
+    none) printf 'Added by your proxy' ;;
+  esac
+}
+
+dash_who_line() {
+  if [ -n "$DASH_IPS" ]; then
+    printf 'Only %s, with the password' "${DASH_IPS//,/, }"
+  else
+    printf 'Anyone who reaches the address, with the password'
+  fi
+}
+
+dash_confirm_text() {
+  local title resource name hidden cols narrow=false row
+  local -a rows=()
+  cols=$(ui_columns 2>/dev/null || printf 80)
+  if [ "$cols" -lt 80 ] 2>/dev/null; then narrow=true; fi
+  if [ -n "$DASH_ADDR" ]; then title="Share the dashboard at https://$DASH_ADDR"
+  elif [ "$DASH_CTYPE" = tailscale ]; then title="Share the dashboard on your Tailscale network"
+  else title="Share the dashboard"
+  fi
+  printf '%s\n\n' "$title"
+  rows+=("Way|$(dash_way_line)")
+  if [ -n "$DASH_CERT" ]; then rows+=("Certificate|$(dash_cert_line)"); fi
+  rows+=("Who|$(dash_who_line)")
+  rows+=("Sign-in|Password; plain http is refused")
+  for row in "${rows[@]}"; do
+    if [ "$narrow" = true ]; then printf '%s: %s\n' "${row%%|*}" "${row#*|}"
+    else printf '  %-12s%s\n' "${row%%|*}" "${row#*|}"
+    fi
+  done
+  if [ -n "$DASH_IPS" ]; then
+    printf '\nOnly these addresses can open it: %s\n' "${DASH_IPS//,/, }"
+  elif ! dash_ips_enforced; then
+    printf '\nAnyone who reaches the address can see the sign-in page.\n'
+  fi
+  printf '\nI will create:\n'
+  while IFS='|' read -r resource name hidden; do
+    [ -n "$resource" ] || continue
+    if [ "$hidden" = 1 ]; then continue; fi
+    printf '  - %s\n' "$(dash_object_phrase "$resource" "$name")"
+  done < <(dash_plan_objects)
+  case "$DASH_WAY" in
+    proxy|service) printf '  - a Service named %s (internal only)\n' "$(dash_name)" ;;
+  esac
+  return 0
+}
+
+dash_object_title() {
+  case "$1" in
+    ingress) printf 'Ingress' ;;
+    httproute) printf 'HTTPRoute' ;;
+    virtualservice) printf 'VirtualService' ;;
+    route) printf 'Route' ;;
+    service) printf 'Service' ;;
+    certificate) printf 'Certificate' ;;
+    managedcertificate) printf 'ManagedCertificate' ;;
+    frontendconfig) printf 'FrontendConfig' ;;
+    middleware) printf 'Middleware' ;;
+    secret) printf 'Secret' ;;
+    networkpolicy) printf 'NetworkPolicy' ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+DASH_PREV_OBJECTS=""
+# 7c.10: what a switch removes afterwards, from the recorded setup.
+dash_removal_text() {
+  local old resource name lines=""
+  [ -n "$DASH_PREV_OBJECTS" ] || return 0
+  for old in ${DASH_PREV_OBJECTS//,/ }; do
+    resource="${old%%/*}"; name="${old#*/}"
+    if dash_plan_objects | grep -q "^$resource|$name|"; then continue; fi
+    lines="$lines
+    - $(dash_object_title "$resource") $name"
+  done
+  [ -n "$lines" ] || return 0
+  printf 'This replaces the current setup. After the new one works I will remove:%s' "$lines"
+}
+
+# Returns 0 continue, 1 cancel, 2 back.
+dash_q_confirm() {
+  local rc=0 removing
+  ui_screen "dashboard"
+  dash_confirm_text >&2
+  removing=$(dash_removal_text)
+  if [ -n "$removing" ]; then
+    printf '\n%s\n' "$removing" >&2
+  fi
+  printf '\n' >&2
+  dash_confirm_key "Enter to continue, Esc to go back, n to cancel" || rc=$?
+  return "$rc"
+}
+
+# ---- create, wait, check (7c.9) --------------------------------------------
+
+DASH_ADDR_FOUND=""
+# Waits for an external address on a kind/name; sets DASH_ADDR_FOUND.
+dash_wait_address() {
+  local kind="$1" name="$2" waited=0 value
+  DASH_ADDR_FOUND=""
+  while true; do
+    value=$(kubectl -n "$NAMESPACE" get "$kind" "$name" -o \
+      'jsonpath={.status.loadBalancer.ingress[0].ip}{.status.loadBalancer.ingress[0].hostname}' \
+      2>/dev/null || true)
+    if [ -n "$value" ]; then DASH_ADDR_FOUND="$value"; return 0; fi
+    [ "$waited" -ge "$DASH_ADDRESS_WAIT" ] && return 1
+    sleep 2
+    waited=$((waited + 2))
+  done
+}
+
+dash_print_dns() {
+  local addr="$1" target="$2" type=A first
+  [ -n "$addr" ] || return 0
+  if [ -z "$target" ]; then
+    ui_info "Your cluster hasn't reported its address yet. Find it with:"
+    printf '  %s\n' "$DASH_ADDR_CMD" >&2
+    return 0
+  fi
+  dash_is_ip "$target" || type=CNAME
+  {
+    printf '\nNow point your address at the cluster. At your DNS provider, add:\n\n'
+    printf '  Type   %s\n  Name   %s\n  Value  %s\n\n' "$type" "$addr" "$target"
+    printf "Until that exists, the link won't open. DNS changes can take a while to\nspread; the certificate is issued once they have.\n"
+  } >&2
+  first="${addr%%.*}"
+  if [ "$(printf '%s' "$addr" | tr -cd . | wc -c | tr -d ' ')" -ge 2 ]; then
+    ui_detail "Some providers want just \"$first\" for this field."
+  fi
+}
+
+DASH_ADDR_CMD=""
+DASH_DNS_TARGET=""
+# Finds the address the cluster reports for the chosen setup.
+dash_find_target() {
+  DASH_DNS_TARGET=""
+  DASH_ADDR_CMD=""
+  case "$DASH_WAY" in
+    ingress)
+      case "$DASH_CTYPE" in
+        tailscale|ngrok) return 0 ;;
+      esac
+      DASH_ADDR_CMD="kubectl -n $NAMESPACE get ingress $(dash_name)"
+      dash_wait_address ingress "$(dash_name)" && DASH_DNS_TARGET="$DASH_ADDR_FOUND"
+      ;;
+    lb)
+      DASH_ADDR_CMD="kubectl -n $NAMESPACE get svc $(dash_name)-lb"
+      dash_wait_address service "$(dash_name)-lb" && DASH_DNS_TARGET="$DASH_ADDR_FOUND"
+      ;;
+    nodeport)
+      DASH_DNS_TARGET=$(printf '%s\n' "$DASH_D_NODES" | head -3 | cut -d'|' -f2 | tr '\n' ' ' | sed 's/ $//')
+      DASH_DNS_TARGET="${DASH_DNS_TARGET%% *}"
+      ;;
+    gateway)
+      DASH_ADDR_CMD="kubectl -n $DASH_GW_NS get gateway $DASH_GW_NAME"
+      DASH_DNS_TARGET=$(kubectl -n "$DASH_GW_NS" get gateway "$DASH_GW_NAME" \
+        -o 'jsonpath={.status.addresses[0].value}' 2>/dev/null || true)
+      ;;
+    istio)
+      DASH_ADDR_CMD="kubectl -n istio-system get svc"
+      ;;
+    route)
+      case "$DASH_ADDR" in *".$DASH_D_APPS_DOMAIN") return 0 ;; esac
+      DASH_ADDR_CMD="kubectl -n $NAMESPACE get route $(dash_name)"
+      DASH_DNS_TARGET=$(kubectl -n "$NAMESPACE" get route "$(dash_name)" \
+        -o 'jsonpath={.status.ingress[0].routerCanonicalHostname}' 2>/dev/null || true)
+      ;;
+  esac
+  return 0
+}
+
+# Reason for a failed https probe, tag then detail.
+DASH_PROBE_REASON=""
+dash_probe() {
+  local url="$1" insecure="$2" code rc=0 err
+  err=$(mktemp)
+  code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 \
+    ${insecure:+-k} "$url" 2>"$err") || rc=$?
+  DASH_PROBE_REASON=$(sed -n '1p' "$err")
+  rm -f "$err"
+  if [ "$rc" -eq 0 ]; then
+    case "$code" in
+      2??|3??) return 0 ;;
+      *) DASH_PROBE_TAG="http:$code"; return 1 ;;
+    esac
+  fi
+  case "$rc" in
+    6) DASH_PROBE_TAG=dns ;;
+    7|28) DASH_PROBE_TAG=unreachable ;;
+    35|51|58|60|77|83) DASH_PROBE_TAG=untrusted ;;
+    *) DASH_PROBE_TAG=unreachable ;;
+  esac
+  return 1
+}
+DASH_PROBE_TAG=""
+
+dash_resolve() {
+  local name="$1" out=""
+  if command -v getent >/dev/null 2>&1; then
+    out=$(getent hosts "$name" 2>/dev/null | awk 'NR==1{print $1}')
+  fi
+  if [ -z "$out" ] && command -v dscacheutil >/dev/null 2>&1; then
+    out=$(dscacheutil -q host -a name "$name" 2>/dev/null | awk '/^ip_address:/{print $2; exit}')
+  fi
+  if [ -z "$out" ] && command -v host >/dev/null 2>&1; then
+    out=$(host "$name" 2>/dev/null | awk '/has address/{print $4; exit}')
+  fi
+  printf '%s' "$out"
+}
+
+# One-line reason (7c.9 table) after a failed probe; first line, optional second.
+dash_reason_text() {
+  local host="$1" resolved cert_status
+  case "$DASH_CERT" in
+    auto)
+      cert_status=$(kubectl -n "$NAMESPACE" get certificate "$(dash_tls_name)" -o \
+        'jsonpath={.status.conditions[?(@.type=="Ready")].status}|{.status.conditions[?(@.type=="Ready")].message}' \
+        2>/dev/null || true)
+      case "$cert_status" in
+        False*) printf 'The certificate request failed: %s\nCheck that your DNS record points to the address shown, then choose "Check again".' "${cert_status#*|}"; return 0 ;;
+      esac
+      ;;
+  esac
+  case "$DASH_PROBE_TAG" in
+    dns)
+      printf '%s doesn'"'"'t point anywhere yet. Add the DNS record shown above; it can take a while to spread.' "$host"
+      ;;
+    untrusted)
+      printf 'The address answered, but its certificate isn'"'"'t trusted: %s.\nUse a trusted certificate, or choose self-signed and accept the warning.' "${DASH_PROBE_REASON:-unknown reason}"
+      ;;
+    http:404|http:502|http:503|http:504)
+      printf "The front door answered, but kwatch isn't behind it yet (error %s).\nCheck kwatch with \"View status\" in the main menu." "${DASH_PROBE_TAG#http:}"
+      ;;
+    *)
+      resolved=$(dash_resolve "$host")
+      if [ -n "$resolved" ] && [ -n "$DASH_DNS_TARGET" ] && dash_is_ip "$DASH_DNS_TARGET" &&
+        [ "$resolved" != "$DASH_DNS_TARGET" ]; then
+        printf "%s points to %s, but the cluster's address is %s. Update the DNS record." "$host" "$resolved" "$DASH_DNS_TARGET"
+      elif [ "$DASH_CERT" = auto ]; then
+        printf "The certificate isn't issued yet. It is issued after your DNS record exists. Check on it with \"Show my access link and password\"."
+      elif [ "$DASH_CERT" = google ]; then
+        printf 'Google is still preparing the certificate. This can take a while after your DNS record exists.'
+      elif [ "$DASH_CERT" = acm ]; then
+        printf "AWS can't use that certificate yet: %s." "${DASH_PROBE_REASON:-unknown reason}"
+      else
+        printf 'Nothing answered at https://%s.\nCheck that the address is open to you (firewall, security group) and try again.' "$host"
+      fi
+      ;;
+  esac
+}
+
+# Polls the sign-in page. 0 passed, 1 not ready, 4 cannot be checked from here.
+dash_wait_https() {
+  local host="$1" url insecure="" waited=0 resolved
+  url="https://$host/signin"
+  [ "$DASH_CERT" = self ] && insecure=1
+  [ "$DASH_ADDR_IP" = true ] && insecure=1
+  while true; do
+    if dash_probe "$url" "$insecure"; then return 0; fi
+    if [ "$DASH_PROBE_TAG" = unreachable ]; then
+      resolved=$(dash_resolve "${host%%:*}")
+      [ -n "$resolved" ] || resolved="${host%%:*}"
+      if dash_is_private_ip "$resolved" && [ "$DASH_WAY" != nodeport ]; then
+        return 4
+      fi
+    fi
+    [ "$waited" -ge "$DASH_POLL_MAX" ] && return 1
+    case "$DASH_PROBE_TAG" in
+      dns) ui_busy "waiting for DNS" ;;
+      untrusted) ui_busy "waiting for a trusted certificate" ;;
+      http:*) ui_busy "the cluster answered ${DASH_PROBE_TAG#http:}" ;;
+      *) ui_busy "waiting for the certificate" ;;
+    esac
+    sleep "$DASH_POLL_INTERVAL"
+    waited=$((waited + DASH_POLL_INTERVAL))
+  done
+}
+
+# Makes sure the TLS Secret kwatch serves from exists, then wires the pod.
+# 0 wired, 1 failed, 5 certificate not there yet.
+dash_wire_pod() {
+  local mode trust tls rc=0 waited=0
+  read -r mode trust tls <<<"$(dash_values)"
+  if [ -n "$tls" ] && ! kubectl -n "$NAMESPACE" get secret "$tls" >/dev/null 2>&1; then
+    case "$DASH_CERT" in
+      self|acm|google)
+        local sans="$DASH_ADDR"
+        [ -n "$sans" ] || sans="$(dash_name).$NAMESPACE.svc.cluster.local"
+        if [ "$tls" = "$(dash_backend_tls_name)" ]; then
+          sans="$(dash_name).$NAMESPACE.svc.cluster.local"
+        fi
+        # shellcheck disable=SC2086  # one argument per name
+        dash_make_selfsigned "$tls" $sans || return 1
+        ;;
+      *)
+        while ! kubectl -n "$NAMESPACE" get secret "$tls" >/dev/null 2>&1; do
+          [ "$waited" -ge "$DASH_POLL_MAX" ] && return 5
+          ui_busy "waiting for the certificate"
+          sleep "$DASH_POLL_INTERVAL"
+          waited=$((waited + DASH_POLL_INTERVAL))
+        done
+        ;;
+    esac
+  fi
+  dash_apply_values "$mode" "$trust" "$tls" || rc=$?
+  if [ "$rc" -eq 2 ]; then
+    ui_warn "kwatch is taking longer than usual to restart."
+    ui_detail "Check it with \"View status\" in the main menu, then try again."
+    return 1
+  fi
+  return "$rc"
+}
+
+# Removes what this run created (labelled only) and puts the pod values back.
+dash_rollback() {
+  local resource name hidden
+  while IFS='|' read -r resource name hidden; do
+    [ -n "$resource" ] || continue
+    dash_delete_if_ours "$resource" "$name" || true
+  done < <(dash_plan_objects)
+  if [ -n "${DASH_PREV_VALUES:-}" ]; then
+    local enabled mode trust tls
+    IFS='|' read -r enabled mode trust tls <<<"$DASH_PREV_VALUES"
+    if [ "$enabled" = true ]; then
+      dash_apply_values "$mode" "$trust" "${DASH_PREV_TLS:-}" >/dev/null 2>&1 || true
+    else
+      dash_apply_values off false "" >/dev/null 2>&1 || true
+    fi
+  fi
+  return 0
+}
+
+# Removes the objects of the previous setup that the new one does not use.
+dash_remove_old() {
+  local old resource name
+  [ -n "${DASH_PREV_OBJECTS:-}" ] || return 0
+  for old in ${DASH_PREV_OBJECTS//,/ }; do
+    resource="${old%%/*}"; name="${old#*/}"
+    if dash_plan_objects | grep -q "^$resource|$name|"; then continue; fi
+    dash_delete_if_ours "$resource" "$name" || true
+  done
+}
+
+dash_link() {
+  case "$DASH_WAY" in
+    local) printf 'http://localhost' ;;
+    service) printf 'Service: %s in "%s", port %s (https)' "$(dash_name)" "$NAMESPACE" "$DASH_PORT" ;;
+    nodeport) printf 'https://%s:%s' "${DASH_ADDR:-$DASH_LINK_HOST}" "${DASH_NODEPORT:-$DASH_LINK_PORT}" ;;
+    *) printf 'https://%s' "${DASH_ADDR:-$DASH_LINK_HOST}" ;;
+  esac
+}
+DASH_LINK_HOST=""
+DASH_LINK_PORT=""
+DASH_PREV_VALUES=""
+DASH_PREV_TLS=""
+DASH_PREV_OBJECTS=""
+DASH_PREV_ADDR=""
+DASH_PREV_IPS=""
+
+# The whole create/wait/check sequence. Returns 0 when finished (ready or left
+# as is) and 1 when it was undone or failed.
+dash_execute() {
+  local err rc=0 password link kinds="Ingresses, Services and Certificates" choice target_wait=0
+  DASH_PREV_VALUES=$(dash_current_values "$(deployment_name)")
+  DASH_PREV_TLS=$(kubectl -n "$NAMESPACE" get deployment "$(deployment_name)" -o \
+    'jsonpath={.spec.template.spec.volumes[?(@.name=="dashboard-tls")].secret.secretName}' 2>/dev/null || true)
+  if [ -n "$DASH_PREV_OBJECTS" ]; then
+    ui_detail "The link will stop for a short while while I switch."
+  fi
+  ui_busy "Setting up the dashboard"
+  if ! dash_ensure_secret; then
+    ui_error "I couldn't finish: the password could not be created."
+    return 1
+  fi
+  err=$(dash_manifests | kubectl -n "$NAMESPACE" apply -f - 2>&1 >/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    dash_explain_error "$err" "$kinds"
+    dash_rollback
+    ui_detail "I removed what I had created, so nothing changed."
+    return 1
+  fi
+  dash_label_object service "$(dash_name)"
+  case "$DASH_WAY" in
+    ingress) ui_busy "Creating the Ingress" ;;
+    gateway) ui_busy "Creating the route" ;;
+    istio) ui_busy "Creating the route" ;;
+    route) ui_busy "Creating the route" ;;
+    lb) ui_busy "Creating the load balancer" ;;
+    nodeport) ui_busy "Creating the NodePort" ;;
+    *) ui_busy "Creating the Service" ;;
+  esac
+  rc=0
+  dash_wire_pod || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    ui_error "I couldn't finish: kwatch could not be set up for sharing."
+    dash_rollback
+    ui_detail "I removed what I had created, so nothing changed."
+    return 1
+  fi
+  [ "$rc" -eq 5 ] && target_wait=1
+  ui_busy "Waiting for an address"
+  dash_find_target
+  ui_busy_done
+  DASH_LINK_HOST=""
+  if [ "$DASH_ADDR_IP" = true ] || [ -z "$DASH_ADDR" ]; then
+    DASH_LINK_HOST="$DASH_DNS_TARGET"
+    if [ "$DASH_WAY" = lb ] && [ -n "$DASH_DNS_TARGET" ]; then DASH_ADDR="$DASH_DNS_TARGET"; fi
+    if [ "$DASH_WAY" = nodeport ] && [ -n "$DASH_DNS_TARGET" ]; then DASH_ADDR="$DASH_DNS_TARGET"; fi
+  fi
+  if [ "$DASH_WAY" = nodeport ] && [ -z "$DASH_NODEPORT" ]; then
+    DASH_NODEPORT=$(kubectl -n "$NAMESPACE" get svc "$(dash_name)-nodeport" \
+      -o 'jsonpath={.spec.ports[0].nodePort}' 2>/dev/null || true)
+  fi
+  if [ "$DASH_WAY" = ingress ] && [ "$DASH_CTYPE" = tailscale ]; then
+    DASH_ADDR=$(kubectl -n "$NAMESPACE" get ingress "$(dash_name)" \
+      -o 'jsonpath={.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+  fi
+  if [ -n "$DASH_ADDR" ] && [ "$DASH_ADDR_IP" != true ] && [ "$DASH_CTYPE" != tailscale ] &&
+    [ "$DASH_CTYPE" != ngrok ] && [ "$DASH_WAY" != proxy ] && [ "$DASH_WAY" != service ] &&
+    [ "$DASH_CERT" != handled ]; then
+    dash_print_dns "$DASH_ADDR" "$DASH_DNS_TARGET"
+  fi
+  if [ "$target_wait" = 1 ]; then
+    rc=0
+    dash_wire_pod || rc=$?
+    if [ "$rc" -ne 0 ] && [ "$rc" -ne 5 ]; then
+      dash_rollback
+      return 1
+    fi
+  fi
+  password=$(dash_read_password || true)
+  link=$(dash_link)
+  if [ "$DASH_WAY" = service ]; then
+    dash_record_write "$link"
+    dash_print_service_only
+    dash_print_block "$link" "${password:-}"
+    dash_remove_old
+    return 0
+  fi
+  if [ "$DASH_WAY" = ingress ] && [ "$DASH_CTYPE" = gke ] && false; then :; fi
+  if [ "$DASH_WAY" = proxy ]; then
+    {
+      printf '\nPoint your proxy at this address inside the cluster:\n'
+      printf '  http://%s.%s.svc.cluster.local:%s\n' "$(dash_name)" "$NAMESPACE" "$DASH_PORT"
+      printf 'For Cloudflare Tunnel, set that as the service URL of your public hostname.\n'
+    } >&2
+  fi
+  local host="$DASH_ADDR"
+  [ "$DASH_WAY" = nodeport ] && host="$DASH_ADDR:$DASH_NODEPORT"
+  if [ -z "$host" ]; then
+    ui_warn "The dashboard is set up, but the cluster has not given it an address yet."
+    ui_detail "Look at it with: $DASH_ADDR_CMD"
+    dash_record_write "$link"
+    dash_print_block "$link" "${password:-}"
+    return 0
+  fi
+  while true; do
+    rc=0
+    ui_busy "Waiting for https at https://$host"
+    dash_wait_https "$host" || rc=$?
+    ui_busy_done
+    case "$rc" in
+      0)
+        ui_success "✅ Ready at $link"
+        if [ "$DASH_CERT" = self ] || [ "$DASH_ADDR_IP" = true ]; then
+          ui_info "Your browser will warn about the certificate. That is expected: kwatch made it itself."
+        fi
+        dash_finish_ok "$link" "$password"
+        return 0
+        ;;
+      4)
+        ui_info "Set up at $link"
+        ui_info "I can't open that address from this computer, because it is on a private network. Try it from a computer on that network or VPN."
+        dash_finish_ok "$link" "$password"
+        return 0
+        ;;
+    esac
+    ui_warn "The dashboard is set up, but https isn't answering yet."
+    printf '\n' >&2
+    dash_reason_text "$host" | while IFS= read -r line; do ui_detail "$line"; done
+    DASH_M_LABELS=("Check again" "Show how to set up DNS" "Leave it as it is" "Undo and go back")
+    DASH_M_HINTS=()
+    choice=$(dash_choose 0) || choice=3
+    case "$choice" in
+      0) continue ;;
+      1) dash_print_dns "$DASH_ADDR" "$DASH_DNS_TARGET" ;;
+      2)
+        ui_info "Left as it is. Check later with \"Show my access link and password\"."
+        dash_finish_ok "$link" "$password"
+        return 0
+        ;;
+      3)
+        dash_rollback
+        return 1
+        ;;
+    esac
+  done
+}
+
+dash_finish_ok() {
+  local link="$1" password="$2"
+  dash_record_write "$link"
+  if [ -n "$DASH_PREV_OBJECTS" ]; then
+    dash_remove_old
+    ui_success "Switched. The old setup is removed."
+    if [ -n "$DASH_PREV_ADDR" ] && [ "$DASH_PREV_ADDR" != "$DASH_ADDR" ]; then
+      ui_detail "You can remove the DNS record for $DASH_PREV_ADDR whenever you like."
+    fi
+  fi
+  case "$DASH_WAY" in
+    nodeport)
+      ui_info "Anyone who can reach those machines on that port can open the sign-in page. If a machine goes away the link to it stops, so point your address at several machines."
+      ;;
+  esac
+  dash_print_block "$link" "${password:-}"
+}
+
+dash_print_service_only() {
+  {
+    printf '\nService created. kwatch serves https itself, with the certificate you chose.\n\n'
+    printf '  Service    %s\n  Namespace  %s\n  Port       %s (https)\n  Address    %s.%s.svc.cluster.local\n\n' \
+      "$(dash_name)" "$NAMESPACE" "$DASH_PORT" "$(dash_name)" "$NAMESPACE"
+    printf 'Point your own ingress, gateway or proxy at that Service, and make sure it talks https to it.\n'
+    printf 'To try it from this computer:\n  kubectl -n %s port-forward svc/%s %s:%s\n' \
+      "$NAMESPACE" "$(dash_name)" "$DASH_PORT" "$DASH_PORT"
+  } >&2
+}
+
+# ---- flows -----------------------------------------------------------------
+
+dash_need_terminal() {
+  if [ -t 0 ]; then return 0; fi
+  ui_error "Sharing needs a terminal to ask you a few questions. Run the installer in a terminal."
+  return 1
+}
+
+dash_way_menu() {
+  local opt idx label hint found cloud default=0 i=0 n
+  local -a opts=()
+  dash_options
+  DASH_M_LABELS=(); DASH_M_HINTS=()
+  for opt in $DASH_OPTIONS; do
+    opts+=("$opt")
+    hint=""
+    case "$opt" in
+      1) label="$(dash_e 💻 "Local only  (default)")"
+         hint="Opens in your browser while this window stays open. Pick this to try it, or if only you need it." ;;
+      2) label="$(dash_e 🌐 Ingress)"
+         hint="Your cluster's front door for web traffic, with a normal https address. Pick this if other apps there already have one."
+         found=$(dash_found_types)
+         [ -n "$found" ] && hint="$hint Found: $found." ;;
+      3) if [ "$DASH_D_GWAPI" = true ]; then label="$(dash_e 🚪 "Gateway API / Istio")"
+           hint="The newer kind of front door, or Istio's. Pick this if your cluster uses Gateways or Istio."
+           [ "$DASH_D_ISTIO" = true ] || { label="$(dash_e 🚪 "Gateway API")"; }
+         else label="$(dash_e 🚪 Istio)"
+           hint="Istio's own front door (a VirtualService). Pick this if your cluster runs Istio."
+         fi ;;
+      4) label="$(dash_e 🛰️  "OpenShift Route")"
+         hint="OpenShift's own way to publish an app. Pick this on OpenShift." ;;
+      5) label="$(dash_e ⚖️  "Load balancer")"
+         hint="Your cloud (or MetalLB) gives kwatch its own address, and kwatch handles https itself. Pick this if you have no ingress."
+         case "$DASH_D_LB_KIND" in
+           cloud) hint="$hint Found: $(dash_cloud_label "$DASH_D_CLOUD")." ;;
+           metallb) hint="$hint Found: MetalLB." ;;
+           kube-vip) hint="$hint Found: kube-vip." ;;
+         esac ;;
+      6) label="$(dash_e 🔌 NodePort)"
+         hint="Opens one port on each machine in the cluster, and kwatch handles https itself. Pick this for a small cluster without a load balancer." ;;
+      7) label="$(dash_e ☁️  "Outside proxy (Cloudflare Tunnel or similar)")"
+         hint="Something outside the cluster adds https for you. Pick this only if you already run one." ;;
+      8) label="$(dash_e 🧰 "Service only")"
+         hint="kwatch creates its internal address and shows it. Pick this if you will set up access yourself." ;;
+    esac
+    [ "$opt" = "$DASH_RECOMMENDED" ] && label="$label · recommended"
+    DASH_M_LABELS+=("$label")
+    DASH_M_HINTS+=("$hint")
+  done
+  ui_screen "dashboard"
+  ui_heading "Share the dashboard with your team"
+  if [ "$DASH_OPTIONS" = "1 7 8" ]; then
+    ui_detail "I couldn't find an ingress, Gateway, load balancer or OpenShift route here, so the shared choices below are the ones that need a bit of your own setup."
+  fi
+  ui_info "I looked at your cluster and show only the ways that will work here."
+  dash_q "How should your team open the dashboard?"
+  DASH_M_LABELS+=("$(dash_e '↩️ ' Back)"); DASH_M_HINTS+=("")
+  # The cursor starts on Local only (D12), always.
+  idx=$(dash_choose 0) || return 1
+  n=${#opts[@]}
+  [ "$idx" -ge "$n" ] && return 1
+  DASH_OPT_CHOSEN="${opts[$idx]}"
+  return 0
+}
+DASH_OPT_CHOSEN=""
+
+dash_netpol_present() {
+  [ -n "$(kubectl -n "$NAMESPACE" get networkpolicy -o name 2>/dev/null || true)" ]
+}
+
+dash_load_previous() {
+  DASH_PREV_OBJECTS=""; DASH_PREV_ADDR=""; DASH_PREV_IPS=""
+  if [ "$DASH_STATE" = shared ]; then
+    dash_record_load
+    DASH_PREV_OBJECTS="$DASH_REC_OBJECTS"
+    DASH_PREV_ADDR="$DASH_REC_ADDR"
+    DASH_PREV_IPS="$DASH_REC_IPS"
+  fi
+}
+
+# Share with my team / Change how it's shared.
+dash_share_flow() {
+  local rc
+  dash_need_terminal || { ui_pause; return 0; }
+  dash_preflight || { ui_pause; return 0; }
+  ui_busy "Looking at your cluster"
+  dash_detect
+  DASH_NETPOL=false
+  dash_netpol_present && DASH_NETPOL=true
+  ui_busy_done
+  dash_load_previous
+  while true; do
+    dash_reset_answers
+    dash_way_menu || return 0
+    DASH_WAY=$(dash_option_way "$DASH_OPT_CHOSEN")
+    if [ "$DASH_WAY" = local ]; then
+      dash_local_flow
+      return 0
+    fi
+    rc=0
+    dash_run_steps || rc=$?
+    [ "$rc" -eq 2 ] && continue
+    [ "$rc" -ne 0 ] && return 0
+    rc=0
+    dash_q_confirm || rc=$?
+    [ "$rc" -eq 2 ] && continue
+    [ "$rc" -eq 1 ] && return 0
+    ui_screen "dashboard"
+    dash_execute || true
+    ui_pause
+    return 0
+  done
+}
+
+# Turn on, local only (3.3), also used by Switch to local only.
+dash_local_flow() {
+  local lport password rc=0 mode_prompt="${1:-ask}" empty
+  DASH_WAY=local
+  if [ "$mode_prompt" = ask ]; then
+    dash_preflight || { ui_pause; return 0; }
+    empty=$(kubectl -n "$NAMESPACE" get deployment "$(deployment_name)" -o \
+      'jsonpath={.spec.template.spec.volumes[?(@.name=="data")].emptyDir}' 2>/dev/null || true)
+    if [ -n "$empty" ]; then
+      ui_warn "Turning this on restarts kwatch. Without a persistent volume it forgets the issues it was tracking and finds them again on its next check."
+    fi
+    dash_q "Turn on the dashboard on this computer only?"
+    ui_detail "Nothing is exposed to the internet. The dashboard is reachable only while this window keeps the connection open."
+    [ "$(ask_yes_no "Continue" "y")" = true ] || return 0
+  fi
+  ui_busy "Turning on the dashboard"
+  if ! dash_ensure_secret; then
+    ui_error "I couldn't finish: the password could not be created."
+    ui_pause; return 0
+  fi
+  dash_base_service_apply || { ui_error "I couldn't finish: the dashboard Service could not be created."; ui_pause; return 0; }
+  dash_apply_values local false "" || rc=$?
+  ui_busy_done
+  if [ "$rc" -eq 2 ]; then
+    ui_warn "kwatch is taking longer than usual to restart. Check it with \"View status\" in the main menu, then try again."
+    ui_pause; return 0
+  elif [ "$rc" -ne 0 ]; then
+    ui_error "I couldn't finish: kwatch could not be updated."
+    ui_pause; return 0
+  fi
+  lport=$(dash_free_port) || { ui_error "No free port between 8080 and 8090 on this computer."; ui_pause; return 0; }
+  password=$(dash_read_password || true)
+  ui_success "Dashboard is on. Local only, nothing leaves your computer."
+  dash_print_block "http://localhost:$lport" "${password:-}"
+  dash_port_forward "$lport"
+  return 0
+}
+
+dash_base_service_apply() {
+  dash_reset_answers
+  DASH_WAY=local
+  dash_gen_base_service | kubectl -n "$NAMESPACE" apply -f - >/dev/null 2>&1 || return 1
+  dash_label_object service "$(dash_name)"
+  return 0
+}
+
+dash_open_flow() {
+  local lport
+  if [ "$DASH_STATE" = shared ]; then
+    dash_record_load
+    dash_open_url "${DASH_REC_LINK:-https://$DASH_REC_ADDR}"
+    return 0
+  fi
+  lport=$(dash_free_port) || { ui_error "No free port between 8080 and 8090 on this computer."; ui_pause; return 0; }
+  ui_info "Dashboard link: http://localhost:$lport"
+  dash_port_forward "$lport"
+}
+
+# 3.6 with the certificate line of 7c.10.
+dash_cert_status_line() {
+  local status msg
+  case "$DASH_REC_CERT" in
+    auto)
+      status=$(kubectl -n "$NAMESPACE" get certificate "$(dash_tls_name)" -o \
+        'jsonpath={.status.conditions[?(@.type=="Ready")].status}|{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || true)
+      case "$status" in
+        True*) printf 'Certificate: ready' ;;
+        False*) msg="${status#*|}"; printf 'Certificate: failed: %s' "$msg" ;;
+        *) printf 'Certificate: still being issued' ;;
+      esac
+      ;;
+    own) printf 'Certificate: from your Secret "%s"' "$DASH_REC_TLS" ;;
+    self) printf 'Certificate: self-signed (browsers warn)' ;;
+    acm) printf 'Certificate: AWS ACM' ;;
+    google)
+      status=$(kubectl -n "$NAMESPACE" get managedcertificate.networking.gke.io "$(dash_name)" \
+        -o 'jsonpath={.status.certificateStatus}' 2>/dev/null || true)
+      if [ "$status" = Active ]; then printf 'Certificate: Google managed (active)'
+      else printf 'Certificate: Google managed (still being prepared)'; fi
+      ;;
+    handled)
+      case "$DASH_REC_WAY" in
+        route) printf 'Certificate: handled by OpenShift' ;;
+        gateway|istio) printf 'Certificate: handled by the Gateway' ;;
+        *) printf 'Certificate: handled by %s' "$(dash_type_label "$DASH_REC_CTYPE")" ;;
+      esac
+      ;;
+    none) printf 'https: added by your proxy' ;;
+  esac
+}
+
+dash_show_flow() {
+  local password rc=0 line
+  if [ "$DASH_STATE" = shared ]; then
+    dash_record_load
+    if [ "$DASH_REC_WAY" = service ]; then
+      ui_info "Service: $(dash_name) in \"$NAMESPACE\", port $DASH_PORT (https)"
+    else
+      ui_info "Dashboard link: ${DASH_REC_LINK:-https://$DASH_REC_ADDR}"
+    fi
+    line=$(dash_cert_status_line)
+    [ -n "$line" ] && ui_detail "$line"
+  else
+    ui_info "Dashboard link: http://localhost:8080 (works while \"Open the dashboard\" is running)"
+  fi
+  if ui_interactive; then
+    ui_detail "Press Enter to show the password, or Esc to go back"
+    local key rest
+    IFS= read -rsn1 key || input_ended
+    if [ "$key" = $'\x1b' ]; then
+      IFS= read -rsn2 -t "$UI_ESC_TIMEOUT" rest || rest=""
+      return 0
+    fi
+  fi
+  password=$(dash_read_password) || rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$password" ]; then
+    ui_error "I can't read the password from the cluster. Choose \"Reset password\" to make a new one."
+    return 0
+  fi
+  printf 'Password: %s\n' "$password" >&2
+  ui_detail "Anyone with this link and password can read your issues. Share it only with people who should see them."
+  return 0
+}
+
+dash_reset_flow() {
+  local password link
+  dash_q "Make a new password? Everyone signed in will be signed out."
+  [ "$(ask_yes_no "Continue" "y")" = true ] || return 0
+  ui_busy "Resetting the password"
+  password=$(dash_new_password) || { ui_error "I couldn't reset the password: no random source. Nothing changed."; return 0; }
+  if ! dash_secret_exists; then
+    ui_error "I couldn't reset the password: the dashboard Secret is missing. Nothing changed."
+    return 0
+  fi
+  if ! dash_set_password "$password"; then
+    ui_error "I couldn't reset the password: Kubernetes refused the change. Nothing changed."
+    return 0
+  fi
+  kubectl -n "$NAMESPACE" rollout restart "deployment/$(deployment_name)" >/dev/null 2>&1 || true
+  kubectl -n "$NAMESPACE" rollout status "deployment/$(deployment_name)" --timeout=90s >/dev/null 2>&1 || true
+  ui_busy_done
+  if [ "$DASH_STATE" = shared ]; then
+    dash_record_load
+    link="${DASH_REC_LINK:-https://$DASH_REC_ADDR}"
+  else
+    link="http://localhost:8080"
+  fi
+  dash_print_block "$link" "$password"
+  ui_success "Password reset. Old sessions are signed out."
+}
+
+# Deletes every labelled exposure object listed in the record.
+dash_remove_recorded() {
+  local old resource name
+  dash_record_load
+  for old in ${DASH_REC_OBJECTS//,/ }; do
+    resource="${old%%/*}"; name="${old#*/}"
+    dash_delete_if_ours "$resource" "$name" || true
+  done
+}
+
+dash_switch_local_flow() {
+  dash_q "Switch to local only?"
+  ui_detail "The shared link stops working and what I created for sharing is removed. Your password stays the same."
+  [ "$(ask_yes_no "Continue" "y")" = true ] || return 0
+  ui_busy "Turning on the dashboard"
+  dash_remove_recorded
+  ui_busy_done
+  dash_local_flow noask
+}
+
+dash_off_flow() {
+  local rc=0 extra=""
+  dash_q "Turn off the dashboard?"
+  if [ "$DASH_STATE" = shared ]; then
+    dash_record_load
+    extra=" The Ingress and its certificate are removed."
+    case "$DASH_REC_CTYPE" in
+      tailscale) extra="$extra The Tailscale device \"${DASH_REC_ADDR:-kwatch}\" is removed by the operator." ;;
+      ngrok) extra="$extra The ngrok endpoint is removed by the operator." ;;
+    esac
+  fi
+  ui_detail "The link stops working and the password is deleted. Your issues and alerts are not affected.$extra"
+  [ "$(ask_yes_no "Continue" "y")" = true ] || return 0
+  ui_busy "Turning off the dashboard"
+  [ "$DASH_STATE" = shared ] && dash_remove_recorded
+  dash_apply_values off false "" || rc=$?
+  dash_delete_if_ours secret "$(dash_name)" || true
+  dash_delete_if_ours secret "$(dash_tls_name)" || true
+  dash_delete_if_ours secret "$(dash_backend_tls_name)" || true
+  dash_delete_if_ours service "$(dash_name)" || true
+  ui_busy_done
+  if [ "$rc" -eq 1 ]; then
+    ui_error "I couldn't turn it off: kwatch could not be updated."
+    ui_detail "Run this to see what's left: kubectl -n $NAMESPACE get ingress,secret"
+    return 0
+  fi
+  ui_success "Dashboard is off."
+  if [ "$DASH_STATE" = shared ] && [ -n "$DASH_REC_ADDR" ]; then
+    ui_detail "You can remove the DNS record for $DASH_REC_ADDR whenever you like."
+    [ "$DASH_REC_CERT" = acm ] && ui_detail "Your ACM certificate and your DNS record are not touched."
+  fi
+  return 0
+}
+
+dash_change_flow() {
+  local idx
+  dash_record_load
+  ui_heading "The dashboard is shared like this"
+  printf '\n  Link         %s\n  Way          %s\n  Who          %s\n\n' \
+    "${DASH_REC_LINK:-https://$DASH_REC_ADDR}" "${DASH_REC_WAY:-your own setup}" \
+    "$([ -n "$DASH_REC_IPS" ] && printf 'Only %s, with the password' "${DASH_REC_IPS//,/, }" || printf 'Anyone who reaches the address, with the password')" >&2
+  DASH_M_LABELS=("Change it" "Keep it as it is"); DASH_M_HINTS=()
+  idx=$(dash_choose 1) || return 0
+  [ "$idx" = 0 ] || return 0
+  dash_share_flow
+}
+
+dashboard_flow() {
+  local choice label
+  while true; do
+    ui_screen "dashboard"
+    LICENSE_COMMUNITY_CACHE=""
+    if license_is_community; then
+      ui_info "The dashboard is part of Pro, which is free during early access."
+      ui_info "Add your key first: choose \"License / Pro\" in the main menu."
+      ui_info "Get a free key at https://app.kwatch.dev"
+      ui_pause
+      break
+    fi
+    if [ -n "${INSTALL_VERSION:-}" ] &&
+      [ "$(compare_release_versions "$INSTALL_VERSION" "$DASH_MIN_VERSION")" = "-1" ]; then
+      ui_info "This version of kwatch doesn't have the dashboard yet. Upgrade kwatch from the main menu first (it needs v1.3 or newer)."
+      ui_pause
+      break
+    fi
+    dash_state
+    printf '\n  Dashboard: %s\n\n' "$(dash_state_text)" >&2
+    local -a acts=() labels=()
+    case "$DASH_STATE" in
+      off) acts=(local share back); labels=("Turn on, local only" "Share with my team" "Back") ;;
+      local) acts=(open share show reset off back)
+        labels=("Open the dashboard" "Share with my team" "Show my access link and password" "Reset password" "Turn off" "Back") ;;
+      shared) acts=(open show reset change tolocal off back)
+        labels=("Open the dashboard" "Show my access link and password" "Reset password" "Change how it's shared" "Switch to local only" "Turn off" "Back") ;;
+      *) ui_error "I can't reach your cluster."
+         ui_detail "Check that kubectl works: kubectl get nodes"
+         ui_pause; break ;;
+    esac
+    choice=$(ui_select 0 "${labels[@]}") || break
+    label="${acts[$choice]}"
+    case "$label" in
+      local) dash_local_flow; ui_pause ;;
+      share) dash_share_flow ;;
+      open) dash_open_flow ;;
+      show) dash_show_flow; ui_pause ;;
+      reset) dash_reset_flow; ui_pause ;;
+      change) dash_change_flow ;;
+      tolocal) dash_switch_local_flow; ui_pause ;;
+      off) dash_off_flow; ui_pause ;;
+      *) break ;;
+    esac
+    DASH_FLOW_CHANGED=true
+  done
+  [ "${DASH_FLOW_CHANGED:-false}" = true ] || MENU_READ_ONLY=true
+  return 0
+}
+
+
 show_supported_menu() {
   ui_screen "ready"
   local choice
   local -a actions=() labels=()
-  actions+=(status logs upgrade providers testalert settings resources capabilities license)
+  actions+=(status logs upgrade providers testalert settings resources capabilities license dashboard)
   labels+=(
     "📊 View status"
     "📜 View recent logs"
@@ -6716,6 +9726,7 @@ show_supported_menu() {
     "🧮 Edit Deployment resources and placement"
     "🧩 View capabilities"
     "🔑 License / Pro"
+    "🖥️  Dashboard"
   )
   # Restoring is meaningless with nothing to restore from.
   if [ -n "$(config_backups)" ]; then
@@ -6724,11 +9735,23 @@ show_supported_menu() {
   fi
   actions+=(diagnostics uninstall exit)
   labels+=("🧰 Save diagnostics to file" "🧹 Uninstall kwatch" "🚪 Exit")
-  if ! choice=$(ui_select 0 "${labels[@]}"); then
+  # The Dashboard entry carries its state as a dim caption.
+  local -a captions=()
+  local idx
+  dash_state
+  for idx in "${!actions[@]}"; do
+    if [ "${actions[$idx]}" = dashboard ]; then
+      captions+=("$(dash_state_text)")
+    else
+      captions+=("")
+    fi
+  done
+  if ! choice=$(ui_select_captioned 0 "${#labels[@]}" "${labels[@]}" "${captions[@]}"); then
     MENU_EXIT=true
     return
   fi
   case "${actions[$choice]}" in
+    dashboard) dashboard_flow ;;
     status) status_flow; MENU_READ_ONLY=true ;;
     logs) logs_flow; MENU_READ_ONLY=true ;;
     testalert) testalert_flow; MENU_READ_ONLY=true ;;

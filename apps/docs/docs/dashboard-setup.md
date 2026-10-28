@@ -14,7 +14,8 @@ The dashboard is part of kwatch Pro, which is free during early access. It needs
 
 The easiest way to turn on and share the dashboard is the installer's
 **Dashboard** menu: see [Dashboard](/dashboard). This page is for people who
-manage kwatch with Helm or GitOps and want to set it up by hand. For a first
+manage kwatch with Helm (a package manager for Kubernetes) or GitOps (keeping
+your settings in Git) and want to set it up by hand. For a first
 install, use the installer; Helm is the alternative path.
 
 ## What the chart gives you
@@ -69,7 +70,7 @@ stops with a clear message:
 
 | Your setup | Set |
 |---|---|
-| An Ingress, route or proxy ends https and forwards to kwatch | `trustProxy: true` |
+| An Ingress, route or proxy ends https and handles https and passes the traffic on to kwatch | `trustProxy: true` |
 | kwatch serves https itself (load balancer or NodePort with nothing in front) | `tls.secretName: <your TLS Secret>` |
 
 Use `trustProxy` only when that proxy is the sole way in from outside the
@@ -106,10 +107,12 @@ spec:
                   name: dashboard
 ```
 
-If you use NetworkPolicies, set `networkPolicy.enabled: true` and list who may
+If you use NetworkPolicies, turn them on and list who may
 reach the dashboard port, such as your ingress controller:
 
 ```yaml
+networkPolicy:
+  enabled: true
 dashboard:
   networkPolicyFrom:
     - namespaceSelector:
@@ -132,8 +135,8 @@ dashboard:
 
 The Secret needs the keys `password` and `token`. Use a sealed or external
 secret to keep it out of Git in plain text. The installer's password format is
-16 letters and digits in four groups, like `7K4M-QX9P-2HVD-T6RE`, but any
-password you choose works. People can type it with or without dashes, in any
+16 letters and digits in four groups, like `7K4M-QX9P-2HVD-T6RE`, but you can
+choose your own. People can type it with or without dashes, in any
 case.
 
 ## Good to know
@@ -142,8 +145,9 @@ case.
   signs everyone out.
 - After 10 wrong passwords in a minute from one client, sign-in waits until
   the next minute.
-- The generated Secret is kept when you uninstall or turn the dashboard off, so
-  a reinstall keeps the same password. Delete the Secret to forget it.
+- With Helm, the generated Secret is kept when you uninstall or turn the dashboard
+  off, so a reinstall keeps the same password. Delete the Secret to forget it.
+  (The installer's **Turn off** deletes it.)
 
 ## Values
 

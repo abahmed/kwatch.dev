@@ -65,13 +65,16 @@ from the main menu; the dashboard needs v1.2 or newer.
 Choose **Share with my team**. The installer looks at your cluster and shows only
 the ways that will work there. It creates nothing until you confirm, and it
 never shares anything if you just press Enter, because the menu starts on
-**Local only**. Every shared way uses https, and kwatch refuses to sign anyone
-in over plain http.
+**Local only**. Every shared way gives your team an https address, and kwatch refuses to sign anyone
+in over plain http (the outside-proxy way is explained below).
 
 You need to control the address you pick (for example `kwatch.example.com`) at
 your DNS provider. The installer prints the exact DNS record to add. Some
 setups let you also limit access to certain IP addresses; the password is still
 needed.
+
+When setup finishes, the installer checks the address from your computer and
+prints "Ready at https://…" only when it answers.
 
 ### Local only
 
@@ -84,24 +87,26 @@ An Ingress is your cluster's front door for web traffic. Pick this when other
 apps in the cluster already have a normal https address. The installer finds
 your ingress controller (nginx, Traefik, HAProxy, Contour, Kong, AWS ALB, GKE,
 Azure Application Gateway and others), and can get a certificate for you from
-cert-manager, use a certificate Secret you already have, or make a self-signed
-one for a test. It also supports Tailscale and ngrok ingress, which give the
+cert-manager (a tool in your cluster that gets certificates for you), use a
+certificate Secret you already have, or make a self-signed one for a test (works
+at once, but browsers warn until you trust it). It also supports Tailscale and ngrok ingress, which give the
 dashboard an address without a DNS step.
 
 ### Gateway API or Istio
 
-Pick this when your cluster uses Gateways or Istio rather than Ingress. The
+Pick this when your cluster uses Gateways (the newer kind of front door) or Istio
+rather than Ingress. The
 installer adds an HTTPRoute (Gateway API) or a VirtualService (Istio) to a
 Gateway you choose. It never edits the Gateway itself.
 
 ### OpenShift Route
 
-Pick this on OpenShift. The default address is under your cluster's apps
-domain, which already has a certificate.
+Pick this on OpenShift. The default address is the kind OpenShift gives every app,
+and it already has a certificate.
 
 ### Load balancer
 
-Pick this when you have no ingress and your cloud (or MetalLB or kube-vip) can
+Pick this when you have no ingress and your cloud (or MetalLB or kube-vip on your own hardware) can
 give kwatch its own address. kwatch handles https itself, using the certificate
 you choose. You can make it reachable from the internet or only from inside
 your network.
@@ -140,8 +145,9 @@ in a minute from one address, sign-in waits until the next minute.
 ## Change how it is shared
 
 Choose **Change how it's shared** to see the current setup and move to another
-way. The installer creates the new setup first, checks it, and only then
-removes the old one. It only ever removes what it created; your own Ingresses,
+way. The installer sets up the new way, checks it, and only then
+removes the old one. If both would use the same address, it removes the old one
+first and tells you the link stops for a short while. It only ever removes what it created; your own Ingresses,
 Gateways and Secrets are left alone. **Switch to local only** takes the shared
 link down and keeps your password.
 
@@ -154,6 +160,6 @@ Secrets you supplied are not touched, so remove the DNS record when you like.
 
 ## Next steps
 
-- [Dashboard setup](/dashboard-setup) for Helm, GitOps and your own Ingress.
+- [Dashboard setup](/dashboard-setup) for Helm (a package manager for Kubernetes), GitOps (keeping your settings in Git) and your own Ingress.
 - [Dashboard API](/dashboard-api) to read the same data from a script.
 - [Is kwatch working?](/operations/is-kwatch-working) for other ways to check on kwatch.

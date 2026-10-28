@@ -84,7 +84,7 @@ Lists incidents, newest first.
 |---|---|
 | `state` | `active` (default list) or `resolved`. To narrow the active list, also use `settling`, `open`, `recovering` or `flapping`. Repeat the parameter or separate values with commas |
 | `namespace` | One namespace name |
-| `severity` | `page`, `notify`, `digest` or `silent`. Repeatable |
+| `severity` | `page`, `notify`, `digest` or `silent`. Repeatable. In the dashboard these show as Urgent (`page`), Needs attention (`notify`) and Low (`digest`). Silent incidents are not listed |
 | `q` | Search text, up to 200 characters |
 | `since` | A duration back from now, like `24h`, or an RFC 3339 time. For resolved issues it is when they resolved; for active ones, when they were last seen |
 | `limit` | How many to return. Default `100`, largest `500` |
@@ -123,7 +123,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
   the response size left some out, so ask for a narrower list.
 - `counts` is how many incidents of the requested list there are by severity,
   before the other filters and the limit.
-- `ackedBy` and `resolvedAt` appear when they apply.
+- `ackedBy` (who acknowledged it, when anyone did) and `resolvedAt` appear when they apply.
+- `state` values show in the dashboard as: `settling` Looking into it, `open` Happening now, `recovering` Looks better, `flapping` Keeps coming back, `resolved` Resolved.
 
 ## `GET /api/incidents/{id}`
 

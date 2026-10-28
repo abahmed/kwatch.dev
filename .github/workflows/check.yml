@@ -50,7 +50,9 @@ jobs:
         run: bash -n apps/web/public/kwatch.sh apps/docs/tests/*.sh
 
       - name: Run installer regression tests
-        run: bash apps/web/tests/migration-notice-test.sh
+        run: |
+          bash apps/web/tests/migration-notice-test.sh
+          bash apps/web/tests/dashboard-test.sh
 
       - name: Lint installer
         run: shellcheck -S error apps/web/public/kwatch.sh

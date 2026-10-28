@@ -84,6 +84,10 @@ generated: true
 | `heartbeatMonitor.url` | string | `empty` | secret | External dead-man heartbeat URL; stored only through a mounted Secret. |
 | `kubelet.insecureSkipVerify` | boolean | `false` | active | Skip kubelet serving certificate verification for direct node stats reads; only for self-signed kubelet certificates. |
 | `healthCheck.statusEndpoint` | boolean | `false` | active | Serve the read-only /status view (object names, no authentication) on the health port; off by default. |
+| `dashboard.mode` | string | `local` | active | How people reach the dashboard: local (port-forward) or shared (Ingress, https only; sign-in over plain http is refused). |
+| `dashboard.trustProxy` | boolean | `false` | active | Honour X-Forwarded-Proto and X-Forwarded-For from the proxy that terminates TLS in front of the dashboard. |
+| `dashboard.tlsCertFile` | string | `empty` | active | Certificate file kwatch serves on the dashboard port itself (with tlsKeyFile); reloaded when it changes. |
+| `dashboard.tlsKeyFile` | string | `empty` | active | Key file for dashboard.tlsCertFile. |
 
 ## Noise reduction
 

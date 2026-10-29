@@ -93,7 +93,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Pro',
       collapsible: false,
-      items: ['editions', 'license', 'getting-help'],
+      items: ['editions', 'what-kwatch-checks', 'license', 'getting-help'],
     },
     {
       type: 'category',

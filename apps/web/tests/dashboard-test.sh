@@ -398,7 +398,7 @@ fi
 # Turn off deletes the Service, Secret and recorded exposure objects, labelled only.
 reset_fixtures
 DASH_STATE=shared
-dash_record_load() { DASH_REC_OBJECTS="ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"; DASH_REC_ADDR=kwatch.example.com; DASH_REC_CERT=auto; DASH_REC_CTYPE=nginx; }
+dash_record_load() { DASH_REC_OBJECTS="ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"; DASH_REC_ADDR=kwatch.example.com; DASH_REC_CERT=auto; DASH_REC_CTYPE=nginx; DASH_REC_DNS=""; }
 ask_yes_no() { printf 'true'; }
 dash_apply_values() { printf 'apply-values %s\n' "$1" >>"$LOG"; return 0; }
 : >"$LOG"; F_OWNER="installer"

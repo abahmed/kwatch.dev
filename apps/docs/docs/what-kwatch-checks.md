@@ -3,7 +3,7 @@ sidebar_position: 9
 title: "What kwatch checks for you: automatic Kubernetes evidence"
 sidebar_label: What kwatch checks for you
 description: The read-only checks kwatch Pro runs for each incident, how it correlates them, and the settings and API fields that control them.
-keywords: [kwatch Pro, auto-evidence, kubectl checks, root cause evidence, investigation.logs, rbac.readyz, rbac.metricsApi]
+keywords: [kwatch Pro, auto-evidence, kubectl checks, root cause evidence, investigation.logs, rbac.readyz]
 ---
 
 # 🔎 What kwatch checks for you <span className="kw-pro">Pro</span>
@@ -56,13 +56,11 @@ When the evidence proves the cause, the message says it is confirmed and why.
 | --- | --- | --- |
 | `investigation.logs` (Helm `config.investigation.logs`) | `true` | Reads container logs for evidence. Set `false` to read none; the dashboard shows the Logs section as turned off. |
 | `rbac.readyz` (Helm) | `true` | Grants `get` on the API server's `/readyz`, for the control plane check. |
-| `rbac.metricsApi` (Helm) | `true` | Grants `get` on pods in the metrics API, for current usage. When off, usage falls back to kubelet stats. |
 
 ```yaml
 # Helm values
 rbac:
   readyz: true
-  metricsApi: true
 config:
   investigation:
     logs: true

@@ -514,7 +514,7 @@ that case, even in `full` mode.
 Optional sources are reported as `optional_api_unavailable` or
 `optional_permission_denied` when an API is not served or a permission is
 missing; kwatch continues with the remaining
-sources. Metrics API evidence, Prometheus, a service mesh, and a
+sources. Prometheus, a service mesh, and a
 cloud-provider API are not required for core Kubernetes object monitoring.
 See [Production operations](/operations/rbac-and-security)
 for the full list.

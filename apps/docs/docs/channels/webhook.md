@@ -85,6 +85,31 @@ alert:
     fallback: <another_provider>
 ```
 
+## Evidence <span className="kw-pro">Pro</span>
+
+For an investigated incident, the payload carries one extra `evidence`
+object. Receivers that ignore it keep working, and Community payloads never
+carry it. See [What kwatch checks for you](/what-kwatch-checks).
+
+```json
+"evidence": {
+  "confirmed": true,
+  "checks": 6,
+  "facts": ["checkout logs: ...", "10.96.14.7 is Service orders-db ..."],
+  "quote": { "container": "app", "run": "previous", "lines": ["..."] },
+  "fix": [{ "text": "Point the Service at the label the pods carry",
+            "command": "kubectl patch service ...", "mutating": true }]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `confirmed` | `true` when the gathered evidence proves the cause |
+| `checks` | How many checks ran and read an answer |
+| `facts` | Up to 4 key facts, most decisive first |
+| `quote` | Up to 5 log lines that carry the failure's signature, with the `container` and the `run` (`previous` or `current`) |
+| `fix` | Steps that change the cluster, each with `text`, an optional `command` and `mutating: true` |
+
 ## Related
 
 - [Custom Webhook provider settings](/channels/provider-guides/webhook) for every field

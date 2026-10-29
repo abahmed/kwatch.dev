@@ -24,6 +24,7 @@ generated: true
 | `namespaceSelector` | string | `empty` | active | Kubernetes label selector used to choose namespaces. |
 | `reasons` | list | `all` | active | Comma-separated event reasons to allow or exclude with a leading !. |
 | `watch.secrets` | boolean | `true` | active | Watch Secrets (values hashed, never stored); false removes Secret RBAC and Secret-based checks report that they cannot verify. |
+| `investigation.logs` | boolean | `true` | active | Read container logs for Pro evidence (redacted, bounded); false reads no log and shows the log section as turned off. |
 
 ## Alerts
 

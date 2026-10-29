@@ -88,9 +88,9 @@ eq "gateway without https is hidden and counted" "$DASH_D_GW_HIDDEN" "1"
 
 reset_fixtures
 F_CRDS="certificates.cert-manager.io"
-F_ISSUERS=$'selfsigned|ClusterIssuer||||{}\nletsencrypt-prod|ClusterIssuer|https://acme||\n'; detect
+F_ISSUERS=$'selfsigned|ClusterIssuer||||{}|True|\nletsencrypt-prod|ClusterIssuer|https://acme|||True|\n'; detect
 dash_pick_issuer; eq "letsencrypt-prod preferred, selfsigned ignored" "$DASH_ISSUER" "letsencrypt-prod"
-F_ISSUERS=$'a|ClusterIssuer|https://acme||\nb|ClusterIssuer||ca-secret|\n'; detect
+F_ISSUERS=$'a|ClusterIssuer|https://acme|||True|\nb|ClusterIssuer||ca-secret||True|\n'; detect
 dash_pick_issuer; eq "several issuers: ask" "$?" "2"
 
 eq "controller nginx" "$(dash_controller_type k8s.io/ingress-nginx)" nginx

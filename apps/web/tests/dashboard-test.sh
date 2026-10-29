@@ -88,9 +88,9 @@ eq "gateway without https is hidden and counted" "$DASH_D_GW_HIDDEN" "1"
 
 reset_fixtures
 F_CRDS="certificates.cert-manager.io"
-F_ISSUERS=$'selfsigned|ClusterIssuer||||{}\nletsencrypt-prod|ClusterIssuer|https://acme||\n'; detect
+F_ISSUERS=$'selfsigned|ClusterIssuer||||{}|True|\nletsencrypt-prod|ClusterIssuer|https://acme|||True|\n'; detect
 dash_pick_issuer; eq "letsencrypt-prod preferred, selfsigned ignored" "$DASH_ISSUER" "letsencrypt-prod"
-F_ISSUERS=$'a|ClusterIssuer|https://acme||\nb|ClusterIssuer||ca-secret|\n'; detect
+F_ISSUERS=$'a|ClusterIssuer|https://acme|||True|\nb|ClusterIssuer||ca-secret||True|\n'; detect
 dash_pick_issuer; eq "several issuers: ask" "$?" "2"
 
 eq "controller nginx" "$(dash_controller_type k8s.io/ingress-nginx)" nginx
@@ -398,7 +398,7 @@ fi
 # Turn off deletes the Service, Secret and recorded exposure objects, labelled only.
 reset_fixtures
 DASH_STATE=shared
-dash_record_load() { DASH_REC_OBJECTS="ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"; DASH_REC_ADDR=kwatch.example.com; DASH_REC_CERT=auto; DASH_REC_CTYPE=nginx; }
+dash_record_load() { DASH_REC_OBJECTS="ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"; DASH_REC_ADDR=kwatch.example.com; DASH_REC_CERT=auto; DASH_REC_CTYPE=nginx; DASH_REC_DNS=""; }
 ask_yes_no() { printf 'true'; }
 dash_apply_values() { printf 'apply-values %s\n' "$1" >>"$LOG"; return 0; }
 : >"$LOG"; F_OWNER="installer"

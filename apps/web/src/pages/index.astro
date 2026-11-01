@@ -250,7 +250,7 @@ const jsonLd = [
   <section id="pro" class="wrap section">
     <div class="pro-head">
       <h2 class="display h2-lg">Free. And Pro is free too.</h2>
-      <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per account or company. No payment details.</p>
+      <p>While kwatch is in early access, Pro licenses are free for 3 months and we may renew them. Up to 2 clusters per account or company. No credit card required, and no payment details. Related alerts arrive as one incident, in Community and Pro.</p>
     </div>
     <div class="panels editions">
       <Panel title="Community" sub="Free forever. No account.">
@@ -258,11 +258,12 @@ const jsonLd = [
         <dl class="rows"><div><dt>Support</dt><dd>Support on GitHub.</dd></div></dl>
         <a slot="footer" class="btn btn-line" href="#install">Install</a>
       </Panel>
-      <Panel title="Pro" sub="Free during early access." tone="soft">
+      <Panel title="Pro" sub="Free during early access. No credit card required." tone="soft">
         <p class="body">Every detector. The full proof and who made the change. Unlimited channels with routing and threads. History, audit log, maintenance windows and runbooks.</p>
         <dl class="rows"><div><dt>Support</dt><dd>Dedicated support.</dd></div></dl>
         <Fragment slot="footer">
           <a class="btn btn-solid" href="https://app.kwatch.dev">Get a free Pro license</a>
+          <span class="nocard">No credit card required.</span>
           <a class="link-strong compare" href="/pro">Compare editions →</a>
         </Fragment>
       </Panel>
@@ -394,6 +395,7 @@ const jsonLd = [
 
   /* Pro */
   .pro-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; align-items: end; }
+  .nocard { font-weight: 600; color: var(--text); }
   .pro-head p { max-width: 400px; color: var(--text-soft); }
   .pro-head .h2-lg { margin-top: 0; }
   .editions { margin-top: 48px; }

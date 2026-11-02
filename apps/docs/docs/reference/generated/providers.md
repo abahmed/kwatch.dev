@@ -179,6 +179,7 @@ generated: true
 | `url` | string | true | false | `` | Gotify server URL |
 | `token` | string | true | true | `` | App token |
 | `priority` | integer | false | false | `` | Priority (optional) |
+| `resolvedPriority` | integer | false | false | `` | Priority 0-10 of a resolve (optional, default: the priority, capped at 5) |
 | `title` | string | false | false | `` | Custom title |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
@@ -327,7 +328,8 @@ generated: true
 | `url` | string | false | false | `https://ntfy.sh` | Server URL (default: https://ntfy.sh) |
 | `token` | string | false | true | `` | Optional auth token |
 | `title` | string | false | false | `` | Custom title |
-| `priority` | integer | false | false | `4` | Priority 1-5 (default: 4) |
+| `priority` | integer | false | false | `` | Priority 1-5 (optional, ntfy uses 3 when unset) |
+| `resolvedPriority` | integer | false | false | `` | Priority 1-5 of a resolve (optional, default: the priority, capped at 3) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -384,6 +386,7 @@ generated: true
 | `token` | string | true | true | `` | Application token |
 | `user` | string | true | true | `` | User or group key |
 | `priority` | integer | false | false | `` | Priority from -2 to 2 (optional) |
+| `resolvedPriority` | integer | false | false | `` | Priority from -2 to 1 of a resolve (optional, default: the priority, capped at 0) |
 | `retry` | integer | false | false | `` | Emergency retry interval in seconds |
 | `expire` | integer | false | false | `` | Emergency expiration in seconds |
 | `title` | string | false | false | `` | Custom title |

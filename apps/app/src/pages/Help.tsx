@@ -240,7 +240,6 @@ export default function Help() {
         </button>
         {!valid && !busy && <span className="hint">20 characters minimum</span>}
       </div>
-      {error && <p className="hint" role="status">Not sent</p>}
 
       <p className="hint alt-contact">
         Prefer email? <a href={SUPPORT_MAILTO}>{SUPPORT_EMAIL}</a>

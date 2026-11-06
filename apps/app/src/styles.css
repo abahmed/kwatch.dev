@@ -27,7 +27,8 @@ code, .mono { font-family: var(--font-mono); }
 
 /* Controls */
 button { font: inherit; cursor: pointer; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:disabled { cursor: not-allowed; }
+.btn:disabled { background: var(--surface); color: var(--text-muted); border-color: var(--line); }
 :focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-offset); }
 .btn {
   background: transparent; color: var(--text);
@@ -206,24 +207,27 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .help-action { margin-top: 18px; }
 .help-reply { margin-top: 22px; }
 .help-label { font-size: 14px; font-weight: 600; }
-.help-email { color: var(--text); background: var(--surface); border-radius: var(--radius-input); padding: 6px 10px; overflow-wrap: anywhere; }
+.help-email { color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-input); padding: 6px 10px; overflow-wrap: anywhere; }
 .help select, .help textarea {
   display: block; width: 100%; margin-top: 6px; padding: 12px 14px; min-height: var(--hit);
-  background: var(--bg); color: var(--text-muted); border: 1.5px solid var(--control-border); border-radius: var(--radius-input); font: inherit; font-size: 16px;
+  background: var(--bg); color: var(--text); border: 1.5px solid var(--control-border); border-radius: var(--radius-input); font: inherit; font-size: 16px;
 }
-.help select:focus, .help textarea:focus { color: var(--text); }
 .help select {
   appearance: none; padding-right: 40px;
-  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
-  background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%;
-  background-size: 5px 5px; background-repeat: no-repeat;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%235B6270' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 16px center; background-repeat: no-repeat;
 }
-.help textarea { min-height: 160px; resize: vertical; color: var(--text); }
+.help textarea { min-height: 160px; resize: vertical; }
+.help textarea::placeholder { color: var(--text-muted); }
+@media (prefers-color-scheme: dark) {
+  .help select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%239AA0AA' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E"); }
+}
 .help textarea[aria-invalid="true"] { border-color: var(--failing); }
 .hint { margin-top: 6px; font-size: 14px; color: var(--text-muted); }
 .field-row { display: flex; justify-content: space-between; gap: 12px; }
 .field-row .hint { margin-left: auto; }
-.field-error { margin-top: 6px; font-size: 14px; color: var(--failing); }
+.field-error { margin-top: 6px; font-size: 14px; color: var(--failing); flex: 1; min-width: 0; }
+.counter { white-space: nowrap; }
 .field-error:empty { display: none; }
 .sent-with { margin-top: 18px; }
 .sent-with summary { cursor: pointer; font-size: 14px; color: var(--text-muted); }
@@ -232,7 +236,6 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .mono-facts dd { margin: 0; overflow-wrap: anywhere; }
 .send-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
 .send-row .hint { margin: 0; }
-.help button.btn:disabled { opacity: 1; background: var(--surface); color: var(--text-muted); border-color: var(--line); }
 .alt-contact { margin-top: 18px; }
 .alt-contact a { color: var(--text-muted); text-decoration: underline; }
 .alert:focus-visible { outline-offset: 2px; }

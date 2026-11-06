@@ -41,7 +41,7 @@ generated: true
 | `analysis.changes` | runtime | Relate incidents to recent changes and who made them | `analysis.root-cause` |
 | `analysis.impact` | runtime | Show which workloads and services an incident affects | `analysis.root-cause` |
 | `analysis.investigation` | runtime | Attach a redacted log excerpt to announcements | `none` |
-| `incidents.noise-control` | runtime | Settle, merge symptoms and send only material changes | `analysis.root-cause` |
+| `incidents.noise-control` | runtime | Settle, group related alerts into one incident and send only material changes | `analysis.root-cause` |
 | `incidents.flapping` | runtime | Recognise flapping and routine recurring incidents | `incidents.noise-control` |
 | `incidents.startup-summary` | startup | Summarise pre-existing incidents once at cold start | `none` |
 | `incidents.state` | startup | Keep incidents and history on disk across restarts | `none` |
@@ -55,4 +55,5 @@ generated: true
 | `delivery.threads` | runtime | Update one message thread per incident where supported | `none` |
 | `delivery.templates` | runtime | Render operator-selected text templates | `none` |
 | `delivery.audit-log` | runtime | Write a JSON line for every incident decision | `none` |
+| `delivery.heartbeat` | runtime | Ping an external monitor so it notices when kwatch stops | `none` |
 | `security.rbac-audit` | runtime | Report missing permissions | `none` |

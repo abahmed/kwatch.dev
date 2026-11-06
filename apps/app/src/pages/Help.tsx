@@ -1,10 +1,10 @@
 import {useEffect, useRef, useState} from 'react';
 import type {FormEvent} from 'react';
-import {Link} from 'react-router-dom';
+import {Link, useNavigate} from 'react-router-dom';
 import {sendSupport} from '../api';
 import type {ApiError, Cluster} from '../api';
 import {usePageTitle} from '../components';
-import {ISSUES_URL} from '../config';
+import {ISSUES_URL, SUPPORT_EMAIL, SUPPORT_MAILTO} from '../config';
 import {fmtAgoLong, fmtDate} from '../format';
 import {useSession} from '../session';
 import {useClusters} from '../useClusters';
@@ -17,6 +17,7 @@ const TOPICS: [string, string][] = [
   ['alerts_not_arriving', 'Alerts not arriving'],
   ['alert_unclear', 'An alert I do not understand'],
   ['license', 'My license'],
+  ['checkins', 'Check-ins'],
   ['other', 'Something else'],
 ];
 
@@ -26,24 +27,24 @@ export function supportError(err: unknown): string {
     return 'We could not reach the kwatch service, so nothing was sent. Check your connection and try again.';
   }
   if (e?.status === 429 || e?.code === 'support_limit') {
-    return 'You have sent 3 requests today. Please wait for our reply, or try again tomorrow. For something urgent, open an issue on GitHub.';
+    return `You have used today's requests. Reply to our email or write to ${SUPPORT_EMAIL}.`;
   }
   if (e?.status === 503 || e?.code === 'support_busy') {
-    return 'Support is busy right now. Please try again tomorrow or open an issue on GitHub.';
+    return `Help is at capacity right now. Email ${SUPPORT_EMAIL} and we will pick it up.`;
   }
-  if (e?.status === 401) return 'Your session expired. Please sign in again.';
-  return 'We could not send your request. Nothing was sent. Try again, and if it keeps failing, open an issue on GitHub.';
+  if (e?.status === 401) return 'Your session expired. Sign in again.';
+  return `Nothing was sent. Try again, or email ${SUPPORT_EMAIL}.`;
 }
 
 function NotPro() {
   return (
-    <>
-      <h1>Get help</h1>
+    <div className="help">
+      <div className="page-head"><h1>Get help</h1></div>
       <p className="body">Get help is for Pro. Community support is on GitHub.</p>
-      <a className="btn btn-primary" style={{display: 'inline-block', marginTop: 18, textDecoration: 'none'}} href={ISSUES_URL}>
+      <a className="btn btn-primary help-action" href={ISSUES_URL}>
         Open an issue
       </a>
-    </>
+    </div>
   );
 }
 
@@ -61,16 +62,15 @@ function Sent({email, refId}: {email: string; refId: string}) {
   }
   return (
     <div className="help">
-      <h1 ref={head} tabIndex={-1}>Request sent</h1>
+      <div className="page-head"><h1 ref={head} tabIndex={-1}>Request sent</h1></div>
       <p className="body">
-        We will reply by e-mail to {email}. Replies come from our support address, so check your spam folder if you do
-        not see one.
+        We reply by email to {email}. The reply comes from {SUPPORT_EMAIL}.
       </p>
-      <p className="row" style={{alignItems: 'center'}}>
+      <p className="row">
         <span>Reference <span className="ref">{refId}</span></span>
         <button type="button" className="btn btn-sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
       </p>
-      <p className="body">When we do, reply with your diagnostics file attached.</p>
+      <p className="body">Reply with your diagnostics file attached.</p>
       <section className="panel">
         <h2>Make the diagnostics file now</h2>
         <ol className="steps" style={{marginTop: 10}}>
@@ -79,7 +79,7 @@ function Sent({email, refId}: {email: string; refId: string}) {
           <li>Keep the file ready. Secrets are removed and nothing is uploaded.</li>
         </ol>
       </section>
-      <Link className="btn" style={{display: 'inline-block', marginTop: 18, textDecoration: 'none'}} to="/licenses">
+      <Link className="btn help-action" to="/licenses">
         Back to licenses
       </Link>
     </div>
@@ -88,6 +88,7 @@ function Sent({email, refId}: {email: string; refId: string}) {
 
 export default function Help() {
   usePageTitle('Get help');
+  const navigate = useNavigate();
   const {data} = useSession();
   const {clusters} = useClusters();
   const email = data.account.email;
@@ -101,13 +102,23 @@ export default function Help() {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notPro, setNotPro] = useState(false);
   const [sentRef, setSentRef] = useState<string | null>(null);
+  const alertRef = useRef<HTMLDivElement>(null);
 
-  if (pro.length === 0) return <NotPro />;
+  useEffect(() => {
+    if (error) {
+      alertRef.current?.focus();
+      alertRef.current?.scrollIntoView?.({block: 'center'});
+    }
+  }, [error]);
+
+  if (pro.length === 0 || notPro) return <NotPro />;
   if (sentRef) return <Sent email={email} refId={sentRef} />;
 
   const license = pro.find((l) => l.lid === lid) ?? pro.find((l) => l.activation) ?? pro[0];
   const mine: Cluster[] = (clusters ?? []).filter((c) => c.license === license.lid);
+  const picked = mine.find((c) => c.cluster_uuid === cluster);
   const len = message.trim().length;
   const tooShort = len < MIN;
   const tooLong = message.length > MAX;
@@ -129,6 +140,15 @@ export default function Help() {
       const r = await sendSupport(cluster ? {...body, cluster_uuid: cluster} : body);
       setSentRef(r.ref);
     } catch (err) {
+      const ae = err as ApiError;
+      if (ae?.status === 401) {
+        navigate('/signin', {replace: true});
+        return;
+      }
+      if (ae?.status === 403 && ae?.code === 'not_pro') {
+        setNotPro(true);
+        return;
+      }
       setError(supportError(err));
       setBusy(false);
     }
@@ -136,29 +156,34 @@ export default function Help() {
 
   return (
     <form className="help" onSubmit={submit} noValidate>
-      <h1>Get help</h1>
-      <p className="lead">No file goes in this form. We reply by e-mail.</p>
-      {error && <div className="alert" role="alert">{error}</div>}
+      <div className="page-head"><h1>Get help</h1></div>
+      <p className="lead">Diagnostics go in your reply, not in this form.</p>
+      {error && <div className="alert" role="alert" tabIndex={-1} ref={alertRef}>{error}</div>}
 
-      <label htmlFor="help-email">Your email</label>
-      <input id="help-email" value={email} readOnly />
-      <p className="hint">We reply to this address.</p>
+      <div className="row help-reply">
+        <span className="help-label">Reply to</span>
+        <span className="help-email">{email}</span>
+      </div>
 
-      <label htmlFor="help-license">License</label>
-      <select
-        id="help-license"
-        value={license.lid}
-        onChange={(e) => {
-          setLid(e.target.value);
-          setCluster('');
-        }}
-      >
-        {pro.map((l) => (
-          <option key={l.lid} value={l.lid}>
-            {l.lid}
-          </option>
-        ))}
-      </select>
+      {pro.length > 1 && (
+        <>
+          <label htmlFor="help-license">License</label>
+          <select
+            id="help-license"
+            value={license.lid}
+            onChange={(e) => {
+              setLid(e.target.value);
+              setCluster('');
+            }}
+          >
+            {pro.map((l) => (
+              <option key={l.lid} value={l.lid}>
+                {l.lid} (expires {fmtDate(l.expires_at)})
+              </option>
+            ))}
+          </select>
+        </>
+      )}
 
       <label htmlFor="help-cluster">Cluster</label>
       <select id="help-cluster" value={cluster} onChange={(e) => setCluster(e.target.value)}>
@@ -166,8 +191,6 @@ export default function Help() {
         {mine.map((c) => (
           <option key={c.cluster_uuid} value={c.cluster_uuid}>
             Cluster {c.id_short}
-            {c.version ? ` (v${c.version.replace(/^v/, '')}` : ' ('}
-            {c.last_seen ? `${c.version ? ', ' : ''}${fmtAgoLong(c.last_seen).toLowerCase()}` : ''})
           </option>
         ))}
       </select>
@@ -184,29 +207,45 @@ export default function Help() {
         id="help-message"
         value={message}
         placeholder="What you expected, what you saw, and what you tried."
-        aria-describedby="help-count help-err"
+        aria-describedby={fieldError ? 'help-err' : undefined}
         aria-invalid={!!fieldError}
         onChange={(e) => setMessage(e.target.value)}
         onBlur={() => setTouched(true)}
       />
-      <p className="hint" id="help-count">
-        {message.length} / {MAX}
-        {message.length >= MAX * 0.9 && <span className="sr-only" role="status"> characters used</span>}
-      </p>
-      <p className="field-error" id="help-err" aria-live="polite">{fieldError}</p>
-      <p className="hint">
-        No file goes in this form. After we reply by e-mail, attach your diagnostics file to that reply. Installer:
-        Save diagnostics to file.
-      </p>
+      <div className="field-row">
+        <p className="field-error" id="help-err" aria-live="polite">{fieldError}</p>
+        <p className="hint counter">
+          {message.length} / {MAX}
+          {message.length >= MAX * 0.9 && <span className="sr-only" role="status"> characters used</span>}
+        </p>
+      </div>
 
-      <p className="hint" style={{marginTop: 18}}>
-        Sent with your request: license, plan and expiry, cluster IDs, versions and last seen.
-        {' '}({license.lid}, Pro, expires {fmtDate(license.expires_at)})
-      </p>
+      <details className="sent-with">
+        <summary>Sent with your request</summary>
+        <dl className="mono-facts">
+          <dt>License</dt><dd>{license.lid}</dd>
+          <dt>Plan</dt><dd>Pro</dd>
+          <dt>Expires</dt><dd>{fmtDate(license.expires_at)}</dd>
+          <dt>Cluster</dt>
+          <dd>
+            {picked
+              ? `${picked.id_short}${picked.version ? ` v${picked.version.replace(/^v/, '')}` : ''}${picked.last_seen ? `, last seen ${fmtAgoLong(picked.last_seen).toLowerCase()}` : ''}`
+              : 'None selected'}
+          </dd>
+        </dl>
+      </details>
 
-      <button type="submit" className="btn btn-primary" style={{marginTop: 18}} disabled={busy || !valid}>
-        {busy ? 'Sending…' : 'Send request'}
-      </button>
+      <div className="send-row">
+        <button type="submit" className="btn btn-primary" disabled={busy || !valid}>
+          {busy ? 'Sending…' : 'Send request'}
+        </button>
+        {!valid && !busy && <span className="hint">20 characters minimum</span>}
+      </div>
+      {error && <p className="hint" role="status">Not sent</p>}
+
+      <p className="hint alt-contact">
+        Prefer email? <a href={SUPPORT_MAILTO}>{SUPPORT_EMAIL}</a>
+      </p>
     </form>
   );
 }

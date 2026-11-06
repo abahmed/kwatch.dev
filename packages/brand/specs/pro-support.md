@@ -53,7 +53,7 @@ Verified in the repos:
 
 - `kwatch-api/src/routes/support.ts`: `POST /support`, signed-in, active Pro
   license required, sends one email to `SUPPORT_INBOX` = `support@kwatch.dev`.
-  Per-account and global daily caps are set by the API, not by the app. Topics: installing, alerts not arriving, an alert I do not understand, my license, check-ins, something else.
+  Per-account and global daily caps are set by the API, not by the app. Topics: installing, alerts not arriving, an alert I do not understand, my license, something else.
 - `kwatch.dev/apps/app/src/pages/Help.tsx`: **Get help** at app.kwatch.dev,
   Pro only. Non-Pro accounts see "Get help is for Pro. Community support is
   on GitHub." with an Open an issue button.

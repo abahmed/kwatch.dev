@@ -100,6 +100,6 @@ describe('/help', () => {
     expect(await screen.findByText('Diagnostics go in your reply, not in this form.')).toBeInTheDocument();
     expect(screen.getByRole('link', {name: 'support@kwatch.dev'})).toHaveAttribute('href', 'mailto:support@kwatch.dev');
     expect(screen.getByText('20 characters minimum')).toBeInTheDocument();
-    expect(screen.getByRole('option', {name: 'Check-ins'})).toBeInTheDocument();
+    expect(screen.getByRole('option', {name: 'My license'})).toBeInTheDocument();
   });
 });

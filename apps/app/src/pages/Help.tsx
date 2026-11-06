@@ -17,7 +17,6 @@ const TOPICS: [string, string][] = [
   ['alerts_not_arriving', 'Alerts not arriving'],
   ['alert_unclear', 'An alert I do not understand'],
   ['license', 'My license'],
-  ['checkins', 'Check-ins'],
   ['other', 'Something else'],
 ];
 

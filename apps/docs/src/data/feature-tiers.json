@@ -235,7 +235,7 @@
   {
     "id": "incidents.noise-control",
     "lifecycle": "runtime",
-    "description": "Settle, merge symptoms and send only material changes",
+    "description": "Settle, group related alerts into one incident and send only material changes",
     "deps": [
       "analysis.root-cause"
     ],
@@ -335,6 +335,13 @@
     "id": "delivery.audit-log",
     "lifecycle": "runtime",
     "description": "Write a JSON line for every incident decision",
+    "deps": [],
+    "tier": "pro"
+  },
+  {
+    "id": "delivery.heartbeat",
+    "lifecycle": "runtime",
+    "description": "Ping an external monitor so it notices when kwatch stops",
     "deps": [],
     "tier": "pro"
   },

@@ -27,12 +27,14 @@ code, .mono { font-family: var(--font-mono); }
 
 /* Controls */
 button { font: inherit; cursor: pointer; }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:disabled { cursor: not-allowed; }
+.btn:disabled { background: var(--surface); color: var(--text-muted); border-color: var(--line); }
 :focus-visible { outline: var(--focus-width) solid var(--text); outline-offset: var(--focus-offset); }
 .btn {
   background: transparent; color: var(--text);
   border: var(--btn-border) solid var(--control-border); border-radius: var(--radius-pill);
   min-height: var(--btn-height); padding: 0 18px; font-weight: 600; font-size: 15px;
+  display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
 }
 .btn-sm { min-height: var(--hit); padding: 0 14px; font-size: 14px; font-weight: 500; }
 .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
@@ -138,6 +140,7 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .btn-action.is-primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; min-width: 112px; }
 .btn-action.is-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
 .btn-action.is-primary:active:not(:disabled) { background: var(--primary-hover); transform: translateY(1px); }
+.btn-action:disabled, .btn-action.is-primary:disabled { background: var(--surface); color: var(--text-muted); border-color: var(--line); cursor: not-allowed; }
 .btn-quiet { border-color: transparent; color: var(--text-muted); padding: 0 12px; }
 .btn-quiet:hover:not(:disabled) { background: transparent; border-color: transparent; color: var(--text); text-decoration: underline; }
 .btn-quiet:active:not(:disabled) { background: transparent; color: var(--text); }
@@ -192,21 +195,51 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 
 /* Cluster */
 .cluster-id { font-size: 13px; color: var(--text-muted); }
-.license-cluster .panel { margin-top: 28px; padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius-card); }
+.panel { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius-card); }
+.license-cluster .panel { margin-top: 28px; }
 .panel h2 { font-size: 18px; }
 .panel p { margin-top: 8px; font-size: 15px; color: var(--text-muted); }
 .skeleton { height: 18px; margin-top: 16px; border-radius: var(--radius-chip); background: var(--surface); }
 
 /* Get help */
 .help { max-width: 560px; }
+.help .panel { margin-top: 24px; }
+.help .row { align-items: baseline; gap: 12px; }
+.help-action { margin-top: 18px; }
+.help-reply { margin-top: 22px; }
+.help-label { font-size: 14px; font-weight: 600; }
+.help-email { color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-input); padding: 6px 10px; overflow-wrap: anywhere; }
 .help select, .help textarea {
   display: block; width: 100%; margin-top: 6px; padding: 12px 14px; min-height: var(--hit);
-  background: var(--bg); color: var(--text); border: 1.5px solid var(--text); border-radius: var(--radius-input); font: inherit; font-size: 16px;
+  background: var(--bg); color: var(--text); border: 1.5px solid var(--control-border); border-radius: var(--radius-input); font: inherit; font-size: 16px;
+}
+.help select {
+  appearance: none; padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%235B6270' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 16px center; background-repeat: no-repeat;
 }
 .help textarea { min-height: 160px; resize: vertical; }
-.help input[readonly] { border-color: var(--line); }
+.help textarea::placeholder { color: var(--text-muted); }
+@media (prefers-color-scheme: dark) {
+  .help select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%239AA0AA' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E"); }
+}
+.help textarea[aria-invalid="true"] { border-color: var(--failing); }
 .hint { margin-top: 6px; font-size: 14px; color: var(--text-muted); }
-.field-error { margin-top: 6px; font-size: 14px; color: var(--failing); }
+.field-row { display: flex; justify-content: space-between; gap: 12px; }
+.field-row .hint { margin-left: auto; }
+.field-error { margin-top: 6px; font-size: 14px; color: var(--failing); flex: 1; min-width: 0; }
+.counter { white-space: nowrap; }
+.field-error:empty { display: none; }
+.sent-with { margin-top: 18px; }
+.sent-with summary { cursor: pointer; font-size: 14px; color: var(--text-muted); }
+.mono-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 20px; margin: 10px 0 0; font-family: var(--font-mono); font-size: 13px; }
+.mono-facts dt { color: var(--text-muted); }
+.mono-facts dd { margin: 0; overflow-wrap: anywhere; }
+.send-row { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+.send-row .hint { margin: 0; }
+.alt-contact { margin-top: 18px; }
+.alt-contact a { color: var(--text-muted); text-decoration: underline; }
+.alert:focus-visible { outline-offset: 2px; }
 .help .btn { min-height: var(--hit); }
 .ref { font-family: var(--font-mono); font-size: 20px; user-select: all; }
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -222,7 +255,7 @@ form .muted.small { margin-top: 14px; font-size: 13px; }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; background: none; border: 0; border-radius: var(--radius-pill); color: var(--text-muted); cursor: pointer; transition: background var(--motion-fast), color var(--motion-fast); }
 .icon-btn:hover:not(:disabled) { color: var(--text); background: color-mix(in srgb, var(--text) 8%, transparent); }
 .icon-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.icon-btn:disabled { cursor: default; }
+.icon-btn:disabled { color: var(--text-muted); cursor: default; }
 .key-row { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
 .key-row .key { margin: 0; overflow-x: auto; }
 .license-main p { margin: 0; }

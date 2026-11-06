@@ -8,5 +8,7 @@ export const TURNSTILE_SITEKEY: string = env.VITE_TURNSTILE_SITEKEY ?? '0x4AAAAA
 export const SITE_URL = 'https://kwatch.dev';
 export const DOCS_URL = 'https://docs.kwatch.dev';
 export const CONTACT_URL = 'mailto:hello@kwatch.dev';
+export const SUPPORT_EMAIL = 'support@kwatch.dev';
+export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 export const ISSUES_URL = 'https://github.com/abahmed/kwatch/issues/new';
 

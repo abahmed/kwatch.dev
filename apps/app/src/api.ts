@@ -52,12 +52,15 @@ export class ApiError extends Error {
   /** Extra fields of a limit error: scope and domain. */
   scope?: string;
   domain?: string;
-  constructor(status: number, code?: string, extra: {scope?: string; domain?: string} = {}) {
+  /** Daily request cap on a 429 from /support. */
+  limit?: number;
+  constructor(status: number, code?: string, extra: {scope?: string; domain?: string; limit?: number} = {}) {
     super(code ?? `HTTP ${status}`);
     this.status = status;
     this.code = code;
     this.scope = extra.scope;
     this.domain = extra.domain;
+    this.limit = extra.limit;
   }
 }
 
@@ -78,13 +81,14 @@ export async function apiFetch<T = unknown>(
   }
   if (!res.ok) {
     let code: string | undefined;
-    let extra: {scope?: string; domain?: string} = {};
+    let extra: {scope?: string; domain?: string; limit?: number} = {};
     try {
       const body = await res.json();
       code = typeof body?.error === 'string' ? body.error : undefined;
       extra = {
         scope: typeof body?.scope === 'string' ? body.scope : undefined,
         domain: typeof body?.domain === 'string' ? body.domain : undefined,
+        limit: typeof body?.limit === 'number' ? body.limit : undefined,
       };
     } catch {
       /* no body */

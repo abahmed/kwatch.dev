@@ -53,7 +53,7 @@ Verified in the repos:
 
 - `kwatch-api/src/routes/support.ts`: `POST /support`, signed-in, active Pro
   license required, sends one email to `SUPPORT_INBOX` = `support@kwatch.dev`.
-  3 requests per account per UTC day.
+  Per-account and global daily caps are set by the API, not by the app. Topics: installing, alerts not arriving, an alert I do not understand, my license, something else.
 - `kwatch.dev/apps/app/src/pages/Help.tsx`: **Get help** at app.kwatch.dev,
   Pro only. Non-Pro accounts see "Get help is for Pro. Community support is
   on GitHub." with an Open an issue button.
@@ -65,7 +65,7 @@ Decided: **Get help at app.kwatch.dev/help (Help.tsx) is the Pro channel.** Ever
 the license, attaches cluster facts, and stays the primary channel.
 `support@kwatch.dev` is a real, monitored mailbox (Zoho Mail; `hello@` is the main
 mailbox, `support@` and `ab@` are aliases) and may be published as a secondary contact,
-always after the Get help link. Transactional emails set `Reply-To: support@kwatch.dev` and say
+always after the Get help link. Get help shows it under the form as "Prefer email? support@kwatch.dev". Transactional emails set `Reply-To: support@kwatch.dev` and say
 "Reply to this email or get help at app.kwatch.dev/help". Do not add a Pro GitHub
 label.
 

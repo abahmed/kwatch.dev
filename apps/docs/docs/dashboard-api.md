@@ -53,14 +53,14 @@ manage the Secret yourself, see
 
 The password is accepted with or without dashes and in any case. The cookie is
 HttpOnly and SameSite=Strict, and lasts 12 hours. A kwatch restart or a password
-change signs everyone out. In shared mode, sign-in over plain http is refused
+change signs everyone out. When the dashboard is shared (it has `trustedProxies` or its own TLS), sign-in over plain http is refused
 with `403` and `{"error": "https_required"}`.
 
 ### Limits
 
 After 10 wrong credentials in a minute from one client, kwatch answers `429` with a
 `Retry-After` header (seconds) until the next minute. A request with no
-credential at all does not count. Behind a proxy, set `dashboard.trustProxy` so
+credential at all does not count. Behind a proxy, set `dashboard.trustedProxies` so
 the limit applies per real client.
 
 ## Errors
@@ -71,7 +71,7 @@ Errors are JSON, like `{"error": "unauthorized"}`.
 |---|---|
 | `400` | A query value is not valid, such as `invalid severity` or `invalid since` |
 | `401` | No valid token or session |
-| `403` | `https_required` in shared mode over plain http, or a cross-origin sign-in |
+| `403` | `https_required` when the dashboard is shared and the visit is over plain http, or a cross-origin sign-in |
 | `404` | No such incident |
 | `405` | Not a `GET` (the `Allow` header says which method) |
 | `429` | Too many failed attempts |

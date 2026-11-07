@@ -116,18 +116,18 @@ dash_ip_in_range 10.0.5.9 10.0.5.0/24 && ok "cidr in" || fail "cidr in"
 
 # ---- steps per option (7c.5) ---------------------------------------------------
 st() { DASH_WAY=$1; DASH_CTYPE=${2:-}; dash_steps; }
-eq "steps nginx" "$(st ingress nginx)" "class addr tls ips"
-eq "steps contour" "$(st ingress contour)" "class addr tls"
+eq "steps nginx" "$(st ingress nginx)" "class addr tls ips proxies"
+eq "steps contour" "$(st ingress contour)" "class addr tls proxies"
 eq "steps alb" "$(st ingress alb)" "class addr alb_scheme alb_arn ips"
 eq "steps gke" "$(st ingress gke)" "class addr gke_notice gke_ip"
 eq "steps agic" "$(st ingress agic)" "class addr agic_pub tls"
-eq "steps tailscale" "$(st ingress tailscale)" "class ts_name"
-eq "steps ngrok" "$(st ingress ngrok)" "class ngrok_domain"
-eq "steps gateway" "$(st gateway)" "gw_pick addr"
-eq "steps route" "$(st route)" "addr tls ips"
+eq "steps tailscale" "$(st ingress tailscale)" "class ts_name proxies"
+eq "steps ngrok" "$(st ingress ngrok)" "class ngrok_domain proxies"
+eq "steps gateway" "$(st gateway)" "gw_pick addr proxies"
+eq "steps route" "$(st route)" "addr tls ips proxies"
 eq "steps lb" "$(st lb)" "lb_who lb_pool lb_ip addr tls ips"
 eq "steps nodeport" "$(st nodeport)" "np_port addr tls"
-eq "steps proxy" "$(st proxy)" "addr proxy_gate"
+eq "steps proxy" "$(st proxy)" "addr proxy_gate proxies"
 eq "steps service" "$(st service)" "addr tls"
 
 # ---- manifests per option --------------------------------------------------------
@@ -146,7 +146,8 @@ has "nginx certificate" "$m" "kind: Certificate"
 has "nginx issuer" "$m" "name: letsencrypt-prod"
 has "base service clusterip" "$m" "type: ClusterIP"
 has "base service port name" "$m" "- name: dashboard"
-eq "nginx values" "$(dash_values)" "shared true "
+DASH_PROXIES=10.244.0.0/16
+eq "nginx values" "$(dash_values)" "10.244.0.0/16|"
 eq "nginx plan" "$(dash_objects_csv)" "ingress/kwatch-dashboard,certificate/kwatch-dashboard-tls"
 
 DASH_CTYPE=traefik DASH_CLASS=traefik; m=$(gen)
@@ -173,7 +174,7 @@ has "alb arn" "$m" "certificate-arn"
 has "alb backend https" "$m" 'backend-protocol: "HTTPS"'
 has "alb inbound cidrs" "$m" 'inbound-cidrs: "198.51.100.7"'
 hasnt "alb no cert-manager" "$m" "kind: Certificate"
-eq "alb values (backend tls)" "$(dash_values)" "shared false kwatch-dashboard-backend-tls"
+eq "alb values (backend tls)" "$(dash_values)" "|kwatch-dashboard-backend-tls"
 eq "alb plan" "$(dash_objects_csv)" "ingress/kwatch-dashboard,secret/kwatch-dashboard-backend-tls"
 
 DASH_CTYPE=gke DASH_CERT=google DASH_IPS="" DASH_GKE_IP=kwatch-ip; m=$(gen)
@@ -190,15 +191,15 @@ has "agic tls" "$m" "secretName: kwatch-dashboard-tls"
 DASH_CTYPE=tailscale DASH_CLASS=tailscale DASH_TS_NAME=kwatch; m=$(gen)
 has "tailscale class" "$m" "ingressClassName: tailscale"
 has "tailscale host" "$m" "- kwatch"
-eq "tailscale values" "$(dash_values)" "shared true "
+eq "tailscale values" "$(dash_values)" "10.244.0.0/16|"
 DASH_CTYPE=ngrok DASH_CLASS=ngrok DASH_ADDR=kwatch.ngrok.app; m=$(gen)
 has "ngrok host" "$m" "host: kwatch.ngrok.app"
 
 reset_fixtures
-DASH_WAY=gateway DASH_GW_NS=gateways DASH_GW_NAME=shared-gw DASH_ADDR=kwatch.example.com; m=$(gen)
+DASH_WAY=gateway DASH_GW_NS=gateways DASH_GW_NAME=shared-gw DASH_ADDR=kwatch.example.com DASH_PROXIES=10.244.0.0/16; m=$(gen)
 has "httproute" "$m" "kind: HTTPRoute"
 has "httproute parent" "$m" "namespace: gateways"
-eq "gateway values" "$(dash_values)" "shared true "
+eq "gateway values" "$(dash_values)" "10.244.0.0/16|"
 DASH_WAY=istio; m=$(gen)
 has "virtualservice" "$m" "kind: VirtualService"
 has "virtualservice gateway" "$m" "- gateways/shared-gw"
@@ -217,7 +218,7 @@ has "lb name" "$m" "name: kwatch-dashboard-lb"
 has "lb internal" "$m" "aws-load-balancer-internal"
 has "lb source ranges" "$m" "loadBalancerSourceRanges:"
 has "lb https port" "$m" "port: 443"
-eq "lb values" "$(dash_values)" "shared false kwatch-dashboard-tls"
+eq "lb values" "$(dash_values)" "|kwatch-dashboard-tls"
 DASH_D_CLOUD=none DASH_D_LB_KIND=metallb DASH_LB_POOL=office-pool DASH_LB_IP=10.0.5.12; m=$(gen)
 has "metallb pool" "$m" "metallb.universe.tf/address-pool"
 has "metallb ip" "$m" "metallb.universe.tf/loadBalancerIPs"
@@ -229,15 +230,15 @@ has "nodeport port" "$m" "nodePort: 30443"
 eq "nodeport plan" "$(dash_objects_csv)" "service/kwatch-dashboard-nodeport,secret/kwatch-dashboard-tls"
 
 reset_fixtures
-DASH_WAY=proxy DASH_ADDR=kwatch.example.com DASH_CERT=none; m=$(gen)
+DASH_WAY=proxy DASH_ADDR=kwatch.example.com DASH_CERT=none DASH_PROXIES=10.244.0.0/16; m=$(gen)
 hasnt "proxy creates no exposure" "$m" "kind: Ingress"
 eq "proxy plan is empty" "$(dash_objects_csv)" ""
-eq "proxy values" "$(dash_values)" "shared true "
+eq "proxy values" "$(dash_values)" "10.244.0.0/16|"
 
 reset_fixtures
 DASH_WAY=service DASH_ADDR=kwatch.example.com DASH_CERT=own DASH_TLS_SECRET=corp-tls; m=$(gen)
 eq "service only has just the Service" "$(grep -c '^kind:' <<<"$m")" "1"
-eq "service-only values" "$(dash_values)" "shared false corp-tls"
+eq "service-only values" "$(dash_values)" "|corp-tls"
 
 # NetworkPolicy peers only when a policy exists.
 reset_fixtures
@@ -260,18 +261,48 @@ has "confirm certificate object" "$c" "a Certificate named kwatch-dashboard-tls"
 
 # ---- pod patch is valid JSON ----------------------------------------------------------
 if command -v python3 >/dev/null 2>&1; then
-  for args in "kwatch local false " "kwatch shared true " "kwatch shared false kwatch-dashboard-tls" "kwatch off false "; do
-    # shellcheck disable=SC2086
-    set -- $args
-    p=$(dash_deployment_patch "$1" "$2" "$3" "${4:-}")
+  for args in "kwatch on  " "kwatch on 10.244.0.0/16,192.0.2.10 " "kwatch on  kwatch-dashboard-tls" "kwatch off  "; do
+    IFS=' ' read -r a1 a2 a3 a4 <<<"$args"
+    p=$(dash_deployment_patch "$a1" "$a2" "$a3" "$a4")
     if printf '%s' "$p" | python3 -m json.tool >/dev/null 2>&1; then ok "patch json: $args"; else fail "patch json: $args"; fi
   done
 fi
-p=$(dash_deployment_patch kwatch shared false kwatch-dashboard-tls)
+p=$(dash_deployment_patch kwatch on "" kwatch-dashboard-tls)
 has "patch tls cert" "$p" "KWATCH_DASHBOARD_TLS_CERT"
 has "patch volume" "$p" '"secretName":"kwatch-dashboard-tls"'
-p=$(dash_deployment_patch kwatch local false "")
-has "patch local mode" "$p" '"value":"local"'
+p=$(dash_deployment_patch kwatch on "10.244.0.0/16,192.0.2.10" "")
+has "patch trusted proxies" "$p" '"name":"KWATCH_DASHBOARD_TRUSTED_PROXIES","value":"10.244.0.0/16,192.0.2.10"'
+hasnt "patch has no mode" "$p" '"value":"local"'
+has "patch drops old mode" "$p" '{"name":"KWATCH_DASHBOARD_MODE","$patch":"delete"}'
+has "patch drops old trust proxy" "$p" '{"name":"KWATCH_DASHBOARD_TRUST_PROXY","$patch":"delete"}'
+p=$(dash_deployment_patch kwatch on "" "")
+has "local patch sets an empty proxy list" "$p" '"name":"KWATCH_DASHBOARD_TRUSTED_PROXIES","value":""'
+
+# ---- trusted proxies -------------------------------------------------------------------
+dash_parse_proxies "10.244.0.0/16, 192.0.2.10" && eq "proxies parsed" "$DASH_PROXIES_CLEAN" "10.244.0.0/16,192.0.2.10"
+dash_parse_proxies "0.0.0.0/0"; has "everyone refused" "$DASH_PROXIES_ERR" "means every address"
+dash_parse_proxies "nope"; has "bad proxy" "$DASH_PROXIES_ERR" "isn't an IP address or range"
+dash_parse_proxies ""; has "empty proxy list" "$DASH_PROXIES_ERR" "at least one"
+reset_fixtures; DASH_WAY=lb; dash_proxies_needed && fail "lb needs no proxies" || ok "lb needs no proxies"
+DASH_WAY=ingress DASH_CTYPE=alb; dash_proxies_needed && fail "alb needs no proxies" || ok "alb needs no proxies"
+DASH_WAY=ingress DASH_CTYPE=nginx; dash_proxies_needed && ok "nginx needs proxies" || fail "nginx needs proxies"
+DASH_WAY=local; eq "local values" "$(dash_values)" "|"
+reset_fixtures; DASH_WAY=ingress DASH_CTYPE=nginx DASH_PROXIES=10.244.0.0/16
+has "confirm shows proxies" "$(dash_confirm_text)" "Believed only from 10.244.0.0/16"
+
+# ---- password: kwatch writes it on a fresh install; wait for it ----------------------
+orig_read_password=$(declare -f dash_read_password)
+READS=$(mktemp)
+dash_read_password() { printf x >>"$READS"; if [ "$(wc -c <"$READS")" -ge 3 ]; then printf 'ABCD-EFGH-JKLM-NPQR'; fi; }
+DASH_POLL_INTERVAL=0 DASH_POLL_MAX=10
+dash_wait_password; eq "wait finds the password" "$DASH_PASSWORD_READ" "ABCD-EFGH-JKLM-NPQR"
+eq "waited for two empty reads" "$(wc -c <"$READS" | tr -d ' ')" "3"
+rm -f "$READS"
+dash_read_password() { :; }
+dash_wait_password && fail "wait gives up" || ok "wait gives up"
+eq "no password after giving up" "$DASH_PASSWORD_READ" ""
+eval "$orig_read_password"
+DASH_POLL_INTERVAL=5 DASH_POLL_MAX=120
 
 # ---- secret: created once, never pre-created over an existing one, no argv password
 : >"$LOG"; F_SECRET_EXISTS=yes
@@ -381,11 +412,10 @@ for p in sys.argv[2:]:
 print(json.dumps(base, sort_keys=True))
 PY
   canon() { python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1])), sort_keys=True))' "$1"; }
-  for combo in "local false " "shared true " "shared false kwatch-dashboard-tls"; do
-    # shellcheck disable=SC2086
-    set -- $combo
-    dash_deployment_patch kwatch "$1" "$2" "${3:-}" >"$TMPD/on.json"
-    dash_deployment_patch kwatch off false "" >"$TMPD/off.json"
+  for combo in "on  " "on 10.244.0.0/16 " "on  kwatch-dashboard-tls"; do
+    IFS=' ' read -r c1 c2 c3 <<<"$combo"
+    dash_deployment_patch kwatch "$c1" "$c2" "$c3" >"$TMPD/on.json"
+    dash_deployment_patch kwatch off "" "" >"$TMPD/off.json"
     after=$(python3 "$TMPD/merge.py" "$TMPD/base.json" "$TMPD/on.json" "$TMPD/off.json")
     eq "turn off restores the plain Deployment ($combo)" "$after" "$(canon "$TMPD/base.json")"
     on_state=$(python3 "$TMPD/merge.py" "$TMPD/base.json" "$TMPD/on.json")
@@ -418,18 +448,20 @@ hasnt "off leaves unlabelled objects" "$(cat "$LOG")" "delete ingress"
 reset_fixtures
 F_CLASSES=$'nginx|k8s.io/ingress-nginx|true\n'; dash_detect >/dev/null 2>&1
 DASH_WAY=ingress
-# address, certificate: 2 = self-signed, y to confirm it, no IP limit
+# address, certificate: 2 = self-signed, y to confirm it, no IP limit, proxy range
 dash_run_steps >/dev/null 2>&1 <<'ANS'
 kwatch.example.com
 2
 y
 
+10.244.0.0/16
 ANS
 eq "piped flow ok" "$?" "0"
 eq "piped address" "$DASH_ADDR" "kwatch.example.com"
 eq "piped class picked" "$DASH_CLASS" "nginx"
 eq "piped cert" "$DASH_CERT" "self"
 eq "piped no ip limit" "$DASH_IPS" ""
+eq "piped proxies" "$DASH_PROXIES" "10.244.0.0/16"
 
 if [ "$FAILS" -gt 0 ]; then
   printf 'dashboard-test: %s failure(s)\n' "$FAILS" >&2

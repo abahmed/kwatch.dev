@@ -6737,7 +6737,7 @@ show_legacy_menu() {
 # and 7c. The manager installs from the release manifest, not Helm, so it does
 # what the chart would: it creates the <release>-dashboard Secret and Service
 # and wires the KWATCH_DASHBOARD_* variables the chart's Deployment template
-# sets (enabled, port, mode, trust proxy, tls) onto the Deployment. Everything
+# sets (enabled, port, trusted proxies, tls) onto the Deployment. Everything
 # that exposes the dashboard (Ingress, HTTPRoute, VirtualService, Route,
 # LoadBalancer or NodePort Service, Certificate, TLS Secret) is created here
 # and labelled app.kwatch.dev/managed-by=installer; only labelled objects are
@@ -6765,6 +6765,7 @@ DASH_ISSUER_KIND=""
 DASH_ISSUER_TYPE=""
 DASH_TLS_SECRET="" # Secret kwatch serves from (or the ingress presents)
 DASH_IPS=""        # comma separated
+DASH_PROXIES=""    # comma separated CIDRs of the proxies kwatch believes X-Forwarded-* from
 DASH_ALB_INTERNAL=true
 DASH_ACM_ARN=""
 DASH_GKE_IP=""
@@ -6778,7 +6779,7 @@ DASH_NODEPORT=""
 dash_reset_answers() {
   DASH_WAY=""; DASH_ADDR=""; DASH_ADDR_IP=false; DASH_CLASS=""; DASH_CTYPE=""
   DASH_GW_NS=""; DASH_GW_NAME=""; DASH_CERT=""; DASH_ISSUER=""
-  DASH_ISSUER_KIND=""; DASH_ISSUER_TYPE=""; DASH_TLS_SECRET=""; DASH_IPS=""; DASH_ALB_INTERNAL=true
+  DASH_ISSUER_KIND=""; DASH_ISSUER_TYPE=""; DASH_TLS_SECRET=""; DASH_IPS=""; DASH_PROXIES=""; DASH_ALB_INTERNAL=true
   DASH_ACM_ARN=""; DASH_GKE_IP=""; DASH_AGIC_PRIVATE=true; DASH_TS_NAME=""
   DASH_LB_INTERNAL=true; DASH_LB_POOL=""; DASH_LB_IP=""; DASH_NODEPORT=""
   DASH_PEER=false; DASH_PEER_ANN=""; DASH_ALB_PORTS=""; DASH_CERT_WHY=""
@@ -7913,6 +7914,28 @@ dash_found_types() {
 # ---- steps per option (7c.5) ----------------------------------------------
 
 dash_steps() {
+  local steps
+  steps=$(dash_steps_base)
+  if dash_proxies_needed; then steps="$steps proxies"; fi
+  printf '%s' "${steps# }"
+}
+
+# Whether kwatch sits behind a proxy that ends https and sets X-Forwarded-*
+# (an ingress controller, gateway, route or outside proxy). Then kwatch needs
+# the proxy's addresses. A load balancer, NodePort or Service reaches kwatch
+# directly and kwatch serves https itself; so does an ALB, GKE or AGIC ingress.
+dash_proxies_needed() {
+  case "$DASH_WAY" in
+    ingress)
+      case "$DASH_CTYPE" in alb|gke|agic) return 1 ;; esac
+      return 0
+      ;;
+    gateway|istio|route|proxy) return 0 ;;
+  esac
+  return 1
+}
+
+dash_steps_base() {
   if [ "$DASH_PEER" = true ]; then
     case "$DASH_WAY" in
       gateway|istio) printf 'addr' ;;
@@ -7952,19 +7975,20 @@ dash_ips_enforced() {
   return 1
 }
 
-# Pod side values the chart would take: "mode trustProxy tlsSecret".
+# Pod side values the chart would take: "trustedProxies|tlsSecret". Sharing is
+# implied by a proxy list or by kwatch's own TLS; neither means local.
 dash_values() {
   case "$DASH_WAY" in
-    local) printf 'local false ' ;;
+    local) printf '|' ;;
     ingress)
       case "$DASH_CTYPE" in
-        alb|gke|agic) printf 'shared false %s' "$(dash_backend_tls_name)" ;;
-        *) printf 'shared true ' ;;
+        alb|gke|agic) printf '|%s' "$(dash_backend_tls_name)" ;;
+        *) printf '%s|' "$DASH_PROXIES" ;;
       esac
       ;;
-    gateway|istio|route|proxy) printf 'shared true ' ;;
-    lb|nodeport|service) printf 'shared false %s' "$DASH_TLS_SECRET" ;;
-    *) printf 'local false ' ;;
+    gateway|istio|route|proxy) printf '%s|' "$DASH_PROXIES" ;;
+    lb|nodeport|service) printf '|%s' "$DASH_TLS_SECRET" ;;
+    *) printf '|' ;;
   esac
 }
 
@@ -8527,6 +8551,26 @@ dash_read_password() {
     -o 'jsonpath={.data.password}' 2>/dev/null | dash_b64d
 }
 
+# Reads the sign-in password into DASH_PASSWORD_READ, waiting for kwatch to
+# write it: the chart ships the Secret empty and kwatch fills it when it starts,
+# so on a fresh install the first read can be empty. 0 found, 1 not yet.
+DASH_PASSWORD_READ=""
+dash_wait_password() {
+  local tries=0 interval="$DASH_POLL_INTERVAL" max
+  case "$interval" in ""|*[!0-9]*) interval=5 ;; esac
+  max=$((DASH_POLL_MAX / (interval > 0 ? interval : 1)))
+  [ "$max" -ge 1 ] || max=1
+  DASH_PASSWORD_READ=""
+  while true; do
+    DASH_PASSWORD_READ=$(dash_read_password || true)
+    if [ -n "$DASH_PASSWORD_READ" ]; then ui_busy_done; return 0; fi
+    tries=$((tries + 1))
+    if [ "$tries" -ge "$max" ]; then ui_busy_done; return 1; fi
+    ui_busy "Waiting for kwatch to create the password"
+    sleep "$interval"
+  done
+}
+
 dash_set_password() {
   local password="$1" dir enc rc=0
   dir=$(umask 077 && mktemp -d) || return 1
@@ -8576,16 +8620,21 @@ dash_delete_if_ours() {
 
 # ---- the Deployment (what the chart's template sets) -------------------------
 
-# Strategic-merge patch for the kwatch container. mode "off" removes it all.
+# Strategic-merge patch for the kwatch container. state "off" removes it all;
+# "on" turns the dashboard on with a comma separated proxy list (empty = local)
+# and the Secret kwatch serves https from (empty = none). The two old variables
+# KWATCH_DASHBOARD_MODE and KWATCH_DASHBOARD_TRUST_PROXY are always removed:
+# kwatch no longer reads them.
 dash_deployment_patch() {
-  local container="$1" mode="$2" trust="$3" tls="$4" name first=true var
+  local container="$1" state="$2" proxies="$3" tls="$4" name first=true var
   name=$(dash_name)
   printf '{"spec":{"template":{"spec":{'
   printf '"containers":[{"name":"%s",' "$container"
-  if [ "$mode" = off ]; then
+  if [ "$state" = off ]; then
     printf '"env":['
-    for var in KWATCH_DASHBOARD_ENABLED KWATCH_DASHBOARD_PORT KWATCH_DASHBOARD_MODE \
-      KWATCH_DASHBOARD_TRUST_PROXY KWATCH_DASHBOARD_TLS_CERT KWATCH_DASHBOARD_TLS_KEY \
+    for var in KWATCH_DASHBOARD_ENABLED KWATCH_DASHBOARD_PORT KWATCH_DASHBOARD_TRUSTED_PROXIES \
+      KWATCH_DASHBOARD_MODE KWATCH_DASHBOARD_TRUST_PROXY \
+      KWATCH_DASHBOARD_TLS_CERT KWATCH_DASHBOARD_TLS_KEY \
       KWATCH_DEPLOYMENT_NAME KWATCH_DASHBOARD_TOKEN KWATCH_DASHBOARD_PASSWORD; do
       if [ "$first" = true ]; then first=false; else printf ','; fi
       # shellcheck disable=SC2016  # "$patch" is the literal merge directive
@@ -8601,14 +8650,10 @@ dash_deployment_patch() {
     printf '"env":['
     printf '{"name":"KWATCH_DASHBOARD_ENABLED","value":"true"},'
     printf '{"name":"KWATCH_DASHBOARD_PORT","value":"%s"},' "$DASH_PORT"
-    printf '{"name":"KWATCH_DASHBOARD_MODE","value":"%s"},' "$mode"
+    printf '{"name":"KWATCH_DASHBOARD_TRUSTED_PROXIES","value":"%s"},' "$proxies"
     printf '{"name":"KWATCH_DEPLOYMENT_NAME","value":"%s"},' "$(deployment_name 2>/dev/null || printf '%s' "$RELEASE")"
-    if [ "$trust" = true ]; then
-      printf '{"name":"KWATCH_DASHBOARD_TRUST_PROXY","value":"true"},'
-    else
-      # shellcheck disable=SC2016
-      printf '{"name":"KWATCH_DASHBOARD_TRUST_PROXY","$patch":"delete"},'
-    fi
+    # shellcheck disable=SC2016
+    printf '{"name":"KWATCH_DASHBOARD_MODE","$patch":"delete"},{"name":"KWATCH_DASHBOARD_TRUST_PROXY","$patch":"delete"},'
     if [ -n "$tls" ]; then
       printf '{"name":"KWATCH_DASHBOARD_TLS_CERT","value":"/etc/kwatch/dashboard-tls/tls.crt"},'
       printf '{"name":"KWATCH_DASHBOARD_TLS_KEY","value":"/etc/kwatch/dashboard-tls/tls.key"},'
@@ -8632,7 +8677,7 @@ dash_deployment_patch() {
   printf '}}}}'
 }
 
-# Current pod side values: "enabled|mode|trust|tlscert".
+# Current pod side values: "enabled|trustedProxies|tlscert".
 dash_env_value() {
   kubectl -n "$NAMESPACE" get deployment "$1" \
     -o "jsonpath={.spec.template.spec.containers[*].env[?(@.name==\"$2\")].value}" \
@@ -8641,19 +8686,18 @@ dash_env_value() {
 
 dash_current_values() {
   local deployment="$1"
-  printf '%s|%s|%s|%s' "$(dash_env_value "$deployment" KWATCH_DASHBOARD_ENABLED)" \
-    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_MODE)" \
-    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_TRUST_PROXY)" \
+  printf '%s|%s|%s' "$(dash_env_value "$deployment" KWATCH_DASHBOARD_ENABLED)" \
+    "$(dash_env_value "$deployment" KWATCH_DASHBOARD_TRUSTED_PROXIES)" \
     "$(dash_env_value "$deployment" KWATCH_DASHBOARD_TLS_CERT)"
 }
 
-# dash_apply_values <mode|off> <trust> <tls-secret>. 0 ok, 1 failed, 2 rollout slow.
+# dash_apply_values <on|off> <proxies> <tls-secret>. 0 ok, 1 failed, 2 rollout slow.
 dash_apply_values() {
-  local mode="$1" trust="$2" tls="$3" deployment container
+  local state="$1" proxies="$2" tls="$3" deployment container
   deployment=$(deployment_name) || return 1
   container=$(kwatch_container_name "$deployment") || container=kwatch
   kubectl -n "$NAMESPACE" patch deployment "$deployment" --type=strategic \
-    -p "$(dash_deployment_patch "$container" "$mode" "$trust" "$tls")" >/dev/null || return 1
+    -p "$(dash_deployment_patch "$container" "$state" "$proxies" "$tls")" >/dev/null || return 1
   if ! kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" \
     --timeout=90s >/dev/null 2>&1; then
     return 2
@@ -8724,19 +8768,20 @@ dash_record_write() {
 DASH_STATE_ADDR=""
 # Sets DASH_STATE and DASH_STATE_ADDR from the Deployment and the record.
 dash_state() {
-  local deployment values enabled mode
+  local deployment values enabled proxies tlscert
   DASH_STATE="unknown"
   DASH_STATE_ADDR=""
   deployment=$(deployment_name 2>/dev/null || true)
   [ -n "$deployment" ] || return 0
   kubectl -n "$NAMESPACE" get deployment "$deployment" -o name >/dev/null 2>&1 || return 0
   values=$(dash_current_values "$deployment")
-  IFS='|' read -r enabled mode _ _ <<<"$values"
+  IFS='|' read -r enabled proxies tlscert <<<"$values"
   if [ "$enabled" != true ]; then
     DASH_STATE=off
     return 0
   fi
-  if [ "$mode" = shared ]; then
+  # Shared is implied by a proxy list or by kwatch's own TLS.
+  if [ -n "$proxies" ] || [ -n "$tlscert" ]; then
     DASH_STATE=shared
     dash_record_load
     DASH_STATE_ADDR="$DASH_REC_LINK"
@@ -9356,6 +9401,80 @@ dash_q_ips() {
   done
 }
 
+# Starting point for the proxy range: the address range the cluster gives its
+# pods, which is where an ingress controller or gateway running inside the
+# cluster connects from. Read from the control plane when it is visible, else
+# guessed from kwatch's own pod address. Prints nothing when neither works.
+dash_default_proxies() {
+  local cidr="" pod ip
+  cidr=$(kubectl -n kube-system get pods -l component=kube-controller-manager \
+    -o 'jsonpath={.items[0].spec.containers[0].command}' 2>/dev/null |
+    grep -o -- '--cluster-cidr=[^",]*' | head -n 1 | cut -d= -f2) || cidr=""
+  if [ -n "$cidr" ] && dash_valid_cidr "$cidr"; then
+    printf '%s' "$cidr"
+    return 0
+  fi
+  pod=$(kwatch_pod_name 2>/dev/null) || return 0
+  ip=$(kubectl -n "$NAMESPACE" get pod "$pod" -o 'jsonpath={.status.podIP}' 2>/dev/null || true)
+  if dash_is_ipv4 "$ip"; then printf '%s.0.0/16' "${ip%.*.*}"; fi
+  return 0
+}
+
+# Parses "a, b c" into DASH_PROXIES_CLEAN. Returns 1 on a bad or empty list.
+DASH_PROXIES_CLEAN=""
+DASH_PROXIES_ERR=""
+dash_parse_proxies() {
+  local raw="$1" item list=""
+  DASH_PROXIES_CLEAN=""
+  DASH_PROXIES_ERR=""
+  raw="${raw//,/ }"
+  for item in $raw; do
+    case "$item" in
+      */0)
+        DASH_PROXIES_ERR="$item means every address. Give the range your ingress or gateway connects from."
+        return 1
+        ;;
+    esac
+    if ! dash_valid_cidr "$item"; then
+      DASH_PROXIES_ERR="\"$item\" isn't an IP address or range. Try 10.244.0.0/16."
+      return 1
+    fi
+    list="${list:+$list,}$item"
+  done
+  if [ -z "$list" ]; then
+    DASH_PROXIES_ERR="Give at least one address or range."
+    return 1
+  fi
+  DASH_PROXIES_CLEAN="$list"
+  return 0
+}
+
+dash_q_proxies() {
+  local answer rc suggested prev
+  DASH_PROXIES=""
+  dash_proxies_needed || return 3
+  IFS='|' read -r _ prev _ <<<"${DASH_PREV_VALUES:-}"
+  suggested=$(dash_default_proxies)
+  while true; do
+    dash_q "Which addresses will your ingress, gateway or proxy connect to kwatch from?"
+    ui_detail "It sits in front of kwatch and adds https. kwatch believes the visitor's address and the https it reports only when they come from these addresses."
+    if [ -n "$suggested" ]; then
+      ui_detail "Pods in this cluster use $suggested. That is a good answer when it runs inside the cluster; use a smaller range if you know it."
+    else
+      ui_detail "Example: 10.244.0.0/16. If you don't know the range, ask whoever runs the cluster for the pod address range."
+    fi
+    rc=0
+    answer=$(ask_or_back "Example: 10.244.0.0/16, 192.0.2.10" "${prev:-$suggested}") || rc=$?
+    if [ "$rc" -eq 2 ]; then return 2; fi
+    answer=$(dash_trim "$answer")
+    rc=0
+    dash_parse_proxies "$answer" || rc=$?
+    if [ "$rc" -ne 0 ]; then ui_warn "$DASH_PROXIES_ERR"; continue; fi
+    DASH_PROXIES="$DASH_PROXIES_CLEAN"
+    return 0
+  done
+}
+
 dash_q_alb_scheme() {
   local idx
   DASH_M_LABELS=("$(dash_e 🌍 "Anyone on the internet  (internet-facing)")" "$(dash_e 🏢 "Only inside our network  (internal)")")
@@ -9566,7 +9685,8 @@ With this choice, kwatch itself does not use https.
 
 Something outside your cluster (for example Cloudflare Tunnel) adds https and
 forwards the traffic to kwatch as plain http. That part of the path is not
-encrypted, and kwatch trusts whoever sends it traffic.
+encrypted. kwatch believes the visitor's address and the https it reports only
+from the proxy addresses you give next.
 
 Only use this if all of these are true:
   - the proxy is the only way to reach kwatch from outside the cluster
@@ -9732,6 +9852,7 @@ dash_confirm_text() {
   if [ -n "$DASH_CERT" ]; then rows+=("Certificate|$(dash_cert_line)"); fi
   if [ -n "$DASH_CERT_WHY" ]; then rows+=("|because $DASH_CERT_WHY"); fi
   rows+=("Who|$(dash_who_line)")
+  if [ -n "$DASH_PROXIES" ]; then rows+=("Proxies|Believed only from ${DASH_PROXIES//,/, }"); fi
   rows+=("Sign-in|Password; plain http is refused")
   for row in "${rows[@]}"; do
     if [ "$narrow" = true ]; then printf '%s: %s\n' "${row%%|*}" "${row#*|}"
@@ -10447,8 +10568,8 @@ dash_wait_https() {
 # Makes sure the TLS Secret kwatch serves from exists, then wires the pod.
 # 0 wired, 1 failed, 5 certificate not there yet.
 dash_wire_pod() {
-  local mode trust tls rc=0 waited=0
-  read -r mode trust tls <<<"$(dash_values)"
+  local proxies tls rc=0 waited=0
+  IFS='|' read -r proxies tls <<<"$(dash_values)"
   if [ -n "$tls" ] && ! kubectl -n "$NAMESPACE" get secret "$tls" >/dev/null 2>&1; then
     case "$DASH_CERT" in
       self|acm|google)
@@ -10470,7 +10591,7 @@ dash_wire_pod() {
         ;;
     esac
   fi
-  dash_apply_values "$mode" "$trust" "$tls" || rc=$?
+  dash_apply_values on "$proxies" "$tls" || rc=$?
   if [ "$rc" -eq 2 ]; then
     ui_warn "kwatch is taking longer than usual to restart."
     ui_detail "Check it with \"View status\" in the main menu, then try again."
@@ -10487,12 +10608,12 @@ dash_rollback() {
     dash_delete_if_ours "$resource" "$name" || true
   done < <(dash_plan_objects)
   if [ -n "${DASH_PREV_VALUES:-}" ]; then
-    local enabled mode trust tls
-    IFS='|' read -r enabled mode trust tls <<<"$DASH_PREV_VALUES"
+    local enabled proxies tlscert
+    IFS='|' read -r enabled proxies tlscert <<<"$DASH_PREV_VALUES"
     if [ "$enabled" = true ]; then
-      dash_apply_values "$mode" "$trust" "${DASH_PREV_TLS:-}" >/dev/null 2>&1 || true
+      dash_apply_values on "$proxies" "${DASH_PREV_TLS:-}" >/dev/null 2>&1 || true
     else
-      dash_apply_values off false "" >/dev/null 2>&1 || true
+      dash_apply_values off "" "" >/dev/null 2>&1 || true
     fi
   fi
   return 0
@@ -10596,7 +10717,8 @@ dash_execute() {
       return 1
     fi
   fi
-  password=$(dash_read_password || true)
+  dash_wait_password || ui_warn "kwatch hasn't written the password yet. Give it a minute, then choose Show my access link and password."
+  password="$DASH_PASSWORD_READ"
   link=$(dash_link)
   if [ "$DASH_WAY" = service ]; then
     dash_record_write "$link"
@@ -10809,6 +10931,9 @@ dash_load_previous() {
 #   KWATCH_DASHBOARD_PRIVATE        true (default) | false: an internal ALB or
 #                                   cloud load balancer, or a public one
 #   KWATCH_DASHBOARD_ALLOW_IPS      addresses or CIDRs allowed in, comma separated
+#   KWATCH_DASHBOARD_PROXIES        addresses or CIDRs the ingress, gateway or proxy
+#                                   connects to kwatch from, comma separated (needed
+#                                   with ingress, gateway, route and proxy)
 #   KWATCH_DASHBOARD_ANNOTATIONS    extra annotations, key=value;key=value
 #   KWATCH_DASHBOARD_DNS            auto (default) | overwrite | off: add the
 #                                   DNS record with the provider's CLI
@@ -11022,6 +11147,25 @@ dash_headless_ips() {
   return 0
 }
 
+# Sets DASH_PROXIES from KWATCH_DASHBOARD_PROXIES. There is no silent default:
+# trusting the wrong range lets other pods pose as visitors.
+dash_headless_proxies() {
+  local want="${KWATCH_DASHBOARD_PROXIES:-}" rc=0 suggested
+  DASH_PROXIES=""
+  if ! dash_proxies_needed; then
+    [ -z "$want" ] || ui_detail "KWATCH_DASHBOARD_PROXIES is not used by this way of sharing."
+    return 0
+  fi
+  if [ -z "$want" ]; then
+    suggested=$(dash_default_proxies)
+    dash_headless_fail "Set KWATCH_DASHBOARD_PROXIES to the addresses your ingress, gateway or proxy connects to kwatch from."       "${suggested:+The pod range here is $suggested, which fits when it runs inside the cluster. }Example: KWATCH_DASHBOARD_PROXIES=10.244.0.0/16" || return 1
+  fi
+  dash_parse_proxies "$want" || rc=$?
+  [ "$rc" -eq 0 ] || dash_headless_fail "KWATCH_DASHBOARD_PROXIES: $DASH_PROXIES_ERR" || return 1
+  DASH_PROXIES="$DASH_PROXIES_CLEAN"
+  return 0
+}
+
 dash_share_headless() {
   local private="${KWATCH_DASHBOARD_PRIVATE:-true}"
   DASH_HEADLESS=true
@@ -11091,6 +11235,7 @@ dash_share_headless() {
   dash_headless_addr || return 1
   dash_headless_tls || return 1
   dash_headless_ips || return 1
+  dash_headless_proxies || return 1
   if [ "$DASH_WAY" = lb ] && [ "$DASH_CERT" = auto ] && [ "$DASH_ADDR_IP" = true ]; then
     dash_headless_fail "cert-manager needs a name in KWATCH_DASHBOARD_HOST."
     return 1
@@ -11156,7 +11301,7 @@ dash_local_flow() {
     ui_pause; return 0
   fi
   dash_base_service_apply || { ui_error "I couldn't finish: the dashboard Service could not be created."; ui_pause; return 0; }
-  dash_apply_values local false "" || rc=$?
+  dash_apply_values on "" "" || rc=$?
   ui_busy_done
   if [ "$rc" -eq 2 ]; then
     ui_warn "kwatch is taking longer than usual to restart. Check it with \"View status\" in the main menu, then try again."
@@ -11166,7 +11311,8 @@ dash_local_flow() {
     ui_pause; return 0
   fi
   lport=$(dash_free_port) || { ui_error "No free port between 8080 and 8090 on this computer."; ui_pause; return 0; }
-  password=$(dash_read_password || true)
+  dash_wait_password || ui_warn "kwatch hasn't written the password yet. Give it a minute, then choose Show my access link and password."
+  password="$DASH_PASSWORD_READ"
   ui_success "Dashboard is on. Local only, nothing leaves your computer."
   dash_print_block "http://localhost:$lport" "${password:-}"
   dash_port_forward "$lport"
@@ -11252,9 +11398,11 @@ dash_show_flow() {
       return 0
     fi
   fi
-  password=$(dash_read_password) || rc=$?
+  ui_busy "Reading the password"
+  dash_wait_password || rc=$?
+  password="$DASH_PASSWORD_READ"
   if [ "$rc" -ne 0 ] || [ -z "$password" ]; then
-    ui_error "I can't read the password from the cluster. Choose \"Reset password\" to make a new one."
+    ui_error "I can't read the password from the cluster. If kwatch just started, try again in a minute. Otherwise choose \"Reset password\" to make a new one."
     return 0
   fi
   printf 'Password: %s\n' "$password" >&2
@@ -11333,7 +11481,7 @@ dash_off_flow() {
       kubectl -n "$NAMESPACE" delete secret "$(dash_tls_name)" --ignore-not-found >/dev/null 2>&1 || true
     fi
   fi
-  dash_apply_values off false "" || rc=$?
+  dash_apply_values off "" "" || rc=$?
   dash_delete_if_ours secret "$(dash_name)" || true
   dash_delete_if_ours secret "$(dash_tls_name)" || true
   dash_delete_if_ours secret "$(dash_backend_tls_name)" || true
@@ -13429,6 +13577,9 @@ Sharing the dashboard without questions:
   KWATCH_DASHBOARD_PRIVATE         true (default) | false: internal or public
                                    ALB / cloud load balancer
   KWATCH_DASHBOARD_ALLOW_IPS       Allowed addresses or CIDRs, comma separated
+  KWATCH_DASHBOARD_PROXIES         Addresses or CIDRs the ingress, gateway or proxy
+                                   connects to kwatch from, comma separated
+                                   (needed with ingress, gateway, route, proxy)
   KWATCH_DASHBOARD_DNS             auto (default): add the DNS record with your
                                    provider's CLI (aws, gcloud, az, doctl) or
                                    CLOUDFLARE_API_TOKEN when the name is free;

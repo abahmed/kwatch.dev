@@ -92,9 +92,8 @@ const config: Config = {
       },
     ],
     colorMode: {
-      // Light or dark follows the OS setting; the design has no toggle.
+      // Defaults to the system setting; the navbar toggle overrides it.
       defaultMode: 'light',
-      disableSwitch: true,
       respectPrefersColorScheme: true,
     },
     navbar: {
@@ -103,6 +102,7 @@ const config: Config = {
       items: [
         {type: 'search', position: 'left'},
         {to: '/', label: 'Docs', position: 'right'},
+        {href: 'https://blog.kwatch.dev', label: 'Blog', position: 'right'},
         {href: 'https://kwatch.dev/pro', label: 'Pro', position: 'right'},
         {href: 'https://kwatch.dev/support', label: 'Get help', position: 'right'},
         {
@@ -118,6 +118,7 @@ const config: Config = {
       copyright:
         'kwatch · source available under ELv2' +
         ' <a href="/">Docs</a>' +
+        ' <a href="https://blog.kwatch.dev">Blog</a>' +
         ' <a href="https://github.com/abahmed/kwatch">GitHub</a>' +
         ' <a href="https://kwatch.dev/support">Get help</a>' +
         ' <a href="https://kwatch.dev/privacy">Privacy</a>' +

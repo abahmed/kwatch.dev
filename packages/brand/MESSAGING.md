@@ -133,3 +133,51 @@ https://docs.kwatch.dev/glossary (anchors `#pod`, `#node`, `#namespace`,
 - Never: "trial", prices or a Price row, "open source" (say "source
   available", ELv2), "free forever" for Pro.
 - Do not promise anything not in the code; check with kwatch-core.
+
+## 9. Blog posts (blog.kwatch.dev)
+
+Posts follow every rule above and the standing product rules. The blog
+uses the same voice as the docs: calm, specific, cause first, then the fix.
+
+### Voice
+
+- Say the cause, then the fix. Open with what breaks and why, close with the
+  command to run.
+- Benefits only. No caveats, limits, "best effort" or competitor mentions.
+- Never forecast. Describe failures that happened and their cause. No
+  "will", "soon", "next year", predictions or trends.
+- Generic Kubernetes signals only: pod, node, event, exit code, limit,
+  probe, config, rollout. No Karpenter, KEDA, Istio, Argo or other tool
+  specific features.
+- Plain words. Explain a term on first use or link to
+  https://docs.kwatch.dev/glossary (`#crashloopbackoff`, `#oomkilled`).
+- Examples use real kwatch output (see the README) or real `kubectl` output.
+  Never invent features or output kwatch does not produce; check claims with
+  kwatch-core.
+- "Source available" (ELv2), never "open source". Pro is "free during early
+  access". No prices, no "trial", no "free forever" for Pro.
+- Install is installer-first: the command comes before Helm. Licenses only
+  through the installer's License / Pro menu.
+- No emoji except the severity markers inside real kwatch output.
+
+### Title rules
+
+- Sentence case, 40 to 65 characters, no trailing period, no emoji.
+- Name the symptom or the cause, not a mood: `OOMKilled explained: what
+  stopped the pod and how to fix it`.
+- Form: `Symptom: the first move` or `Symptom explained: cause and fix`.
+- No "ultimate", "everything you need", "X things", questions as bait, or
+  predictions.
+- Meta description (og and search): one sentence, 120 to 160 characters,
+  states the cause and the fix.
+- Tags: use the glossary names exactly (`CrashLoopBackOff`, `OOMKilled`).
+
+### End-of-post CTA (exact wording)
+
+- Eyebrow: `INSTALL`
+- Heading: `Get the cause in one message.`
+- Line: `One command, and it walks you through it. Community is free forever. Pro is free during early access.`
+- Command: `bash <(curl -fsSL https://kwatch.dev/kwatch.sh)` with Copy.
+- Primary button: `Get a free Pro license` (https://app.kwatch.dev)
+- Link: `Install guide` (https://docs.kwatch.dev/install)
+- Posts about Pro swap nothing else. Never add a price or the word trial.

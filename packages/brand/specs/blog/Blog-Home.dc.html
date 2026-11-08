@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>blog.kwatch.dev: home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&amp;family=Instrument+Sans:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#CFD2D8;font-family:'Instrument Sans',sans-serif}
+.cv{padding:40px;display:flex;flex-direction:column;gap:40px;box-sizing:border-box}
+.row{display:flex;gap:40px;align-items:flex-start}
+.lab{font:500 13px 'Geist Mono',monospace;color:#3A404B;margin:0 0 10px}
+.kb{--bg:#FFFFFF;--surface:#F2F3F0;--line:#DADDE2;--text:#0E1116;--text-muted:#5B6270;--text-soft:#3A404B;--signal:#C8F542;--failing:#B42318;--failing-bg:#FDECEC;--control:#7C828E;--ink:#0E1116;--ink-text:#ECEDEA;--ink-muted:#9AA0AA;--ink-line:#2A2E35;--ink-btn:#0E1116;--on-ink-btn:#FFFFFF;
+ background:var(--bg);color:var(--text);font:16px/1.6 'Instrument Sans',sans-serif;box-sizing:border-box;width:1280px;flex:none;position:relative;overflow:hidden}
+.kb.dk{--bg:#15171B;--surface:#1E2126;--line:#2A2E35;--text:#ECEDEA;--text-muted:#9AA0AA;--text-soft:#C3C7CE;--signal:#B5DE3C;--failing:#FF9B8F;--failing-bg:#3A1F1E;--control:#6B7280;--ink:#0B0D10;--ink-btn:#ECEDEA;--on-ink-btn:#0E1116}
+.kb.m{width:375px;font-size:16px}
+.kb *{box-sizing:border-box}
+.kb a{color:inherit}
+.kb a:focus-visible,.kb button:focus-visible,.kb input:focus-visible{outline:3px solid var(--text);outline-offset:3px}
+.mono{font-family:'Geist Mono',monospace}
+.eyebrow{font:500 13px/1.2 'Geist Mono',monospace;letter-spacing:.04em;color:var(--text-muted);margin:0}
+.disp{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;letter-spacing:-.04em;line-height:1.02;margin:0}
+.hd{border-bottom:1px solid var(--line)}
+.hd .in{max-width:1280px;margin:0 auto;padding:16px 48px;display:flex;align-items:center;gap:28px}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;font:800 22px 'Bricolage Grotesque',sans-serif;letter-spacing:-.05em;color:var(--text)}
+.logo small{font:500 16px 'Instrument Sans',sans-serif;letter-spacing:0;color:var(--text-muted)}
+.hd nav{margin-left:auto;display:flex;gap:22px;font-size:15px;align-items:center}
+.hd nav a{text-decoration:none;color:var(--text-soft);min-height:44px;display:inline-flex;align-items:center}
+.srch{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border:1px solid var(--control);border-radius:8px;background:var(--surface);color:var(--text-muted);font:15px 'Instrument Sans',sans-serif;width:240px}
+.srch kbd{margin-left:auto;font:500 12px 'Geist Mono',monospace;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--text-muted)}
+.ibtn{width:44px;height:44px;border:1px solid var(--control);background:var(--surface);color:var(--text);border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-left:auto}
+.m .hd .in{padding:8px 16px;gap:12px}.m .hd nav{display:none}.m .srch{display:none}
+.m .menu{display:inline-flex}.menu{display:none;width:44px;height:44px;border:1px solid var(--control);border-radius:8px;background:none;color:var(--text);align-items:center;justify-content:center}
+.m .ibtn{margin-left:auto}
+.wrap{max-width:1280px;margin:0 auto;padding:0 48px}
+.m .wrap{padding:0 16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--control);border-radius:999px;font:500 14px 'Instrument Sans',sans-serif;text-decoration:none;color:var(--text-soft)}
+.chip[aria-current]{background:var(--ink-btn);color:var(--on-ink-btn);border-color:var(--ink-btn)}
+.chip i{font:normal 500 12px 'Geist Mono',monospace;margin-left:8px;opacity:.75}
+.m .chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 4px}.m .chip{flex:none}
+.tag{font:500 12px 'Geist Mono',monospace;color:var(--text-soft);background:var(--surface);border-radius:4px;padding:2px 8px;text-decoration:none}
+.tags{display:flex;gap:8px;flex-wrap:wrap}
+.out{background:var(--ink);color:var(--ink-text);border-radius:14px;padding:22px 24px;font:14px/1.65 'Geist Mono',monospace;white-space:pre-wrap;overflow-x:auto;margin:0}
+.out b{font-weight:500;color:#fff}.out .mu{color:var(--ink-muted)}.out .bad{color:#FF9B8F}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 22px;border-radius:999px;border:1.5px solid var(--ink-btn);background:var(--ink-btn);color:var(--on-ink-btn);font:600 15px 'Instrument Sans',sans-serif;text-decoration:none}
+.btn.g{background:none;color:var(--text)}
+.ft{border-top:1px solid var(--line);margin-top:96px}
+.ft .in{max-width:1280px;margin:0 auto;padding:40px 48px 48px;display:grid;grid-template-columns:5fr 3fr 3fr 3fr;gap:32px;font-size:15px;color:var(--text-soft)}
+.ft a{display:block;text-decoration:none;padding:6px 0;min-height:32px;color:var(--text-soft)}
+.ft h4{margin:0 0 6px;font:500 13px 'Geist Mono',monospace;letter-spacing:.04em;color:var(--text-muted)}
+.m .ft{margin-top:64px}.m .ft .in{grid-template-columns:1fr 1fr;padding:32px 16px 40px}.m .ft .in>div:first-child{grid-column:1/-1}
+/* home */
+.intro{padding:56px 0 40px;display:grid;grid-template-columns:7fr 5fr;gap:48px;align-items:end}
+.intro h1{font-size:clamp(44px,5vw,72px)}
+.m .intro{grid-template-columns:1fr;padding:32px 0 24px;gap:12px}.m .intro h1{font-size:44px}
+.feat{display:grid;grid-template-columns:7fr 5fr;gap:48px;border-top:2px solid var(--text);padding-top:28px;align-items:start}
+.feat h2{font-size:56px;margin:12px 0 0}
+.feat h2 a{text-decoration:none}
+.feat p.dek{font-size:20px;line-height:1.5;color:var(--text-soft);margin:18px 0 0;max-width:var(--m,52ch)}
+.meta{font:500 13px 'Geist Mono',monospace;color:var(--text-muted);display:flex;gap:14px;flex-wrap:wrap;margin:0}
+.m .feat{grid-template-columns:1fr;gap:20px}.m .feat h2{font-size:36px}.m .feat p.dek{font-size:18px}
+.list{margin-top:56px;display:grid;grid-template-columns:8fr 3fr;gap:64px}
+.m .list{grid-template-columns:1fr;gap:32px;margin-top:40px}
+.item{display:grid;grid-template-columns:132px 1fr;gap:24px;padding:28px 0;border-top:1px solid var(--line)}
+.item h3{font:800 28px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;margin:0}
+.item h3 a{text-decoration:none}
+.item p{margin:8px 0 12px;color:var(--text-soft);font-size:16px;max-width:60ch}
+.m .item{grid-template-columns:1fr;gap:8px;padding:22px 0}.m .item h3{font-size:24px}
+.side h4{margin:0 0 12px;font:500 13px 'Geist Mono',monospace;letter-spacing:.04em;color:var(--text-muted)}
+.side{padding-top:28px;border-top:1px solid var(--line)}
+.side a.t{display:flex;justify-content:space-between;text-decoration:none;padding:8px 0;border-bottom:1px solid var(--line);min-height:44px;align-items:center;color:var(--text-soft)}
+.pager{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:20px;margin-top:0}
+/* post */
+.ph{padding:56px 0 0;display:grid;grid-template-columns:2fr 8fr 2fr;gap:0 48px}
+.ph h1{font-size:56px;grid-column:2;margin-top:12px}
+.ph .eyebrow,.ph .dek,.ph .meta{grid-column:2}
+.dek{font-size:21px;line-height:1.5;color:var(--text-soft);margin:18px 0 0}
+.by{display:flex;align-items:center;gap:12px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
+.av{width:40px;height:40px;border-radius:8px;background:var(--ink);color:var(--ink-text);display:inline-flex;align-items:center;justify-content:center;font:800 18px 'Bricolage Grotesque',sans-serif;flex:none}
+.av.l{width:88px;height:88px;font-size:40px;border-radius:10px}
+.pb{display:grid;grid-template-columns:2fr 8fr 2fr;gap:0 48px;margin-top:40px}
+.art{grid-column:2;font-size:18px;line-height:1.7;max-width:62ch;color:var(--text)}
+.art p{margin:0 0 22px}
+.art h2{font:800 34px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em;margin:48px 0 16px;scroll-margin-top:24px}
+.art h3{font:800 24px/1.15 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em;margin:32px 0 12px}
+.art code.i{font:0.88em 'Geist Mono',monospace;background:var(--surface);border-radius:4px;padding:2px 6px}
+.art a{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1.5px}
+.art ul{margin:0 0 22px;padding-left:22px}.art li{margin-bottom:6px}
+.cb{margin:0 0 26px;border-radius:10px;background:var(--ink);color:var(--ink-text);overflow:hidden}
+.cb .bar{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 18px;border-bottom:1px solid var(--ink-line);font:500 12px 'Geist Mono',monospace;color:var(--ink-muted)}
+.cb button{background:none;border:1px solid var(--ink-line);color:var(--ink-text);border-radius:6px;min-height:32px;padding:0 12px;font:500 12px 'Geist Mono',monospace}
+.cb pre{margin:0;padding:16px 0;font:14px/1.7 'Geist Mono',monospace;overflow-x:auto;white-space:pre}
+.cb pre span{display:block;padding:0 18px;border-left:3px solid transparent}
+.cb pre span.hl{background:#1B1F26;border-left-color:#ECEDEA}
+.cb .mu{color:var(--ink-muted)}.cb b{font-weight:500;color:#fff}
+.co{margin:0 0 26px;padding:16px 20px;background:var(--surface);border-left:3px solid var(--text);border-radius:0 10px 10px 0;font-size:16px;line-height:1.6}
+.co p{margin:0}.co .eyebrow{margin-bottom:6px}
+.toc{grid-column:3;grid-row:1;position:sticky;top:24px;align-self:start;font-size:14px;color:var(--text-muted)}
+.toc p{margin:0 0 8px;font:500 13px 'Geist Mono',monospace;letter-spacing:.04em}
+.toc a{display:block;text-decoration:none;padding:5px 0 5px 12px;border-left:2px solid var(--line);color:var(--text-muted)}
+.toc a[aria-current]{border-left-color:var(--text);color:var(--text);font-weight:600}
+.tocm{display:none}
+.m .tocm{display:block;margin:20px 0 0;border:1px solid var(--line);border-radius:10px;font-size:15px}
+.tocm summary{min-height:44px;display:flex;align-items:center;padding:0 16px;font-weight:600;cursor:pointer}
+.tocm a{display:block;padding:10px 16px;border-top:1px solid var(--line);text-decoration:none;min-height:44px}
+.m .toc{display:none}
+.m .ph,.m .pb{grid-template-columns:1fr;gap:0}.m .ph h1,.m .ph .eyebrow,.m .ph .dek,.m .ph .meta,.m .art{grid-column:1}.m .ph h1{font-size:38px;margin-top:10px}.m .ph{padding-top:28px}.m .dek{font-size:19px}.m .art{font-size:17px}.m .art h2{font-size:28px}
+.m .pb{margin-top:24px}
+.cta{background:var(--ink);color:var(--ink-text);border-radius:14px;padding:32px 32px 28px;margin:48px 0 0;display:grid;grid-template-columns:7fr 5fr;gap:32px}
+.cta h3{font:800 32px/1.05 'Bricolage Grotesque',sans-serif;letter-spacing:-.04em;margin:0;color:#fff}
+.cta p{margin:12px 0 0;color:var(--ink-muted);font-size:16px;line-height:1.55}
+.cta .cmd{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0E1116;border:1px solid var(--ink-line);border-radius:10px;padding:10px 10px 10px 16px;font:14px 'Geist Mono',monospace;color:#ECEDEA;overflow-x:auto;white-space:nowrap}
+.cta .cmd button{flex:none;background:#2A2E35;border:0;color:#ECEDEA;border-radius:6px;min-height:36px;padding:0 14px;font:500 13px 'Geist Mono',monospace}
+.cta .lk{display:flex;gap:20px;flex-wrap:wrap;margin-top:16px;font-size:15px}
+.cta .lk a{color:#ECEDEA;text-decoration:underline;text-underline-offset:3px;min-height:44px;display:inline-flex;align-items:center}
+.m .cta{grid-template-columns:1fr;padding:24px 20px}.m .cta h3{font-size:28px}
+.pn{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:32px}
+.pn a{border:1px solid var(--line);border-radius:10px;padding:16px 18px;text-decoration:none;display:block}
+.pn small{display:block;font:500 12px 'Geist Mono',monospace;color:var(--text-muted)}
+.m .pn{grid-template-columns:1fr}
+/* tag + author */
+.th{padding:56px 0 8px;display:grid;grid-template-columns:7fr 5fr;gap:48px;align-items:end}
+.th h1{font-size:72px;margin:10px 0 0;font-family:'Bricolage Grotesque',sans-serif}
+.th h1.mn{font-family:'Geist Mono',monospace;font-weight:500;letter-spacing:-.04em;font-size:56px}
+.th p.lede{margin:0;font-size:19px;color:var(--text-soft);max-width:48ch}
+.m .th{grid-template-columns:1fr;gap:14px;padding-top:32px}.m .th h1{font-size:40px}.m .th h1.mn{font-size:34px}
+.one{margin-top:32px;display:block}.one .list{margin-top:0}
+.ah{padding:56px 0 8px;display:grid;grid-template-columns:2fr 8fr 2fr;gap:48px;align-items:start}
+.ah .box{grid-column:2;display:flex;gap:28px;align-items:flex-start}
+.ah h1{font-size:60px}
+.m .ah{grid-template-columns:1fr;padding-top:32px}.m .ah .box{grid-column:1;flex-direction:column;gap:16px}.m .ah h1{font-size:40px}
+.nf{padding:96px 0 0;display:grid;grid-template-columns:7fr 5fr;gap:64px;align-items:start}
+.nf h1{font-size:88px}
+.m .nf{grid-template-columns:1fr;padding:40px 0 0;gap:28px}.m .nf h1{font-size:46px}
+/* search */
+.scrim{position:absolute;inset:0;background:rgba(14,17,22,.55)}
+.dlg{position:absolute;left:50%;transform:translateX(-50%);top:96px;width:680px;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(14,17,22,.28);overflow:hidden}
+.m .dlg{top:0;left:0;transform:none;width:100%;height:100%;border-radius:0;border:0;box-shadow:none}
+.dlg .q{display:flex;align-items:center;gap:12px;padding:0 20px;min-height:64px;border-bottom:1px solid var(--line);font-size:18px}
+.dlg .q input{flex:1;border:0;background:none;font:inherit;color:var(--text);outline:none;min-height:44px}
+.dlg .q input::placeholder{color:var(--text-muted)}
+.dlg .q .esc{font:500 12px 'Geist Mono',monospace;border:1px solid var(--line);border-radius:4px;padding:2px 8px;color:var(--text-muted)}
+.m .dlg .q{padding:0 12px}
+.res{padding:8px}
+.res .g{font:500 12px 'Geist Mono',monospace;letter-spacing:.04em;color:var(--text-muted);padding:12px 12px 6px}
+.res a{display:block;padding:12px;border-radius:8px;text-decoration:none;border:1.5px solid transparent}
+.res a[aria-selected]{background:var(--surface);border-color:var(--text)}
+.res a strong{display:block;font:800 18px/1.2 'Bricolage Grotesque',sans-serif;letter-spacing:-.02em}
+.res a span{display:block;font-size:14px;color:var(--text-soft);margin-top:4px;line-height:1.5}
+.res mark{background:none;color:var(--text);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.dlg .ft2{display:flex;gap:18px;padding:10px 20px;border-top:1px solid var(--line);font:12px 'Geist Mono',monospace;color:var(--text-muted)}
+.m .dlg .ft2{display:none}
+.empty{padding:40px 28px 44px}
+.empty h3{margin:0;font:800 26px/1.1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.empty p{margin:10px 0 0;color:var(--text-soft)}
+.sm{width:680px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+
+/* ---- shared identity overrides: mirror kwatch.dev global.css, Header/Footer.astro and docs custom.css ---- */
+.kb{font-size:17px;line-height:1.55}
+.hd .in{padding:22px 24px;gap:12px 32px;flex-wrap:wrap}
+.logo{font-size:26px}
+.hd nav{margin-left:auto;gap:8px 26px}
+.hd nav a{color:var(--text-muted);min-height:44px;font-size:15px}
+.hd nav a:hover{color:var(--text);text-decoration:underline}
+.hd nav a[aria-current]{color:var(--text);font-weight:600}
+.hd nav a:last-child{color:var(--text);font-weight:600}
+.srch{width:260px;order:0}
+.tg{margin-left:0}.ibtn.sb{display:none;margin-left:0}
+.m .ibtn.sb{display:inline-flex}.m .srch{display:none}
+.m .hd .in{padding:16px;gap:12px 16px}.m .hd nav{display:flex;order:3;flex-basis:100%;margin-left:0}
+.m .hd .logo{margin-right:auto}
+.ft{display:flex;flex-wrap:wrap;gap:16px 24px;justify-content:space-between;padding:36px 24px;font-size:14px;color:var(--text-muted);border-top:0;margin-top:96px;max-width:1280px;margin-left:auto;margin-right:auto}
+.ft nav{display:flex;flex-wrap:wrap;gap:8px 20px}
+.ft a{display:inline;padding:0;min-height:0;color:var(--text-muted)}.ft a:hover{color:var(--text)}
+.m .ft{padding:36px 16px;margin-top:64px}
+.hd{border-bottom:1px solid var(--line)}
+.chip{border-radius:4px;color:var(--text-soft)}
+.chip:hover{border-color:var(--text);color:var(--text)}
+.btn{display:inline-flex;padding:11px 22px;line-height:1.3;border:1.5px solid var(--ink);background:var(--ink);color:var(--ink-text)}
+.dk .btn{border-color:var(--ink-line);background:var(--ink)}
+.btn:hover{background:var(--ink-line);border-color:var(--ink-line)}
+.btn.g{background:none;border-color:var(--control);color:var(--text)}
+.btn.g:hover{background:var(--text);border-color:var(--text);color:var(--bg)}
+.item h3{font-size:24px;letter-spacing:-.035em}
+.item h3 a:hover{text-decoration:underline}
+.m .item h3{font-size:24px}
+.disp{letter-spacing:-.035em;line-height:1.05}
+.intro h1,.ph h1,.th h1,.ah h1,.nf h1{font-size:clamp(30px,2vw + 22px,48px)}
+.th h1.mn{font-size:clamp(30px,2vw + 22px,48px)}
+.m .intro h1,.m .ph h1,.m .th h1,.m .th h1.mn,.m .ah h1,.m .nf h1{font-size:34px}
+.feat{border:1px solid var(--line);border-top:1px solid var(--line);border-radius:10px;padding:32px;gap:32px}
+.feat:hover{border-color:var(--text-muted)}
+.feat h2{font-size:clamp(30px,1.6vw + 24px,44px);letter-spacing:-.03em}
+.m .feat{padding:20px}.m .feat h2{font-size:30px}
+.out{border-radius:14px}
+.dek,.feat p.dek,.th p.lede{font-size:19px}
+.intro p,.nf p,.ah p{font-size:19px}
+.art{font-size:17px;line-height:1.65}
+.art h2{font-size:clamp(26px,1.2vw + 22px,32px);letter-spacing:-.03em}
+.art h3{font-size:24px}
+.m .art h2{font-size:26px}
+.art a:hover{color:var(--text)}
+/* code block = docs .theme-code-block: surface, 1px line, radius-card, no shadow */
+.cb{background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:10px}
+.cb .bar{border-bottom:1px solid var(--line);color:var(--text-muted)}
+.cb button{border:1.5px solid var(--control);color:var(--text);border-radius:999px;min-height:32px}
+.cb button:hover{background:var(--text);border-color:var(--text);color:var(--bg)}
+.cb pre span.hl{background:var(--line);border-left-color:var(--text)}
+.cb .mu{color:var(--text-muted)}.cb b{color:var(--text)}
+/* callout = docs .alert */
+.co{border-radius:10px;border-left:3px solid var(--text)}
+/* post nav = docs .pagination-nav__link */
+.pn a:hover{border-color:var(--text-muted)}
+.cta{border-radius:14px}
+.cta .btn{background:#fff;color:#0E1116;border-color:#fff}
+.cta .btn:hover{background:#ECEDEA;border-color:#ECEDEA}
+.cta .cmd button{border-radius:999px}
+.side a.t:hover{color:var(--text);text-decoration:underline}
+.res a:hover{background:var(--surface)}
+.dlg{border-radius:14px}
+.cb pre span span{display:inline;padding:0;border:0}
+</style>
+</helmet>
+<div class="cv" style="width:2688px"><div class="row"><div><p class="lab">desktop / light</p><div class="kb"><header class="hd"><div class="in wrap"><a class="logo" href="#" aria-label="kwatch home"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 5.5v53" stroke="currentColor" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="currentColor" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="currentColor" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="var(--signal)" stroke="currentColor" stroke-width="3.2"/></svg>kwatch</a>
+<div class="srch" role="button" aria-label="Search the blog" tabindex="0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg><span>Search the blog</span><kbd>Ctrl K</kbd></div>
+<nav aria-label="Main"><a href="#">Docs</a><a href="#" aria-current="page">Blog</a><a href="#">Pro</a><a href="#">Get help</a><a href="#">Sign in</a></nav>
+<button class="ibtn tg" aria-label="Theme: system" title="Theme"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></span></button><button class="ibtn sb" aria-label="Search the blog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg></button></div></header><main class="wrap">
+<section class="intro"><div><p class="eyebrow">blog.kwatch.dev</p><h1 class="disp" style="margin-top:12px">Notes on finding the cause.</h1></div><p style="margin:0;font-size:19px;color:var(--text-soft);max-width:44ch">How failures in a Kubernetes cluster trace back to what started them, and what to run next.</p></section>
+<section class="feat" aria-labelledby="ft"><div><p class="eyebrow">FEATURED</p><h2 id="ft" class="disp"><a href="#">Pro is free during early access</a></h2><p class="dek">Every Pro license is free while we are in early access. Here is what Pro adds and how to get a key from the installer.</p><p class="meta" style="margin-top:20px"><time datetime="2026-11-08">Nov 8, 2026</time><span>4 min read</span><span>Abdelrahman</span></p></div>
+<pre class="out" aria-label="Example kwatch trace"><b>Pod checkout-api-7f9c</b>          CrashLoopBackOff
+  Deployment checkout-api      <span class="mu">healthy before 03:03</span>
+    Node worker-3              <span class="mu">healthy</span>
+      ConfigMap checkout-config  changed 03:03   <b>&lt;- cause</b></pre></section>
+<div class="list"><section aria-label="All posts"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px;flex-wrap:wrap"><h2 class="eyebrow" style="font-size:13px">ALL POSTS</h2></div><nav class="chips" aria-label="Filter by tag"><a class="chip" href="#" aria-current="page">All<i>5</i></a><a class="chip" href="#">Root cause<i>4</i></a><a class="chip" href="#">CrashLoopBackOff<i>1</i></a><a class="chip" href="#">OOMKilled<i>1</i></a><a class="chip" href="#">Pro<i>1</i></a><a class="chip" href="#">Releases<i>1</i></a></nav><div style="margin-top:20px"><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">Root-causing CrashLoopBackOff: read the last crash first</a></h3><p>A restarting pod hides its cause behind the next restart. Start from the previous container's logs and follow the link upstream.</p><div class="tags"><a class="tag" href="#">CrashLoopBackOff</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">7 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">OOMKilled explained: what stopped the pod and how to fix it</a></h3><p>A pod that used more memory than allowed is stopped. Read the limit, the usage and the exit code, then set a limit that fits.</p><div class="tags"><a class="tag" href="#">OOMKilled</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">6 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 15, 2026</time></p><div><h3><a href="#">Pending pods: find what blocks scheduling</a></h3><p>Sample row for the mockup only. Read the scheduler's reason, then the node or quota it names.</p><div class="tags"><a class="tag" href="#">Pending</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 22, 2026</time></p><div><h3><a href="#">Node NotReady: what the node reported</a></h3><p>Sample row for the mockup only. Start from the node's conditions and its last events.</p><div class="tags"><a class="tag" href="#">Node</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article></div><div class="pager"><span class="meta">Page 1 of 1</span><a href="#" class="meta" style="color:var(--text-muted)">Older posts</a></div></section>
+<aside class="side" aria-label="Browse"><h4>TAGS</h4><a class="t" href="#">Root cause<span class="mono">4</span></a><a class="t" href="#">CrashLoopBackOff<span class="mono">1</span></a><a class="t" href="#">OOMKilled<span class="mono">1</span></a><a class="t" href="#">Pro<span class="mono">1</span></a><a class="t" href="#">Releases<span class="mono">1</span></a><h4 style="margin-top:28px">AUTHORS</h4><a class="t" href="#">Abdelrahman<span class="mono">3</span></a><h4 style="margin-top:28px">FOLLOW</h4><a class="t" href="#">RSS feed<span class="mono">rss.xml</span></a></aside></div>
+</main><footer class="wrap ft"><span>kwatch · source available under ELv2</span><nav aria-label="Footer"><a href="#">Docs</a><a href="#">Blog</a><a href="#">GitHub</a><a href="#">Get help</a><a href="#">Privacy</a><a href="#">Terms</a></nav></footer></div></div><div><p class="lab">desktop / dark</p><div class="kb dk"><header class="hd"><div class="in wrap"><a class="logo" href="#" aria-label="kwatch home"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 5.5v53" stroke="currentColor" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="currentColor" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="currentColor" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="var(--signal)" stroke="currentColor" stroke-width="3.2"/></svg>kwatch</a>
+<div class="srch" role="button" aria-label="Search the blog" tabindex="0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg><span>Search the blog</span><kbd>Ctrl K</kbd></div>
+<nav aria-label="Main"><a href="#">Docs</a><a href="#" aria-current="page">Blog</a><a href="#">Pro</a><a href="#">Get help</a><a href="#">Sign in</a></nav>
+<button class="ibtn tg" aria-label="Theme: system" title="Theme"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></span></button><button class="ibtn sb" aria-label="Search the blog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg></button></div></header><main class="wrap">
+<section class="intro"><div><p class="eyebrow">blog.kwatch.dev</p><h1 class="disp" style="margin-top:12px">Notes on finding the cause.</h1></div><p style="margin:0;font-size:19px;color:var(--text-soft);max-width:44ch">How failures in a Kubernetes cluster trace back to what started them, and what to run next.</p></section>
+<section class="feat" aria-labelledby="ft"><div><p class="eyebrow">FEATURED</p><h2 id="ft" class="disp"><a href="#">Pro is free during early access</a></h2><p class="dek">Every Pro license is free while we are in early access. Here is what Pro adds and how to get a key from the installer.</p><p class="meta" style="margin-top:20px"><time datetime="2026-11-08">Nov 8, 2026</time><span>4 min read</span><span>Abdelrahman</span></p></div>
+<pre class="out" aria-label="Example kwatch trace"><b>Pod checkout-api-7f9c</b>          CrashLoopBackOff
+  Deployment checkout-api      <span class="mu">healthy before 03:03</span>
+    Node worker-3              <span class="mu">healthy</span>
+      ConfigMap checkout-config  changed 03:03   <b>&lt;- cause</b></pre></section>
+<div class="list"><section aria-label="All posts"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px;flex-wrap:wrap"><h2 class="eyebrow" style="font-size:13px">ALL POSTS</h2></div><nav class="chips" aria-label="Filter by tag"><a class="chip" href="#" aria-current="page">All<i>5</i></a><a class="chip" href="#">Root cause<i>4</i></a><a class="chip" href="#">CrashLoopBackOff<i>1</i></a><a class="chip" href="#">OOMKilled<i>1</i></a><a class="chip" href="#">Pro<i>1</i></a><a class="chip" href="#">Releases<i>1</i></a></nav><div style="margin-top:20px"><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">Root-causing CrashLoopBackOff: read the last crash first</a></h3><p>A restarting pod hides its cause behind the next restart. Start from the previous container's logs and follow the link upstream.</p><div class="tags"><a class="tag" href="#">CrashLoopBackOff</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">7 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">OOMKilled explained: what stopped the pod and how to fix it</a></h3><p>A pod that used more memory than allowed is stopped. Read the limit, the usage and the exit code, then set a limit that fits.</p><div class="tags"><a class="tag" href="#">OOMKilled</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">6 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 15, 2026</time></p><div><h3><a href="#">Pending pods: find what blocks scheduling</a></h3><p>Sample row for the mockup only. Read the scheduler's reason, then the node or quota it names.</p><div class="tags"><a class="tag" href="#">Pending</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 22, 2026</time></p><div><h3><a href="#">Node NotReady: what the node reported</a></h3><p>Sample row for the mockup only. Start from the node's conditions and its last events.</p><div class="tags"><a class="tag" href="#">Node</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article></div><div class="pager"><span class="meta">Page 1 of 1</span><a href="#" class="meta" style="color:var(--text-muted)">Older posts</a></div></section>
+<aside class="side" aria-label="Browse"><h4>TAGS</h4><a class="t" href="#">Root cause<span class="mono">4</span></a><a class="t" href="#">CrashLoopBackOff<span class="mono">1</span></a><a class="t" href="#">OOMKilled<span class="mono">1</span></a><a class="t" href="#">Pro<span class="mono">1</span></a><a class="t" href="#">Releases<span class="mono">1</span></a><h4 style="margin-top:28px">AUTHORS</h4><a class="t" href="#">Abdelrahman<span class="mono">3</span></a><h4 style="margin-top:28px">FOLLOW</h4><a class="t" href="#">RSS feed<span class="mono">rss.xml</span></a></aside></div>
+</main><footer class="wrap ft"><span>kwatch · source available under ELv2</span><nav aria-label="Footer"><a href="#">Docs</a><a href="#">Blog</a><a href="#">GitHub</a><a href="#">Get help</a><a href="#">Privacy</a><a href="#">Terms</a></nav></footer></div></div></div><div class="row"><div><p class="lab">mobile 375 / light</p><div class="kb m"><header class="hd"><div class="in wrap"><a class="logo" href="#" aria-label="kwatch home"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 5.5v53" stroke="currentColor" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="currentColor" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="currentColor" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="var(--signal)" stroke="currentColor" stroke-width="3.2"/></svg>kwatch</a>
+<div class="srch" role="button" aria-label="Search the blog" tabindex="0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg><span>Search the blog</span><kbd>Ctrl K</kbd></div>
+<nav aria-label="Main"><a href="#">Docs</a><a href="#" aria-current="page">Blog</a><a href="#">Pro</a><a href="#">Get help</a><a href="#">Sign in</a></nav>
+<button class="ibtn tg" aria-label="Theme: system" title="Theme"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></span></button><button class="ibtn sb" aria-label="Search the blog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg></button></div></header><main class="wrap">
+<section class="intro"><div><p class="eyebrow">blog.kwatch.dev</p><h1 class="disp" style="margin-top:12px">Notes on finding the cause.</h1></div><p style="margin:0;font-size:19px;color:var(--text-soft);max-width:44ch">How failures in a Kubernetes cluster trace back to what started them, and what to run next.</p></section>
+<section class="feat" aria-labelledby="ft"><div><p class="eyebrow">FEATURED</p><h2 id="ft" class="disp"><a href="#">Pro is free during early access</a></h2><p class="dek">Every Pro license is free while we are in early access. Here is what Pro adds and how to get a key from the installer.</p><p class="meta" style="margin-top:20px"><time datetime="2026-11-08">Nov 8, 2026</time><span>4 min read</span><span>Abdelrahman</span></p></div>
+<pre class="out" aria-label="Example kwatch trace"><b>Pod checkout-api-7f9c</b>          CrashLoopBackOff
+  Deployment checkout-api      <span class="mu">healthy before 03:03</span>
+    Node worker-3              <span class="mu">healthy</span>
+      ConfigMap checkout-config  changed 03:03   <b>&lt;- cause</b></pre></section>
+<div class="list"><section aria-label="All posts"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px;flex-wrap:wrap"><h2 class="eyebrow" style="font-size:13px">ALL POSTS</h2></div><nav class="chips" aria-label="Filter by tag"><a class="chip" href="#" aria-current="page">All<i>5</i></a><a class="chip" href="#">Root cause<i>4</i></a><a class="chip" href="#">CrashLoopBackOff<i>1</i></a><a class="chip" href="#">OOMKilled<i>1</i></a><a class="chip" href="#">Pro<i>1</i></a><a class="chip" href="#">Releases<i>1</i></a></nav><div style="margin-top:20px"><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">Root-causing CrashLoopBackOff: read the last crash first</a></h3><p>A restarting pod hides its cause behind the next restart. Start from the previous container's logs and follow the link upstream.</p><div class="tags"><a class="tag" href="#">CrashLoopBackOff</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">7 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">OOMKilled explained: what stopped the pod and how to fix it</a></h3><p>A pod that used more memory than allowed is stopped. Read the limit, the usage and the exit code, then set a limit that fits.</p><div class="tags"><a class="tag" href="#">OOMKilled</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">6 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 15, 2026</time></p><div><h3><a href="#">Pending pods: find what blocks scheduling</a></h3><p>Sample row for the mockup only. Read the scheduler's reason, then the node or quota it names.</p><div class="tags"><a class="tag" href="#">Pending</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 22, 2026</time></p><div><h3><a href="#">Node NotReady: what the node reported</a></h3><p>Sample row for the mockup only. Start from the node's conditions and its last events.</p><div class="tags"><a class="tag" href="#">Node</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article></div><div class="pager"><span class="meta">Page 1 of 1</span><a href="#" class="meta" style="color:var(--text-muted)">Older posts</a></div></section>
+<aside class="side" aria-label="Browse"><h4>TAGS</h4><a class="t" href="#">Root cause<span class="mono">4</span></a><a class="t" href="#">CrashLoopBackOff<span class="mono">1</span></a><a class="t" href="#">OOMKilled<span class="mono">1</span></a><a class="t" href="#">Pro<span class="mono">1</span></a><a class="t" href="#">Releases<span class="mono">1</span></a><h4 style="margin-top:28px">AUTHORS</h4><a class="t" href="#">Abdelrahman<span class="mono">3</span></a><h4 style="margin-top:28px">FOLLOW</h4><a class="t" href="#">RSS feed<span class="mono">rss.xml</span></a></aside></div>
+</main><footer class="wrap ft"><span>kwatch · source available under ELv2</span><nav aria-label="Footer"><a href="#">Docs</a><a href="#">Blog</a><a href="#">GitHub</a><a href="#">Get help</a><a href="#">Privacy</a><a href="#">Terms</a></nav></footer></div></div><div><p class="lab">mobile 375 / dark</p><div class="kb dk m"><header class="hd"><div class="in wrap"><a class="logo" href="#" aria-label="kwatch home"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M17 5.5v53" stroke="currentColor" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="currentColor" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="currentColor" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="var(--signal)" stroke="currentColor" stroke-width="3.2"/></svg>kwatch</a>
+<div class="srch" role="button" aria-label="Search the blog" tabindex="0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg><span>Search the blog</span><kbd>Ctrl K</kbd></div>
+<nav aria-label="Main"><a href="#">Docs</a><a href="#" aria-current="page">Blog</a><a href="#">Pro</a><a href="#">Get help</a><a href="#">Sign in</a></nav>
+<button class="ibtn tg" aria-label="Theme: system" title="Theme"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg></span></button><button class="ibtn sb" aria-label="Search the blog"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z"/><path d="m15.5 15.5 5 5"/></svg></button></div></header><main class="wrap">
+<section class="intro"><div><p class="eyebrow">blog.kwatch.dev</p><h1 class="disp" style="margin-top:12px">Notes on finding the cause.</h1></div><p style="margin:0;font-size:19px;color:var(--text-soft);max-width:44ch">How failures in a Kubernetes cluster trace back to what started them, and what to run next.</p></section>
+<section class="feat" aria-labelledby="ft"><div><p class="eyebrow">FEATURED</p><h2 id="ft" class="disp"><a href="#">Pro is free during early access</a></h2><p class="dek">Every Pro license is free while we are in early access. Here is what Pro adds and how to get a key from the installer.</p><p class="meta" style="margin-top:20px"><time datetime="2026-11-08">Nov 8, 2026</time><span>4 min read</span><span>Abdelrahman</span></p></div>
+<pre class="out" aria-label="Example kwatch trace"><b>Pod checkout-api-7f9c</b>          CrashLoopBackOff
+  Deployment checkout-api      <span class="mu">healthy before 03:03</span>
+    Node worker-3              <span class="mu">healthy</span>
+      ConfigMap checkout-config  changed 03:03   <b>&lt;- cause</b></pre></section>
+<div class="list"><section aria-label="All posts"><div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px;flex-wrap:wrap"><h2 class="eyebrow" style="font-size:13px">ALL POSTS</h2></div><nav class="chips" aria-label="Filter by tag"><a class="chip" href="#" aria-current="page">All<i>5</i></a><a class="chip" href="#">Root cause<i>4</i></a><a class="chip" href="#">CrashLoopBackOff<i>1</i></a><a class="chip" href="#">OOMKilled<i>1</i></a><a class="chip" href="#">Pro<i>1</i></a><a class="chip" href="#">Releases<i>1</i></a></nav><div style="margin-top:20px"><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">Root-causing CrashLoopBackOff: read the last crash first</a></h3><p>A restarting pod hides its cause behind the next restart. Start from the previous container's logs and follow the link upstream.</p><div class="tags"><a class="tag" href="#">CrashLoopBackOff</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">7 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 8, 2026</time></p><div><h3><a href="#">OOMKilled explained: what stopped the pod and how to fix it</a></h3><p>A pod that used more memory than allowed is stopped. Read the limit, the usage and the exit code, then set a limit that fits.</p><div class="tags"><a class="tag" href="#">OOMKilled</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">6 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 15, 2026</time></p><div><h3><a href="#">Pending pods: find what blocks scheduling</a></h3><p>Sample row for the mockup only. Read the scheduler's reason, then the node or quota it names.</p><div class="tags"><a class="tag" href="#">Pending</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article><article class="item"><p class="meta" style="margin-top:4px"><time datetime="2026-11-08">Nov 22, 2026</time></p><div><h3><a href="#">Node NotReady: what the node reported</a></h3><p>Sample row for the mockup only. Start from the node's conditions and its last events.</p><div class="tags"><a class="tag" href="#">Node</a><a class="tag" href="#">Root cause</a></div><p class="meta" style="margin:10px 0 0">5 min read</p></div></article></div><div class="pager"><span class="meta">Page 1 of 1</span><a href="#" class="meta" style="color:var(--text-muted)">Older posts</a></div></section>
+<aside class="side" aria-label="Browse"><h4>TAGS</h4><a class="t" href="#">Root cause<span class="mono">4</span></a><a class="t" href="#">CrashLoopBackOff<span class="mono">1</span></a><a class="t" href="#">OOMKilled<span class="mono">1</span></a><a class="t" href="#">Pro<span class="mono">1</span></a><a class="t" href="#">Releases<span class="mono">1</span></a><h4 style="margin-top:28px">AUTHORS</h4><a class="t" href="#">Abdelrahman<span class="mono">3</span></a><h4 style="margin-top:28px">FOLLOW</h4><a class="t" href="#">RSS feed<span class="mono">rss.xml</span></a></aside></div>
+</main><footer class="wrap ft"><span>kwatch · source available under ELv2</span><nav aria-label="Footer"><a href="#">Docs</a><a href="#">Blog</a><a href="#">GitHub</a><a href="#">Get help</a><a href="#">Privacy</a><a href="#">Terms</a></nav></footer></div></div></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2688,"height":3900}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

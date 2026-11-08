@@ -1,0 +1,46 @@
+---
+title: 'OOMKilled explained: what stopped the pod and how to fix it'
+description: 'A pod that used more memory than allowed is stopped. Read the limit, the usage and the exit code, then set a limit that fits.'
+date: 2026-11-06
+author: abdelrahman
+tags: ['OOMKilled', 'Root cause']
+draft: false
+---
+import Callout from '../../components/Callout.astro';
+
+[OOMKilled](https://docs.kwatch.dev/glossary#oomkilled) means a container used more memory than it was allowed and Kubernetes stopped it. The signs are the same every time.
+
+## Know the signs
+
+The container's last state shows reason `OOMKilled` and exit code 137.
+
+## Read the limit and the usage
+
+`kubectl describe pod` shows the last state and the memory limit. `kubectl top pod` shows what the pod uses now.
+
+```bash
+kubectl describe pod <pod> -n <ns>
+kubectl top pod <pod> -n <ns>
+```
+
+<Callout label="REQUESTS AND LIMITS">
+A request is the memory the scheduler reserves for the container. A limit is the most the container may use before it is stopped.
+</Callout>
+
+## Which limit stopped it
+
+A container is stopped when it passes its own memory limit. A pod can also be stopped when the node itself runs out of memory. The last state of the container and the events on the node say which one happened.
+
+## Fix it
+
+Pick one of two moves. Raise the limit to fit the use you observed, or fix the allocation the logs point to.
+
+```bash
+kubectl set resources deployment/<name> -n <ns> --limits=memory=512Mi
+```
+
+Then confirm the restart count stops rising.
+
+## What kwatch sends
+
+For an OOM kill, kwatch sends one message with the cause and the command to run, and closes it once when the pod is healthy again.

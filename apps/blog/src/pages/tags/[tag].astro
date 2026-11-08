@@ -1,0 +1,44 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostItem from '../../components/PostItem.astro';
+import { getPosts, tagCounts, tagInfo, tagLede } from '../../lib/posts';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return tagCounts(posts).map((t) => ({
+    params: { tag: t.slug },
+    props: { tag: t.tag, posts: posts.filter((p) => p.data.tags.includes(t.tag)), all: tagCounts(posts) },
+  }));
+}
+const { tag, posts, all } = Astro.props;
+const related = all.filter((t) => t.tag !== tag);
+const glossary = tagInfo[tag]?.glossary;
+---
+<Base title={`${tag} | kwatch blog`} description={`${tagLede(tag)} ${posts.length} ${posts.length === 1 ? 'post' : 'posts'}.`} ogAlt={`kwatch blog: ${tag}`}>
+  <div class="wrap">
+    <section class="page-head">
+      <div>
+        <p class="eyebrow"><a href="/">Blog</a> / Tag</p>
+        <h1 class="display mono">{tag}</h1>
+      </div>
+      <div>
+        <p class="lede">{tagLede(tag)}</p>
+        <p class="meta">
+          <span>{posts.length} {posts.length === 1 ? 'post' : 'posts'}</span>
+          {glossary && <a href={glossary}>Glossary: {tag}</a>}
+        </p>
+      </div>
+    </section>
+    <section class="list-layout" aria-label={`Posts tagged ${tag}`}>
+      <ul>{posts.map((p) => <PostItem post={p} />)}</ul>
+      {related.length > 0 && (
+        <aside class="rail" aria-label="Related tags">
+          <div>
+            <h2>RELATED TAGS</h2>
+            {related.map((t) => <a class="row" href={`/tags/${t.slug}`}>{t.tag}<span>{t.count}</span></a>)}
+          </div>
+        </aside>
+      )}
+    </section>
+  </div>
+</Base>

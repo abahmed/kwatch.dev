@@ -1,0 +1,61 @@
+---
+title: 'CrashLoopBackOff: read the last crash first'
+description: 'A restarting pod hides its cause behind the next restart. Read the previous container logs and follow the link upstream to the change.'
+date: 2026-11-07
+author: abdelrahman
+tags: ['CrashLoopBackOff', 'Root cause']
+output: |
+  Pod checkout-api-7f9c          CrashLoopBackOff
+    Deployment checkout-api      healthy before 03:03
+      Node worker-3              healthy
+        ConfigMap checkout-config  changed 03:03   <- cause
+draft: false
+---
+import Output from '../../components/Output.astro';
+import Callout from '../../components/Callout.astro';
+
+A pod in [CrashLoopBackOff](https://docs.kwatch.dev/glossary#crashloopbackoff) keeps starting, failing and starting again. The cause is hard to see because every restart replaces the evidence. Read the last crash before the next one covers it.
+
+## Read the last crash
+
+Ask for the logs of the previous container, not the one that just started.
+
+```bash
+kubectl logs <pod> -n <ns> --previous
+```
+
+<Callout label="WHY --previous">
+The current container has barely run. The previous one holds the lines written just before it stopped.
+</Callout>
+
+## Read the exit code and events
+
+`kubectl describe pod` shows the last state, the exit code and the pod's events in one place.
+
+```bash
+kubectl describe pod <pod> -n <ns>
+```
+
+A bad start command and a missing config look alike from outside. The last lines of the previous logs tell them apart: a bad command stops at once, a missing config names the key it could not find.
+
+## Follow the link upstream
+
+Most crash loops start with a change just before the first crash: a config, a secret, an image or a rollout. Follow the failing pod up to what it depends on, and keep only what is broken or changed.
+
+<Output text={frontmatter.output} cause={[3]} />
+
+Here the ConfigMap changed at 03:03, the same minute the deployment stopped being healthy. That is the cause.
+
+## What kwatch sends
+
+kwatch follows these links for you and sends one message per cause, with the command to run. The message is closed once when the cause is resolved.
+
+## Fix and confirm
+
+Roll the change back or correct it, then watch the pod settle.
+
+```bash
+kubectl rollout status deployment/checkout-api -n default
+```
+
+The restart count stops rising and the pod stays Ready.

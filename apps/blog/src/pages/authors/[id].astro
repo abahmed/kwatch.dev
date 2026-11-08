@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+import AuthorTile from '../../components/AuthorTile.astro';
+import PostItem from '../../components/PostItem.astro';
+import { SITE, getAuthors, getPosts } from '../../lib/posts';
+
+export async function getStaticPaths() {
+  const authors = await getAuthors();
+  const posts = await getPosts();
+  return authors.map((a) => ({
+    params: { id: a.id },
+    props: { author: a, posts: posts.filter((p) => p.data.author === a.id) },
+  }));
+}
+const { author, posts } = Astro.props;
+const jsonLd = [
+  { '@context': 'https://schema.org', '@type': 'Person', name: author.data.name, description: author.data.bio, url: `${SITE}/authors/${author.id}`, sameAs: [author.data.github, author.data.site].filter(Boolean) },
+];
+---
+<Base title={`${author.data.name} | kwatch blog`} description={author.data.bio} ogAlt={`kwatch blog: ${author.data.name}`} jsonLd={jsonLd}>
+  <div class="wrap">
+    <section class="author-head">
+      <div class="box">
+        <AuthorTile name={author.data.name} large />
+        <div>
+          <p class="eyebrow"><a href="/">Blog</a> / Author</p>
+          <h1 class="display">{author.data.name}</h1>
+          <p>{author.data.bio}</p>
+          <p class="links">
+            {author.data.github && <a href={author.data.github}>GitHub</a>}
+            {author.data.site && <a href={author.data.site}>kwatch.dev</a>}
+            <span class="meta">{posts.length} {posts.length === 1 ? 'post' : 'posts'}</span>
+          </p>
+        </div>
+      </div>
+    </section>
+    <section class="list-layout" aria-label={`Posts by ${author.data.name}`}>
+      <ul>{posts.map((p) => <PostItem post={p} />)}</ul>
+    </section>
+  </div>
+</Base>

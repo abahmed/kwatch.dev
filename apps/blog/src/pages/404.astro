@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="This post isn't here | kwatch blog" description="The page you asked for is not on the kwatch blog." noindex>
+  <div class="wrap">
+    <section class="not-found">
+      <div>
+        <p class="eyebrow">404</p>
+        <h1 class="display">This post isn't here.</h1>
+        <p>The link may have moved. The latest posts are one click away, or search for the symptom you are chasing.</p>
+        <div class="actions">
+          <a class="btn btn-solid" href="/">Latest posts</a>
+          <button type="button" class="btn btn-line" data-search-open aria-haspopup="dialog">Search the blog</button>
+        </div>
+      </div>
+      <pre class="output on-ink" tabindex="0" aria-label="Request details">Request   blog.kwatch.dev
+Result    no post at this address
+Next      open the latest posts, or
+          search for the symptom</pre>
+    </section>
+  </div>
+</Base>

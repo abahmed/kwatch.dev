@@ -322,6 +322,7 @@ dialog.search::backdrop { background: rgba(14, 17, 22, .55); }
   .pager-cards a.next { grid-column: 1; }
   .cta { padding: 24px 20px; }
   .cta h2 { font-size: 28px; }
+  .cta .cmd code { white-space: pre-wrap; word-break: break-all; }
   .author-head .box { flex-direction: column; gap: 16px; }
 }
 @media (max-width: 480px) { .output { font-size: 13px; padding: 18px; } }

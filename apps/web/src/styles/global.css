@@ -29,20 +29,23 @@ img, svg { max-width: 100%; }
   outline-offset: var(--focus-offset);
   border-radius: 4px;
 }
-.on-ink :focus-visible, .on-signal :focus-visible { outline-color: currentColor; }
+/* Explicit tokens, not currentColor: a solid button's label can match its band. */
+.on-ink :focus-visible { outline-color: var(--ink-text); }
+.on-signal :focus-visible { outline-color: var(--on-signal); }
+.btn:focus-visible, .theme-toggle:focus-visible { border-radius: var(--radius-pill); }
 
 .skip-link {
   position: absolute;
   left: 16px;
   top: -80px;
   z-index: 100;
-  background: var(--ink);
-  color: #fff;
+  background: var(--text);
+  color: var(--bg);
   padding: 10px 16px;
   border-radius: 999px;
   font-weight: 600;
 }
-.skip-link:focus { top: 12px; outline-color: var(--signal); }
+.skip-link:focus { top: 12px; }
 
 .wrap { max-width: var(--max); margin: 0 auto; padding-inline: var(--gutter); }
 
@@ -68,11 +71,31 @@ img, svg { max-width: 100%; }
   border: 1.5px solid transparent;
   line-height: 1.3;
 }
-.btn-solid { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
-.btn-solid:hover, .btn-solid:focus-visible { color: var(--ink-text); background: var(--ink-line); border-color: var(--ink-line); }
-.btn-solid:focus-visible { outline-color: var(--ink); }
-.btn-line { border-color: var(--control-border); color: var(--text); }
+/* One button spec. The label is always the opposite token of the fill. */
+.btn-solid, .btn-solid:visited { background: var(--text); color: var(--bg); border-color: var(--text); }
+.btn-solid:hover, .btn-solid:focus-visible { background: var(--primary-hover); color: var(--bg); border-color: var(--primary-hover); }
+.btn-line, .btn-line:visited { border-color: var(--control-border); color: var(--text); }
 .btn-line:hover, .btn-line:focus-visible { border-color: var(--text); background: var(--text); color: var(--bg); }
+
+/* Ink bands: the fill flips so it never merges with the band. */
+.on-ink .btn-solid, .on-ink .btn-solid:visited { background: #FFFFFF; color: var(--ink); border-color: #FFFFFF; }
+.on-ink .btn-solid:hover, .on-ink .btn-solid:focus-visible { background: var(--ink-text); color: var(--ink); border-color: var(--ink-text); }
+.on-ink .btn-line, .on-ink .btn-line:visited { color: var(--ink-text); border-color: var(--ink-muted); }
+.on-ink .btn-line:hover, .on-ink .btn-line:focus-visible { background: var(--ink-text); color: var(--ink); border-color: var(--ink-text); }
+
+/* Signal bands: labels, borders and icons use --on-signal, never --text
+   (--text on dark Signal is 1.33:1). */
+.on-signal, .on-signal a, .on-signal svg { color: var(--on-signal); }
+.on-signal .btn-solid, .on-signal .btn-solid:visited { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
+.on-signal .btn-solid:hover, .on-signal .btn-solid:focus-visible { background: var(--ink-line); color: var(--ink-text); border-color: var(--ink-line); }
+.on-signal .btn-line, .on-signal .btn-line:visited { color: var(--on-signal); border-color: var(--on-signal); }
+.on-signal .btn-line:hover, .on-signal .btn-line:focus-visible { background: var(--on-signal); color: var(--signal); border-color: var(--on-signal); }
+
+/* Ink panels sit on --bg; in dark they get an edge (decorative only). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ink-panel { border: 1px solid var(--ink-line); }
+}
+:root[data-theme="dark"] .ink-panel { border: 1px solid var(--ink-line); }
 .link-strong { font-weight: 600; text-underline-offset: 4px; }
 
 .sr-only {

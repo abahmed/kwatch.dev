@@ -127,7 +127,7 @@ const jsonLd = [
       <ul class="noise" aria-hidden="true">
         {alerts.map((a, i) => <li class:list={{ dim1: i === 5, dim2: i === 6 }}>{a}</li>)}
       </ul>
-      <div class="card on-ink" role="group" aria-label="Example kwatch alert">
+      <div class="card on-ink ink-panel" role="group" aria-label="Example kwatch alert">
         <div class="card-top"><span>kwatch · 1 incident</span><span class="signal">ROOT CAUSE FOUND</span></div>
         <p class="card-title">checkout-api is crash-looping because a ConfigMap changed 4 minutes ago.</p>
         <dl>
@@ -321,7 +321,7 @@ const jsonLd = [
   .big-link { padding: 16px 22px; font-size: 17px; }
   .hero-visual { padding: 8px 0; min-width: 0; }
   .noise { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
-  .noise li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; overflow-wrap: anywhere; }
+  .noise li { padding: 8px 12px; border: 1px solid var(--control-border); border-radius: 4px; overflow-wrap: anywhere; }
   .noise .dim1 { opacity: .6; }
   .noise .dim2 { opacity: .4; }
   .card {
@@ -361,7 +361,7 @@ const jsonLd = [
   .steps h3 { margin: 12px 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
   .steps p:not(.eyebrow) { color: var(--text-soft); }
   .trace { list-style: none; padding: 0; margin-top: 18px; font-family: var(--font-mono); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
-  .trace li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; color: var(--text-muted); }
+  .trace li { padding: 8px 12px; border: 1px solid var(--control-border); border-radius: 4px; color: var(--text-muted); }
   .trace li:nth-child(2) { margin-left: 18px; }
   .trace li:nth-child(3) { margin-left: 36px; }
   .trace li.cause { margin-left: 54px; background: var(--text); color: var(--bg); font-weight: 500; border-color: var(--text); }

@@ -23,7 +23,8 @@
     "seo:verify": "yarn workspace @kwatch/docs seo:verify",
     "test:manager": "yarn workspace @kwatch/docs test:manager",
     "check": "yarn typecheck && yarn docs:verify && yarn test:manager && yarn build:docs && yarn seo:verify",
-    "seo:verify:web": "yarn workspace @kwatch/web seo:verify"
+    "seo:verify:web": "yarn workspace @kwatch/web seo:verify",
+    "brand:contrast": "node packages/brand/check-contrast.mjs"
   },
   "engines": {
     "node": ">=18.0"

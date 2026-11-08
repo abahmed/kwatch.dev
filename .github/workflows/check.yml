@@ -118,6 +118,9 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Check brand token contrast
+        run: yarn brand:contrast
+
       - name: Type and template check
         run: yarn typecheck:web
 

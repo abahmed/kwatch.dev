@@ -159,3 +159,36 @@ in the mark's point. Alt text = post title.
     the same view, which breaks "once per view".
 11. **CTA button on ink**: no shared rule for a button on an ink band; the blog
     uses Paper fill with Ink text and `#ECEDEA` hover. Confirm and add to web.
+
+## Unified design changes
+
+Every row changes all four sites to the same result. Route: web = kwatch-web,
+docs = kwatch-docs, app = kwatch-app, blog = kwatch-blog. Source: a read of
+`global.css`, `custom.css`, `styles.css`, `Header.astro`, `Footer.astro` and
+`docusaurus.config.ts`; nothing here was measured in a browser, so verify
+before building. Do the shared pieces once in `packages/brand` (a shared
+`site-chrome.css` plus the nav and footer link lists as data) and import it
+everywhere.
+
+| # | Issue | Proposed change | Sites | Priority |
+| --- | --- | --- | --- | --- |
+| 1 | Four headers: web 4 links no search, docs search left, app sidebar only, blog new | One header: logo 26px + `kwatch`, nav `Docs`, `Blog`, `Pro`, `Get help`, `Sign in`, theme toggle. Search field only where there is content to search (docs, blog), same position. App keeps its sidebar for in-product pages and adds the same header above it | web, docs, app, blog | high |
+| 2 | No `Blog` link anywhere | Add `Blog` to header nav and footer on all sites | web, docs, app, blog | high |
+| 3 | Three button systems and two hover behaviours (`--ink-line` on web, `--primary-hover` on docs and app) | One spec: pill, 44px, 1.5px border, padding 11px 22px, solid = `--text` fill, hover `--primary-hover`; line = `--control-border`, hover fills `--text`. One class set (`.btn`, `.btn-solid`, `.btn-line`) exported from brand | web, docs, app, blog | high |
+| 4 | Footers differ (text row, `--surface` band, unlinked line); docs builds links as an HTML string | One footer: `kwatch · source available under ELv2` + `Docs`, `Blog`, `GitHub`, `Get help`, `Privacy`, `Terms`, no band. Docs uses a swizzled footer component | web, docs, app, blog | med |
+| 5 | Breakpoints drift: web 480/700/900/960, app 440/480/560/700, docs none (Docusaurus 996) | Only 960, 700, 480 (tokens spec). Remap odd values; override Docusaurus's 996 to 960 | web, docs, app, blog | med |
+| 6 | No theme toggle anywhere, so a person cannot override the system | Add a 44px icon button with System, Light, Dark; default System; store the choice in `localStorage` guarded by try/catch; set `data-theme` before paint to avoid a flash. Tokens gain a `[data-theme]` block that mirrors the media query | web, docs, app, blog | med |
+| 7 | Body size 17px (web) vs 16px (docs, app) | Keep: 17px for marketing and blog reading, 16px for docs and app. Write it once in the shared tokens README so it stops looking like a bug | all | low |
+| 8 | Skip link only on web; docs and app have none found in CSS | Same `Skip to content` link on every site (web `.skip-link`). Docusaurus ships one: confirm it is visible on focus and uses the same style | docs, app, blog | high |
+| 9 | Focus styles written four times (`focus-visible` counts: web 5, docs 1, app 3) | One shared rule: 3px `--text` outline, 3px offset, 4px radius; on ink bands `currentColor` | all | high |
+| 10 | `prefers-reduced-motion` only handled in app; no `--motion-fast` use found in web or docs | Wrap every transition and transform in `no-preference`; use `--motion-fast` only | web, docs, blog | low |
+| 11 | Link underline offset 2px (docs) vs 3px (web) | 3px everywhere; 4px for `.link-strong` | docs, app, blog | low |
+| 12 | Code: ink panels on web, `--surface` block on docs, none on app | Code blocks = docs style. Ink panel reserved for kwatch output. Copy button on every block (pill, 32px) | web, docs, app, blog | med |
+| 13 | Callouts defined separately (docs `.alert`, ad hoc in web and app) | One callout: `--surface`, 3px `--text` left rule, `--radius-card`, mono eyebrow label | all | med |
+| 14 | App has a Signal button (`.btn-signal`) while the logo already shows Signal: breaks "once per view" | Retire `.btn-signal`; primary stays `--text` fill. Docs `PRO` badge next to the logo point: keep the badge, make it the only Signal use on docs pages by switching the logo mark to the Ink point inside docs content views, or drop the badge fill to `--surface` with an Ink border | app, docs, web | med |
+| 15 | Hover on cards inconsistent (docs border to `--text-muted`, others none) | Every linked card: border to `--text-muted` on hover, 3px focus ring | web, docs, app, blog | low |
+| 16 | Mobile header: web wraps nav under the logo, docs uses a drawer, app side nav collapses at its own width | One pattern at <=640px: logo + toggle + search icon on row one, nav wraps to row two (web pattern), 44px targets | web, docs, app, blog | med |
+| 17 | `--text-muted` is used on `--surface` bands and small labels (31 uses in app) | Contrast check each use: below 15px or on `--surface` use `--text-soft`. Add a checklist item to `shared-tokens-checklist.md` | web, docs, app, blog | med |
+| 18 | Inline `Sign in` is plain on web and bold on docs | Bold `Sign in` everywhere; it is the one account action | web | low |
+| 19 | Copy drift: sites word the install and edition lines on their own | Pull the install line, editions line and the data small print from `MESSAGING.md` verbatim; add a one-time copy check to the PR template for web, docs, app and blog | all | med |
+| 20 | Docs `Docs` link points to `/` and has no current state outside docs | `aria-current="page"` on the nav item of the current site on all four | web, docs, app, blog | low |

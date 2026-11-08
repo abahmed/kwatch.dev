@@ -36,11 +36,11 @@ A container is stopped when it passes its own memory limit. A pod can also be st
 Pick one of two moves. Raise the limit to fit the use you observed, or fix the allocation the logs point to.
 
 ```bash
-kubectl set resources deployment/<name> -n <ns> --limits=memory=512Mi
+kubectl set resources deployment/<name> -n <ns> -c <container> --limits=memory=512Mi
 ```
 
 Then confirm the restart count stops rising.
 
 ## What kwatch sends
 
-For an OOM kill, kwatch sends one message with the cause and the command to run, and closes it once when the pod is healthy again.
+For an OOM kill, kwatch sends one message with the cause and, with Pro, the command to run. It closes it once when the pod is healthy again.

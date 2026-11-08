@@ -193,12 +193,12 @@ everywhere.
 | 19 | Copy drift: sites word the install and edition lines on their own | Pull the install line, editions line and the data small print from `MESSAGING.md` verbatim; add a one-time copy check to the PR template for web, docs, app and blog | all | med |
 | 20 | Docs `Docs` link points to `/` and has no current state outside docs | `aria-current="page"` on the nav item of the current site on all four | web, docs, app, blog | low |
 | 21 | **Dark mode buttons.** Web `.btn-solid` is `--ink` (#0E1116) fill with `--ink-text` label on every theme. In dark the fill is 1.05:1 against `--bg` (#15171B): the button shape disappears, and its focus outline (`outline-color: var(--ink)`) is 1.05:1, so focus is invisible. The blog mockups had the same bug class (link buttons inherited the page text colour, so the label matched the fill in light mode); fixed in the mockups | One solid button, token pairs below. Focus outline is always `--text`, never `--ink` | web, docs, app, blog | **high** |
-| 22 | Signal bands (`.on-signal`) let any `--text`-coloured element through: `--text` on dark Signal (#B5DE3C) is 1.33:1, so a `.btn-line`, link or icon dropped in a band would vanish in dark | Inside `.on-signal` force labels, borders and icons to `--on-signal` (#0E1116, 14.95:1 on light Signal, 10:1+ on dark Signal). Buttons there use `.btn-solid` with the pair below. Add a lint check | web, app, blog | high |
+| 22 | Signal bands (`.on-signal`) let any `--text`-coloured element through: `--text` on dark Signal (#B5DE3C) is 1.33:1, so a `.btn-line`, link or icon dropped in a band would vanish in dark | Inside `.on-signal` force labels, borders and icons to `--on-signal` (#0E1116, 14.95:1 on light Signal, 12.1:1 on dark Signal). Buttons there use `.btn-solid` with the pair below. Add a lint check | web, app, blog | high |
 | 23 | Ink panels (hero card, terminal, 404 card, never-box, blog output and CTA) are `--ink` on `--bg`: 1.05:1 in dark, so the panel edge is lost | Add `1px solid var(--ink-line)` to every ink panel in dark (decorative, text inside is 16:1). Do not rely on the edge to convey anything | web, blog, app | med |
 | 24 | Borders: `--line` is 1.32:1 in dark and 1.36:1 in light. Fine for dividers and cards, not for controls | Controls (inputs, outline buttons, chips, toggle) use `--control-border` (3.71:1 dark, 3:1 light on `--bg`); never `--line`. Verify every input and chip in the four sites | web, docs, app, blog | med |
 | 25 | Docs and app solid buttons are already `--text` fill with `--bg` label (15.27:1 dark), but docs `a`/`:hover` link rules and Infima defaults can override the label on `<a class="button">` | Verify in a dark browser for every button variant (`.button`, `.button--outline`, `.btn-primary`, `.btn-action.is-primary`, `.btn-danger`, disabled) and add `color` explicitly on `:hover`, `:focus-visible` and `:visited` | docs, app | high |
 | 26 | Docs `disableSwitch: true` and app have no toggle, so any site stuck in the wrong mode cannot be corrected by the reader | Covered by row 6; remove `disableSwitch` in docs when the shared toggle ships | docs | med |
-| 27 | Fixed hex colours in `Demo.astro` (#1f6feb, #5865f2, #2b2d31 with white text) ignore tokens | Keep: they imitate Slack/Discord. Document them as illustration-only and keep every label there at 4.5:1 or better (white on #5865f2 is 4.7:1) | web | low |
+| 27 | Fixed hex colours in `Demo.astro` (#1f6feb, #5865f2, #2b2d31 with white text) ignore tokens | Keep: they imitate Slack/Discord. Document them as illustration-only and keep every label there at 4.5:1 or better (white on #5865f2 is 4.6:1) | web | low |
 | 28 | Contrast check is manual; the dark pairs were never tabulated | Add the table below to `shared-tokens-checklist.md` and run a contrast script over `tokens.css` in CI | web, docs, app, blog | med |
 
 ### Button token pairs (row 21)
@@ -206,15 +206,15 @@ everywhere.
 | Variant | Light fill / label / border | Dark fill / label / border | Contrast label (light / dark) |
 | --- | --- | --- | --- |
 | Solid | `--text` #0E1116 / `--bg` #FFFFFF / `--text` | `--text` #ECEDEA / `--bg` #15171B / `--text` | 18.9:1 / 15.3:1 (AA) |
-| Solid hover, focus | `--primary-hover` #2A2F38 / `--bg` / same | `--primary-hover` #FFFFFF / `--bg` #15171B / same | 14.6:1 / 17.9:1 (AA) |
+| Solid hover, focus | `--primary-hover` #2A2F38 / `--bg` / same | `--primary-hover` #FFFFFF / `--bg` #15171B / same | 13.4:1 / 17.9:1 (AA) |
 | Line | none / `--text` / `--control-border` #7C828E | none / `--text` / `--control-border` #6B7280 | 18.9:1 / 15.3:1; border 3.9:1 / 3.7:1 (UI 3:1) |
 | Line hover | `--text` fill / `--bg` | `--text` fill / `--bg` | 18.9:1 / 15.3:1 |
 | On ink panel (CTA) | #FFFFFF / #0E1116 | #FFFFFF / #0E1116 | 18.9:1 both |
-| On Signal band | `--ink` #0E1116 / `--ink-text` #ECEDEA | same | 16.1:1 both; fill on Signal 14.9:1 light, 10:1+ dark |
-| Disabled | `--surface` / `--text-muted` #5B6270 | `--surface` #1E2126 / `--text-muted` #9AA0AA | 5.3:1 / 6.1:1 |
+| On Signal band | `--ink` #0E1116 / `--ink-text` #ECEDEA | same | 16.1:1 both; fill on Signal 14.9:1 light, 12.1:1 dark |
+| Disabled | `--surface` / `--text-muted` #5B6270 | `--surface` #1E2126 / `--text-muted` #9AA0AA | 5.5:1 / 6.1:1 |
 | Focus ring | 3px `--text`, offset 3px | 3px `--text`, offset 3px | 18.9:1 / 15.3:1 |
 
 Rule: label colour is always the opposite token of the fill (`--text` fill
 gets `--bg`; `--bg` fill gets `--text`). Never hard-code `#fff` or
 `--ink-text` on a token fill that flips with the theme. Ratios computed from
-`tokens.css`; confirm 3.9:1 for the light `--control-border` on a browser.
+`tokens.css`; the light `--control-border` is 3.86:1 on `--bg`.

@@ -248,35 +248,104 @@ pre code {
   content: 'PRO';
 }
 
-/* Buttons */
-.button {
+/* Buttons: label colour is set in every state so Infima and link rules
+   cannot make it match the fill. */
+.button,
+a.button {
   min-height: var(--btn-height);
+  padding: 11px 22px;
+  background-color: var(--text);
+  border: var(--btn-border) solid var(--text);
+  color: var(--bg);
+  text-decoration: none;
 }
 
-.button:hover {
+.button:visited,
+.button:focus-visible,
+a.button:visited,
+a.button:focus-visible {
+  color: var(--bg);
+  text-decoration: none;
+}
+
+.button:hover,
+a.button:hover {
   background-color: var(--primary-hover);
   border-color: var(--primary-hover);
   color: var(--bg);
+  text-decoration: none;
 }
 
 .button--outline,
-.button--secondary {
+.button--secondary,
+a.button--outline,
+a.button--secondary {
   background: transparent;
   border-color: var(--control-border);
   color: var(--text);
 }
 
-.button--outline:hover,
-.button--secondary:hover {
+.button--outline:visited,
+.button--outline:focus-visible,
+.button--secondary:visited,
+.button--secondary:focus-visible,
+a.button--outline:visited,
+a.button--outline:focus-visible,
+a.button--secondary:visited,
+a.button--secondary:focus-visible {
   background: transparent;
-  border-color: var(--primary-hover);
   color: var(--text);
+}
+
+.button--outline:hover,
+.button--secondary:hover,
+a.button--outline:hover,
+a.button--secondary:hover {
+  background-color: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.button.disabled,
+.button[disabled] {
+  background-color: var(--surface);
+  border-color: var(--control-border);
+  color: var(--text-soft);
+  opacity: 1;
+}
+
+/* Skip link: visible on focus. */
+[class*='skipToContent'] {
+  background: var(--text);
+  color: var(--bg);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+[class*='skipToContent']:focus,
+[class*='skipToContent']:focus-visible {
+  color: var(--bg);
+}
+
+/* Colour-mode toggle: control border, 44px target. */
+[class*='toggleButton'] {
+  min-width: var(--hit);
+  min-height: var(--hit);
+  border: var(--btn-border) solid var(--control-border);
+  border-radius: var(--radius-pill);
+  color: var(--text);
+}
+
+/* Search input is a control: --control-border, never --line. */
+.navbar__search-input {
+  border: 1px solid var(--control-border);
 }
 
 /* Focus ring: 3px, offset 3, --text. */
 :focus-visible {
   outline: var(--focus-width) solid var(--text);
-  outline-offset: 3px;
+  outline-offset: var(--focus-offset);
+  border-radius: 4px;
 }
 
 /* Footer: one shared line. */
@@ -330,7 +399,7 @@ pre code {
 
 .kw-notfound__links a {
   padding: 10px 18px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-card);
   color: var(--text);
   font-weight: 600;

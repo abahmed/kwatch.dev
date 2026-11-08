@@ -5,6 +5,8 @@ name: Deploy websites
 #   web   apps/web   -> kwatch-site  (kwatch.dev)       gated, see below
 #   docs  apps/docs  -> kwatch-docs  (docs.kwatch.dev)
 #   app   apps/app   -> kwatch-app   (app.kwatch.dev)
+#   blog  apps/blog  -> kwatch-blog  (blog.kwatch.dev)  skipped until the app
+#                                                        lands (see the job)
 #
 # CUTOVER: kwatch-site still serves the old site until the repository variable
 # DEPLOY_WEB_TO_KWATCH_SITE is set to 'true'. While it is unset, nothing
@@ -19,7 +21,7 @@ on:
       target:
         description: Which site to deploy
         type: choice
-        options: [all, web, docs, app]
+        options: [all, web, docs, app, blog]
         default: all
 
 permissions:
@@ -34,6 +36,7 @@ jobs:
       web: ${{ steps.filter.outputs.web }}
       docs: ${{ steps.filter.outputs.docs }}
       app: ${{ steps.filter.outputs.app }}
+      blog: ${{ steps.filter.outputs.blog }}
     steps:
       - name: Check out website
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -49,29 +52,32 @@ jobs:
           AFTER: ${{ github.sha }}
         run: |
           set -euo pipefail
-          web=false; docs=false; app=false
+          web=false; docs=false; app=false; blog=false
           if [ "$EVENT" = "workflow_dispatch" ]; then
             case "$TARGET" in
-              all) web=true; docs=true; app=true ;;
+              all) web=true; docs=true; app=true; blog=true ;;
               web) web=true ;;
               docs) docs=true ;;
               app) app=true ;;
+              blog) blog=true ;;
             esac
           elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             # New branch or unknown base: deploy everything.
-            web=true; docs=true; app=true
+            web=true; docs=true; app=true; blog=true
           else
             changed="$(git diff --name-only "$BEFORE" "$AFTER")"
             echo "$changed"
             if echo "$changed" | grep -qE '^(apps/web/|packages/brand/)'; then web=true; fi
             if echo "$changed" | grep -qE '^(apps/docs/|packages/brand/)'; then docs=true; fi
             if echo "$changed" | grep -qE '^(apps/app/|packages/brand/)'; then app=true; fi
+            if echo "$changed" | grep -qE '^(apps/blog/|packages/brand/)'; then blog=true; fi
           fi
           {
             echo "web=$web"
             echo "docs=$docs"
             echo "app=$app"
+            echo "blog=$blog"
           } >> "$GITHUB_OUTPUT"
 
   web:
@@ -198,5 +204,65 @@ jobs:
           fi
           npx --yes wrangler@4.124.0 pages deploy apps/app/dist \
             --project-name kwatch-app \
+            --branch main \
+            --commit-dirty=true
+
+  blog:
+    name: Deploy blog to kwatch-blog
+    needs: changes
+    if: needs.changes.outputs.blog == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-kwatch-blog
+      cancel-in-progress: false
+    steps:
+      - name: Check out website
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # Full history so the sitemap's lastmod is each page's real date.
+          fetch-depth: 0
+
+      # The blog app lands in a later PR. Until apps/blog and the build:blog
+      # script exist, this job is a no-op so the workflow stays green.
+      - name: Check the blog app exists
+        id: exists
+        run: |
+          set -euo pipefail
+          if [ -d apps/blog ] && node -e "process.exit(require('./package.json').scripts['build:blog'] ? 0 : 1)"; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/blog or the build:blog script is not present yet; skipping the blog deploy."
+          fi
+
+      - name: Set up Node.js
+        if: steps.exists.outputs.ready == 'true'
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 22
+          cache: yarn
+
+      - name: Install dependencies
+        if: steps.exists.outputs.ready == 'true'
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        if: steps.exists.outputs.ready == 'true'
+        run: yarn build:blog
+
+      - name: Publish to Cloudflare Pages
+        if: steps.exists.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets are required."
+            exit 1
+          fi
+          npx --yes wrangler@4.124.0 pages deploy apps/blog/dist \
+            --project-name kwatch-blog \
             --branch main \
             --commit-dirty=true

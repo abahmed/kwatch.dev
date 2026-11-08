@@ -1,0 +1,108 @@
+---
+import { getEntry, render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import AuthorTile from '../components/AuthorTile.astro';
+import Cta from '../components/Cta.astro';
+import { SITE, formatDate, getPosts, isoDate, readingTime, tagSlug } from '../lib/posts';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post, i) => ({
+    params: { slug: post.id },
+    props: { post, newer: posts[i - 1], older: posts[i + 1] },
+  }));
+}
+
+const { post, newer, older } = Astro.props;
+const { Content, headings } = await render(post);
+const author = await getEntry('authors', post.data.author);
+const toc = headings.filter((h) => h.depth === 2);
+const url = `${SITE}/${post.id}`;
+const ogImage = `${SITE}/og/${post.id}.png`;
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: post.data.title,
+    description: post.data.description,
+    datePublished: post.data.date.toISOString(),
+    dateModified: (post.data.updated ?? post.data.date).toISOString(),
+    author: { '@type': 'Person', name: author?.data.name ?? post.data.author, url: author ? `${SITE}/authors/${author.id}` : undefined },
+    publisher: { '@type': 'Organization', name: 'kwatch', url: 'https://kwatch.dev', logo: { '@type': 'ImageObject', url: 'https://kwatch.dev/favicon-192.png' } },
+    image: ogImage,
+    mainEntityOfPage: url,
+    keywords: post.data.tags.join(', '),
+    inLanguage: 'en',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Blog', item: SITE },
+      { '@type': 'ListItem', position: 2, name: post.data.title, item: url },
+    ],
+  },
+];
+---
+<Base
+  title={post.data.title}
+  description={post.data.description}
+  ogImage={ogImage}
+  type="article"
+  published={post.data.date}
+  modified={post.data.updated}
+  tags={post.data.tags}
+  jsonLd={jsonLd}
+>
+  <div class="wrap">
+    <article data-pagefind-body>
+      <header class="post-head post-grid">
+        <div class="col">
+          <p class="eyebrow crumbs" data-pagefind-ignore>
+            <a href="/">Blog</a> / <a href={`/tags/${tagSlug(post.data.tags[0])}`}>{post.data.tags[0]}</a>
+          </p>
+          <h1 class="display" data-pagefind-meta="title">{post.data.title}</h1>
+          <p class="dek">{post.data.description}</p>
+          <div class="byline" data-pagefind-ignore>
+            {author && <AuthorTile name={author.data.name} />}
+            {author ? <a href={`/authors/${author.id}`}>{author.data.name}</a> : <span>{post.data.author}</span>}
+            <p class="meta">
+              <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+              {post.data.updated && <span>Updated <time datetime={isoDate(post.data.updated)}>{formatDate(post.data.updated)}</time></span>}
+              <span>{readingTime(post.body)} min read</span>
+            </p>
+          </div>
+          {toc.length > 0 && (
+            <details class="toc-m" data-pagefind-ignore>
+              <summary>On this page</summary>
+              <nav aria-label="On this page">
+                {toc.map((h) => <a href={`#${h.slug}`}>{h.text}</a>)}
+              </nav>
+            </details>
+          )}
+        </div>
+      </header>
+
+      <div class="post-body post-grid">
+        <div class="col">
+          <div class="article"><Content /></div>
+          <div data-pagefind-ignore>
+            <Cta />
+            {(newer || older) && (
+              <nav class="pager-cards" aria-label="More posts">
+                {older ? <a class="prev" href={`/${older.id}`}><small>OLDER</small><strong>{older.data.title}</strong></a> : <span />}
+                {newer && <a class="next" href={`/${newer.id}`}><small>NEWER</small><strong>{newer.data.title}</strong></a>}
+              </nav>
+            )}
+          </div>
+        </div>
+        {toc.length > 0 && (
+          <nav class="toc" aria-label="On this page" data-pagefind-ignore>
+            <p class="eyebrow">ON THIS PAGE</p>
+            {toc.map((h) => <a href={`#${h.slug}`}>{h.text}</a>)}
+          </nav>
+        )}
+      </div>
+    </article>
+  </div>
+</Base>

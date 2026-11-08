@@ -1,0 +1,9 @@
+---
+// kwatch output on an ink panel. `cause` lists the line indexes to emphasise.
+interface Props { text: string; cause?: number[]; label?: string }
+const { text, cause = [], label = 'kwatch output' } = Astro.props;
+const lines = text.replace(/\n$/, '').split('\n');
+---
+<pre class="output on-ink" tabindex="0" aria-label={label}>{lines.map((l, i) => (
+  <>{cause.includes(i) ? <span class="cause">{l}</span> : l}{i < lines.length - 1 ? '\n' : ''}</>
+))}</pre>

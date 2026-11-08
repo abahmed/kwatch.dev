@@ -1,0 +1,78 @@
+---
+import Base from '../layouts/Base.astro';
+import PostItem from '../components/PostItem.astro';
+import Output from '../components/Output.astro';
+import { SITE, formatDate, getAuthors, getPosts, isoDate, readingTime, tagCounts } from '../lib/posts';
+import { causeLines, sampleTrace } from '../lib/sample';
+
+const posts = await getPosts();
+const authors = await getAuthors();
+const tags = tagCounts(posts);
+const featured = posts[0];
+const out = featured?.data.output ?? sampleTrace;
+const jsonLd = [
+  { '@context': 'https://schema.org', '@type': 'Blog', name: 'kwatch blog', url: SITE, description: 'Notes on finding the cause of Kubernetes failures.' },
+];
+---
+<Base
+  title="Notes on finding the cause | kwatch blog"
+  description="Short posts on Kubernetes failures: what broke, the cause, and the command to run."
+  ogAlt="kwatch blog: Notes on finding the cause."
+  jsonLd={jsonLd}
+>
+  <div class="wrap">
+    <section class="intro" aria-labelledby="intro-title">
+      <h1 id="intro-title" class="display">Notes on finding the cause.</h1>
+      <p>Short posts on Kubernetes failures: what broke, the cause, and the command to run.</p>
+    </section>
+
+    {posts.length === 0 && <p class="empty-note">No posts yet.</p>}
+
+    {featured && (
+      <article class="feature" aria-labelledby="feature-title">
+        <div>
+          <p class="eyebrow">FEATURED</p>
+          <h2 id="feature-title" class="display"><a href={`/${featured.id}`}>{featured.data.title}</a></h2>
+          <p class="dek">{featured.data.description}</p>
+          <p class="meta">
+            <time datetime={isoDate(featured.data.date)}>{formatDate(featured.data.date)}</time>
+            <span>{readingTime(featured.body)} min read</span>
+          </p>
+        </div>
+        <Output text={out} cause={causeLines(out)} />
+      </article>
+    )}
+
+    {posts.length > 0 && (
+      <>
+        <nav class="filter" aria-label="Tags">
+          <div class="chips scroll">
+            <a class="chip" href="/" aria-current="page">All<i>{posts.length}</i></a>
+            {tags.map((t) => <a class="chip" href={`/tags/${t.slug}`}>{t.tag}<i>{t.count}</i></a>)}
+          </div>
+        </nav>
+
+        <div class="list-layout">
+          <section aria-labelledby="all-posts">
+            <h2 id="all-posts" class="sr-only">All posts</h2>
+            <ul>{posts.map((p) => <PostItem post={p} />)}</ul>
+          </section>
+          <aside class="rail" aria-label="Browse">
+            <div>
+              <h2>TAGS</h2>
+              {tags.map((t) => <a class="row" href={`/tags/${t.slug}`}>{t.tag}<span>{t.count}</span></a>)}
+            </div>
+            <div>
+              <h2>AUTHORS</h2>
+              {authors.map((a) => <a class="row" href={`/authors/${a.id}`}>{a.data.name}</a>)}
+            </div>
+            <div>
+              <h2>FOLLOW</h2>
+              <a class="row" href="/rss.xml">RSS feed</a>
+            </div>
+          </aside>
+        </div>
+      </>
+    )}
+  </div>
+</Base>

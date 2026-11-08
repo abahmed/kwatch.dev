@@ -1,0 +1,16 @@
+---
+import { formatDate, isoDate, readingTime, tagSlug, type Post } from '../lib/posts';
+interface Props { post: Post }
+const { post } = Astro.props;
+---
+<li class="post-item">
+  <time class="date" datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+  <div>
+    <h3 class="display"><a href={`/${post.id}`}>{post.data.title}</a></h3>
+    <p>{post.data.description}</p>
+    <div class="tags">
+      {post.data.tags.map((t) => <a class="tag" href={`/tags/${tagSlug(t)}`}>{t}</a>)}
+    </div>
+    <p class="meta">{readingTime(post.body)} min read</p>
+  </div>
+</li>

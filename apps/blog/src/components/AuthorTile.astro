@@ -1,0 +1,5 @@
+---
+interface Props { name: string; large?: boolean }
+const { name, large = false } = Astro.props;
+---
+<span class:list={['avatar', { lg: large }]} aria-hidden="true">{name.charAt(0).toUpperCase()}</span>

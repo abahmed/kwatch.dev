@@ -354,7 +354,7 @@ export default function Licenses() {
   }
 
   const button = (
-    <button type="button" className="btn btn-signal" disabled={busy} onClick={getFree}>
+    <button type="button" className="btn btn-primary" disabled={busy} onClick={getFree}>
       {busy ? 'Getting your license…' : 'Get a free Pro license'}
     </button>
   );

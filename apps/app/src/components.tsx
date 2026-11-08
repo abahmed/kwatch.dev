@@ -3,8 +3,10 @@ import type {ReactNode, RefObject} from 'react';
 import {NavLink, Outlet, useNavigate} from 'react-router-dom';
 import {logout, logoutAll} from './api';
 import type {ApiError} from './api';
-import {DOCS_URL, SITE_URL} from './config';
+import {BLOG_URL, DOCS_URL, GITHUB_URL, SITE_URL} from './config';
 import {useSession} from './session';
+import {useTheme} from './theme';
+import type {Theme} from './theme';
 
 export function Mark({size = 34}: {size?: number}) {
   return (
@@ -23,12 +25,116 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
+const THEME_LABEL: Record<Theme, string> = {system: 'System', light: 'Light', dark: 'Dark'};
+
+function ThemeIcon({theme}: {theme: Theme}) {
+  const common = {
+    width: 20,
+    height: 20,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+  if (theme === 'light') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+      </svg>
+    );
+  }
+  if (theme === 'dark') {
+    return (
+      <svg {...common}>
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  );
+}
+
+export function ThemeToggle() {
+  const [theme, next] = useTheme();
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={next}
+      aria-label={`Theme: ${THEME_LABEL[theme]}. Switch theme`}
+      title={`Theme: ${THEME_LABEL[theme]}`}
+    >
+      <ThemeIcon theme={theme} />
+    </button>
+  );
+}
+
+export function SkipLink() {
+  return (
+    <a className="skip-link" href="#main">
+      Skip to content
+    </a>
+  );
+}
+
+/** The one kwatch header: the same links on web, docs, blog and app. */
+export function SiteHeader({signedIn = false}: {signedIn?: boolean}) {
+  return (
+    <header className="site-header">
+      <a className="brand" href={SITE_URL} aria-label="kwatch home">
+        <Mark size={26} />
+        <span className="wordmark">kwatch</span>
+      </a>
+      <nav className="site-nav" aria-label="Site">
+        <a href={DOCS_URL}>Docs</a>
+        <a href={BLOG_URL}>Blog</a>
+        <a href={`${SITE_URL}/pro`}>Pro</a>
+        <a href={`${SITE_URL}/support`}>Get help</a>
+        {signedIn ? (
+          <NavLink to="/account" className="nav-account">Account</NavLink>
+        ) : (
+          <NavLink to="/signin" className="nav-account">Sign in</NavLink>
+        )}
+      </nav>
+      <ThemeToggle />
+    </header>
+  );
+}
+
+export function SiteFooter() {
+  return (
+    <footer className="site-footer">
+      <span>kwatch · source available under ELv2</span>
+      <nav aria-label="Footer">
+        <a href={DOCS_URL}>Docs</a>
+        <a href={BLOG_URL}>Blog</a>
+        <a href={GITHUB_URL}>GitHub</a>
+        <a href={`${SITE_URL}/support`}>Get help</a>
+        <a href={`${SITE_URL}/privacy`}>Privacy</a>
+        <a href={`${SITE_URL}/terms`}>Terms</a>
+      </nav>
+    </footer>
+  );
+}
+
 /** Centered card used by the sign-in screens and the 404. */
 export function Card({children}: {children: ReactNode}) {
   return (
-    <main className="center">
-      <div className="card">{children}</div>
-    </main>
+    <>
+      <SkipLink />
+      <SiteHeader />
+      <main id="main" className="center">
+        <div className="card">{children}</div>
+      </main>
+    </>
   );
 }
 
@@ -57,36 +163,30 @@ export function Shell() {
   }
 
   return (
-    <div className="shell">
-      <nav className="side" aria-label="App">
-        <span className="brand">
-          <Mark size={26} />
-          <span className="wordmark">kwatch</span>
-        </span>
-        <NavLink to="/licenses">Licenses</NavLink>
-        <NavLink to="/help">Get help</NavLink>
-        <NavLink to="/account">Account</NavLink>
-        <a className="muted-link" href={DOCS_URL}>
-          Docs ↗
-        </a>
-        <a className="muted-link" href={SITE_URL}>
-          kwatch.dev ↗
-        </a>
-        <span className="who">
-          {data.account.email} ·{' '}
-          <button type="button" className="link" onClick={() => signOut()}>
-            Sign out
-          </button>
-          {signOutError && <span className="alert" role="alert">{signOutError}</span>}
-        </span>
-      </nav>
-      <div className="main">
-        <main className="content">
-          <Outlet />
-        </main>
-        <footer className="site-footer">kwatch · source available under ELv2</footer>
+    <>
+      <SkipLink />
+      <SiteHeader signedIn />
+      <div className="shell">
+        <nav className="side" aria-label="App">
+          <NavLink to="/licenses">Licenses</NavLink>
+          <NavLink to="/help">Get help</NavLink>
+          <NavLink to="/account">Account</NavLink>
+          <span className="who">
+            {data.account.email} ·{' '}
+            <button type="button" className="link" onClick={() => signOut()}>
+              Sign out
+            </button>
+            {signOutError && <span className="alert" role="alert">{signOutError}</span>}
+          </span>
+        </nav>
+        <div className="main">
+          <main id="main" className="content" tabIndex={-1}>
+            <Outlet />
+          </main>
+          <SiteFooter />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

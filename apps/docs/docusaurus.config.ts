@@ -53,7 +53,6 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Docs only: /installation, not /docs/installation.
           routeBasePath: '/',
-          editUrl: 'https://github.com/abahmed/kwatch.dev/tree/main/apps/docs/',
         },
         blog: false,
         theme: {

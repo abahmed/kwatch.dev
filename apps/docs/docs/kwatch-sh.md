@@ -34,7 +34,7 @@ bash kwatch.sh
 ```
 
 The script is plain Bash and is published in
-[`apps/web/public/kwatch.sh`](https://github.com/abahmed/kwatch.dev/blob/main/apps/web/public/kwatch.sh).
+[kwatch.sh](https://kwatch.dev/kwatch.sh).
 
 The manager checks the cluster, lets you configure zero, one, or several alert
 providers, stores credentials in a Kubernetes Secret, installs the CRD and

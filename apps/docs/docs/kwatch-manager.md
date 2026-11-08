@@ -38,7 +38,7 @@ bash kwatch.sh
 ```
 
 The script is plain Bash and is published in the
-[`kwatch.dev` repository](https://github.com/abahmed/kwatch.dev/blob/main/apps/web/public/kwatch.sh).
+[kwatch.sh](https://kwatch.dev/kwatch.sh).
 
 The manager never changes your current `kubectl` context. If you have more than
 one cluster configured, it shows a list and asks you to choose one.

@@ -1,26 +1,5 @@
 @import '@kwatch/brand/tokens.css';
 
-/*
-  Manual theme (row 6). tokens.css has no [data-theme] block yet (kwatch-web owns it),
-  so mirror its light and dark values here. Delete this block when tokens.css ships it.
-*/
-:root[data-theme="light"] {
-  color-scheme: light;
-  --bg: #FFFFFF; --surface: #F2F3F0; --line: #DADDE2; --text: #0E1116; --text-muted: #5B6270;
-  --signal: #C8F542; --on-signal: #0E1116;
-  --failing: #B42318; --failing-bg: #FDECEC; --degraded: #8A5300; --degraded-bg: #FDF1DC;
-  --resolved: #1D5FC2; --resolved-bg: #E8F0FD; --success: #1E6B3A; --success-bg: #E6F4EA;
-  --control-border: #7C828E; --primary-hover: #2A2F38; --text-soft: #3A404B;
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #15171B; --surface: #1E2126; --line: #2A2E35; --text: #ECEDEA; --text-muted: #9AA0AA;
-  --signal: #B5DE3C; --on-signal: #0E1116;
-  --failing: #FF9B8F; --failing-bg: #3A1F1E; --degraded: #F5B953; --degraded-bg: #3A2C14;
-  --resolved: #8DB8FF; --resolved-bg: #1B2A44; --success: #7FD99A; --success-bg: #1A3326;
-  --control-border: #6B7280; --primary-hover: #FFFFFF; --text-soft: #C3C7CE;
-}
-
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: light dark; }
 body {

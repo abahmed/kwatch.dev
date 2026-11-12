@@ -22,7 +22,8 @@ const groups: { name: string; rows: Row[] }[] = [
   {
     name: 'ANALYSIS',
     rows: [
-      ['Root cause', 'One-line cause', 'Full proof and confidence'],
+      ['Root cause', 'The type of cause', 'Full proof and confidence'],
+      ['Fix commands and recurrence lines', '—', 'Yes'],
       ['Shared-factor causes ("node X explains N failures")', '—', 'Yes'],
       ['Recent changes and who made them', '—', 'Yes'],
       ['Affected services and log excerpts', '—', 'Yes'],
@@ -41,9 +42,10 @@ const groups: { name: string; rows: Row[] }[] = [
     name: 'OPERATIONS',
     rows: [
       ['Prometheus /metrics endpoint', '—', 'Yes'],
-      ['/status', 'Short', 'Full'],
+      ['/status page', '—', 'Yes'],
       ['Incident history across restarts', '—', 'Yes'],
       ['Audit log, runbooks, heartbeat monitor', '—', 'Yes'],
+      ['Read-only dashboard, with browser notifications', '—', 'Yes'],
       ['Account needed', 'No', 'Yes, email only'],
     ],
   },
@@ -89,7 +91,7 @@ const license: [string, string][] = [
     <div class="panels editions">
       <Panel title="Community" sub="Free forever. No account, no key." tone="soft">
         <ul class="list">
-          <li>One-line root-cause headline for every failure</li>
+          <li>The type of cause for every failure</li>
           <li>Crash loops, OOM kills, Pending pods, probe failures, Node NotReady</li>
           <li>1 alert channel, with quiet-by-default noise control</li>
         </ul>
@@ -100,6 +102,7 @@ const license: [string, string][] = [
           <li>Readiness probes, shared-factor causes and Prometheus /metrics</li>
           <li>Recent changes and who made them</li>
           <li>Affected services and log excerpts</li>
+          <li>Fix commands, recurrence lines and the read-only dashboard with browser notifications</li>
           <li>kwatch gathers and correlates the evidence, so you only run the fix</li>
           <li>Unlimited channels, routing, incident history, audit log</li>
           <li>Dedicated support.</li>

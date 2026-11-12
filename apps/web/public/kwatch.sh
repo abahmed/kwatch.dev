@@ -3031,6 +3031,12 @@ load_provider_catalog_file() {
       *"|$provider.$field|"*) return 1 ;;
     esac
     seen="${seen}${provider}.${field}|"
+    # exactly-one is at-least-one for the prompts: the user is asked for one
+    # destination, and kwatch itself rejects a configuration that sets both.
+    if [ "$condition" = exactly-one ]; then
+      condition=at-least-one
+      entry="${entry%|exactly-one}|at-least-one"
+    fi
     if [ -n "$condition" ]; then
       case "$condition" in
         choice:*) [ -n "$group" ] || return 1 ;;
@@ -12631,10 +12637,14 @@ warn_community_provider_cap() {
 # Pro-only settings, matched on the path itself or anything beneath it.
 config_path_is_pro() {
   local top="${1%%.*}"
+  # Paths inside a Community section that kwatch gates on their own.
+  case "$1" in
+    healthCheck.statusEndpoint) return 0 ;;
+  esac
   case "$top" in
     routes|routing|templates|severityByReason|severityByOwnerKind|maintenance|\
     runbooks|auditLog|heartbeatMonitor|activeProbeMonitor|namespaceSelector|\
-    reasons) return 0 ;;
+    reasons|dashboard|investigation) return 0 ;;
   esac
   return 1
 }

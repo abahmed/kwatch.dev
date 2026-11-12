@@ -285,7 +285,7 @@
   {
     "id": "policy.scope",
     "lifecycle": "runtime",
-    "description": "Filter by namespace, reason, selector and silences",
+    "description": "Filter by namespace lists and silences",
     "deps": [],
     "tier": "community"
   },

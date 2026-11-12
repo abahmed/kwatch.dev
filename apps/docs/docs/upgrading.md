@@ -119,3 +119,26 @@ re-enter your notification providers using the backup as a reference.
 `v0.10.x` does not read the new state file, so a rollback loses only what
 `v1.0.0` learned. A Pro license ends cleanly: kwatch falls back to Community
 and detection and alerting never stop.
+
+## Moving from v1.1.0 to v1.2.0
+
+Run the installer and choose **Upgrade**. Things to know:
+
+- **`/status` is Pro.** In Community the page answers `402` and
+  `healthCheck.statusEndpoint` is ignored. `/health` stays in every edition.
+- **Community vs Pro.** `/metrics`, readiness probe failures, fix commands and
+  recurrence lines are Pro. A Community message names the type of cause, never
+  the object. Pro is free during early access.
+- **New:** the [dashboard](/dashboard) (Pro, off by default), `oldProblemDays`
+  (default 30), `app.environment`, `investigation.logs` and
+  `investigation.sampleLogs`, scrubbed text in the flight recording, and
+  `KWATCH_LOG_FORMAT`.
+- **Removed reasons.** `ContainerCannotRun`, `Killed`, `DeploymentProgressingFalse`,
+  `DeploymentAvailableFalse`, `StatefulSetConditionFailure`,
+  `DaemonSetConditionFailure`, `ResourceHigh` and `ResourceCritical` are no
+  longer raised. Rules that name them still load but match nothing;
+  `kwatch lint --strict` fails on them.
+- **ntfy** `priority` is unset by default (ntfy uses 3); it was 4.
+- **Community provider choice.** With several providers, Community keeps a pager
+  first, then chat, then email.
+- **Logs.** In `text` format, info and warnings go to stdout and only errors to stderr.

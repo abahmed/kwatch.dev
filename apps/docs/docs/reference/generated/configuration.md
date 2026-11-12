@@ -15,6 +15,7 @@ generated: true
 | Field | Type | Default | Status | Description |
 | --- | --- | --- | --- | --- |
 | `resyncSeconds` | integer | `300` | active | Periodic safety resync interval in seconds; zero keeps event-driven mode, otherwise at least 30. |
+| `oldProblemDays` | integer | `30` | active | Days after which a problem kwatch found already there is old: a low one opens no issue and is only counted, one that needs attention is lowered to Low; zero turns it off. |
 
 ## Scope
 
@@ -25,6 +26,7 @@ generated: true
 | `reasons` | list | `all` | active | Pro only. Comma-separated event reasons to allow or exclude with a leading !. |
 | `watch.secrets` | boolean | `true` | active | Watch Secrets (values hashed, never stored); false removes Secret RBAC and Secret-based checks report that they cannot verify. |
 | `investigation.logs` | boolean | `true` | active | Read container logs for Pro evidence (redacted, bounded); false reads no log and shows the log section as turned off. |
+| `investigation.sampleLogs` | boolean | `true` | active | Sample a bounded slice of the logs of Running and Ready pods for a burst of errors (redacted); false reads none. |
 
 ## Alerts
 
@@ -70,11 +72,12 @@ generated: true
 | `auditLog.output` | string | `stdout` | active | Pro only. Audit output: stdout or a supported output sink. |
 | `templates` | json | `&#123;&#125;` | active | Pro only. JSON map of optional reason-specific message templates. |
 | `runbooks` | json | `&#123;&#125;` | active | Pro only. JSON map of reason-to-runbook URLs. |
-| `app.hideProHints` | boolean | `false` | active | Remove every Pro hint from Community messages: the note that names what kwatch Pro adds, the teaser ("Pro shows which one…"), "Pro shows how to fix it." and the Pro-checks notes; the "Cause found: …" sentence stays. |
+| `app.hideProHints` | boolean | `false` | active | Remove every Pro hint from Community messages: the one Pro line on the first alert of an issue ("Pro shows which one and how to fix it, free during early access: kwatch.dev/pro") and the Pro-checks notes; the "Most likely cause: …" sentence stays. |
 | `license.key` | string | `empty` | active | kwatch Pro license key; reference it as $&#123;KWATCH_LICENSE_KEY&#125;. The KWATCH_LICENSE_KEY variable wins over this setting. Empty runs the Community edition. |
 | `app.communityProvider` | string | `empty` | active | Alert provider the Community edition keeps when several are configured; empty keeps a pager first, then chat and the rest, then email, with the name breaking a tie. |
 | `dashboard.enabled` | boolean | `false` | active | Serve the read-only incident dashboard API on a separate listener; Pro only, off by default. |
 | `dashboard.port` | integer | `8061` | active | Port for the dashboard API listener; must not equal healthCheck.port. |
+| `app.environment` | string | `empty` | active | What the cluster is for: production (default) or non-production; non-production caps every incident at Needs attention, so nothing in the cluster pages. |
 
 ## Security
 

@@ -47,7 +47,7 @@ generated: true
 | `incidents.state` | startup | Keep incidents and history on disk across restarts | `none` |
 | `incidents.downtime-changes` | startup | Report changes made while kwatch was down | `incidents.state` |
 | `incidents.gap-report` | startup | Report what changed and crashed while kwatch was down | `incidents.downtime-changes` |
-| `policy.scope` | runtime | Filter by namespace, reason, selector and silences | `none` |
+| `policy.scope` | runtime | Filter by namespace lists and silences | `none` |
 | `policy.severity` | runtime | Override severity by reason and owner kind | `none` |
 | `policy.maintenance` | runtime | Hold incidents for objects under maintenance | `none` |
 | `policy.runbooks` | runtime | Attach reason-aware runbook links | `none` |

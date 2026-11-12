@@ -12521,7 +12521,10 @@ kwatch_status_text() {
   kwatch_license_cli_to_status "$text"
 }
 
-LICENSE_STATUS_UNAVAILABLE="license state unavailable (enable healthCheck.statusEndpoint for full status)"
+# /status is Pro only (Community gets 402), so the statusEndpoint hint is shown
+# only for a Pro license.
+LICENSE_STATUS_UNAVAILABLE="license state unavailable"
+LICENSE_STATUS_UNAVAILABLE_PRO="license state unavailable (enable healthCheck.statusEndpoint for full status)"
 
 # The Edition and License lines of a /status text.
 license_status_lines() {
@@ -12587,7 +12590,11 @@ license_status_section() {
   local text
   text=$(kwatch_status_text || true)
   if [ -z "$text" ] || ! license_print_status "$text"; then
-    ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+    if [ "$(license_edition)" = other ]; then
+      ui_detail "  $LICENSE_STATUS_UNAVAILABLE_PRO"
+    else
+      ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+    fi
   fi
 }
 
@@ -12962,7 +12969,11 @@ license_show_status() {
   printf '\n' >&2
   text=$(kwatch_status_text || true)
   if [ -z "$text" ] || ! license_print_status "$text"; then
-    ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+    if [ "$(license_edition)" = other ]; then
+      ui_detail "  $LICENSE_STATUS_UNAVAILABLE_PRO"
+    else
+      ui_detail "  $LICENSE_STATUS_UNAVAILABLE"
+    fi
   fi
 }
 
@@ -13439,14 +13450,18 @@ diagnostics_flow() {
   return 0
 }
 
-# The Pro checks count from the /status text (Community only, and only when
-# healthCheck.statusEndpoint is on). Prints the two installer lines, or nothing
-# when the line is missing, the edition is not Community, or the count is zero.
+# The Pro checks count from the /status text (Pro only: Community gets 402 from
+# /status, and only when healthCheck.statusEndpoint is on). Prints the two
+# installer lines, or nothing when the line is missing, the edition is
+# Community, or the count is zero.
 license_pro_checks_lines() {
   local text line rest
   text=$(kwatch_status_proxy 2>/dev/null || true)
   [ -n "$text" ] || return 0
-  printf '%s\n' "$text" | grep -iE '^[[:space:]]*Edition[^:]*:.*community' >/dev/null || return 0
+  printf '%s\n' "$text" | grep -iE '^[[:space:]]*Edition[^:]*:' >/dev/null || return 0
+  if printf '%s\n' "$text" | grep -iE '^[[:space:]]*Edition[^:]*:.*community' >/dev/null; then
+    return 0
+  fi
   line=$(printf '%s\n' "$text" | grep -E '^[[:space:]]*Pro checks: [0-9]+ issues? in the last 7 days' | head -1 || true)
   [ -n "$line" ] || return 0
   rest="${line#*Pro checks: }"

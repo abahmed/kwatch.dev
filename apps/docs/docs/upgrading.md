@@ -92,8 +92,8 @@ kwatch is down until the new manifests are applied.
 ## If you use Helm (advanced)
 
 Helm is a short pointer here; the installer is the supported path. The chart
-repository is `https://kwatch.dev/charts`, and the `v1.1.0` release ships
-chart `1.1.0`. `helm upgrade` with your existing values from `v0.10.x` works.
+repository is `https://kwatch.dev/charts`, and the `v1.2.0` release ships
+chart `1.2.0`. `helm upgrade` with your existing values from `v0.10.x` works.
 The default `rbac.mode` is `least-privilege`; pass `--set rbac.mode=full` to
 watch custom resources and kinds added later. The chart rejects unknown
 values, so compare your values file with the chart's `values.yaml` before

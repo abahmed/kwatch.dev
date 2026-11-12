@@ -32,7 +32,7 @@ Initial targets for normal cluster conditions, not guarantees: readiness within 
 | `/availabilityz` | Deployment availability, used for rolling updates. Not monitoring readiness. |
 | `/health` | JSON with overall status, state lock status, component states, coverage and bounded reason codes. |
 | `/metrics` | <span className="kw-pro">Pro</span> Prometheus metrics with bounded labels. Community answers `404`. |
-| `/status` | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents. Short plain text in Community; full text and JSON is <span className="kw-pro">Pro</span>. |
+| `/status` | Opt-in (`healthCheck.statusEndpoint: true`), read-only list of open incidents, as text or `?format=json`. <span className="kw-pro">Pro</span>: Community answers `402`. |
 
 kwatch serves no other endpoints: there are no profiling or test-alert endpoints. `/status` lists object names to anyone who can reach the health port, so keep that port inside the cluster and read it with `kubectl port-forward`. Health responses carry safe reason codes, not raw errors. The full reason vocabulary is in [General configuration](/general-configuration#-health-reasons).
 

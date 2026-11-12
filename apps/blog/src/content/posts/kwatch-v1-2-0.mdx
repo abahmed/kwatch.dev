@@ -1,0 +1,76 @@
+---
+title: 'kwatch v1.2.0: a dashboard and clearer root causes'
+description: 'kwatch v1.2.0 adds a read-only Pro dashboard with browser notifications, sharper root causes, quieter alerts and more provider options.'
+date: 2026-11-12
+author: abdelrahman
+tags: ['Releases', 'Pro', 'Root cause']
+draft: false
+---
+
+kwatch v1.2.0 is stable. It adds a read-only dashboard, names the cause of a failure with more evidence, and sends fewer, plainer alerts. The previous stable release is v1.1.0.
+
+## Update in one command
+
+The installer walks you through the upgrade. Choose Upgrade from its menu.
+
+```bash
+bash <(curl -fsSL https://kwatch.dev/kwatch.sh)
+```
+
+Already use Helm? The chart ships with v1.2.0 too.
+
+## A read-only dashboard (Pro)
+
+The dashboard is a web page that shows what kwatch sees, and it changes nothing in your cluster. It is part of Pro, which is free during early access, and it is off by default. Turn it on from the installer.
+
+- Active issues, with the cause and the logs behind each one.
+- Browser notifications, so a change reaches you with every dashboard tab closed.
+- Sign in with a password, or put it behind your own proxy with trusted proxies and TLS.
+
+The [dashboard guide](https://docs.kwatch.dev/dashboard) covers setup and sharing it with your team.
+
+## More accurate root causes
+
+kwatch v1.2.0 runs an investigation across pods, workloads and the cluster. It follows a failure upstream and names more kinds of cause, including:
+
+- a dependency the app cannot reach, or a backend that is not ready
+- a missing key or service
+- a previous container that failed
+- an image pull that was throttled
+- a rollout or change that landed just before the failure
+
+Pro shows the evidence behind the cause. It can also sample the logs of running pods for bursts of errors, and `investigation.logs` and `investigation.sampleLogs` let you choose what kwatch reads. Community messages keep the headline cause.
+
+## Quieter alerts
+
+Related alerts group into one incident, with plainer wording and fewer duplicates. Two settings keep production quiet and old noise out of your pager:
+
+- `app.environment: non-production` marks a cluster as non-production, so nothing pages and every incident stays at Needs attention.
+- `oldProblemDays` (30 by default) handles problems that were already there when kwatch first saw them. Low ones open no issue, and older needs-attention ones drop to Low. Set it to 0 to turn it off.
+
+## Provider improvements
+
+- **ntfy, Gotify and Pushover:** `resolvedPriority` sets how loud a resolved message is.
+- **SES and SNS:** use a pod IAM role (IRSA or EKS Pod Identity) and leave the keys out. An `endpoint` override is available.
+- **PagerDuty:** a message that raises the page uses its own paging key, and a resolve closes both.
+- **Issue trackers:** GitHub, GitLab, Gitea, Jira and ClickUp close the issue when the problem recovers and reopen the right one if it returns.
+- **Webex:** set exactly one of `roomId` or `toPersonEmail`, and the catalog checks it for you.
+
+## Also in v1.2.0
+
+- `KWATCH_LOG_FORMAT=json` writes one JSON object per log line.
+- The flight recording keeps scrubbed text, and `kwatch replay-export` includes it with names, hosts, emails, images and credentials hidden.
+- `kwatch lint --strict` flags rules that name reasons kwatch no longer raises.
+- `kwatch-scorecard` exits with an error on empty input, and `-allow-empty` restores the old exit.
+- Leader election rejoins after losing the lease, and the Helm chart adds a startup probe.
+
+## Upgrading from v1.1.0
+
+The [upgrading page](https://docs.kwatch.dev/upgrading#moving-from-v110-to-v120) lists everything in one place. The short version:
+
+- The `/status` text page is part of Pro. `/health` stays in every edition.
+- Eight reasons are no longer raised: `ContainerCannotRun`, `Killed`, `DeploymentProgressingFalse`, `DeploymentAvailableFalse`, `StatefulSetConditionFailure`, `DaemonSetConditionFailure`, `ResourceHigh` and `ResourceCritical`. Rules that name them still load, and `kwatch lint --strict` points them out.
+- The ntfy `priority` is unset by default, so ntfy uses its own default of 3.
+- With several providers, Community picks a pager first, then chat, then email.
+
+kwatch is source available under ELv2. Community is free forever, and Pro is free during early access.

@@ -60,6 +60,26 @@ If you see "part of Pro" when you open the menu, add your key first from
 **License / Pro**. If you see "doesn't have the dashboard yet", upgrade kwatch
 from the main menu; the dashboard needs v1.2 or newer.
 
+## Pages
+
+- **Overview**: a status line (how many issues are happening now, by level), the issues to look at first, bad releases of the last 24 hours and what changed behind active issues, and the week in numbers.
+- **Issues**: every issue in one table with search, filters and saved views. An issue page shows its cause, proof, impact, who was alerted and a timeline.
+- **Activity**: what changed recently, newest first.
+- **kwatch**: whether kwatch itself is working, what it watches and where its alerts go.
+
+Problems that were already failing for more than `oldProblemDays` (default 30)
+when kwatch first saw them are only counted, in one quiet line on Overview. A
+cluster with `app.environment: non-production` shows "Non-production" and never
+pages.
+
+## Browser notifications
+
+**Browser alerts** in the side bar turns on browser notifications. kwatch sends
+each change at the level you pick through the browser's push service (Web Push,
+encrypted for that browser), so they arrive with every dashboard tab closed.
+They cover confirmed issues only. **Send a test notification** checks the path.
+Signing out, turning them off or a new password stops them.
+
 ## Share it with your team
 
 Choose **Share with my team**. The installer looks at your cluster and shows only

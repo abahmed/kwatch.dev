@@ -77,7 +77,10 @@ provider, although the monitor itself can run without one.
 kwatch keeps a sanitized flight recording of what its sources observed (48
 hours, capped at 64 MiB). `replay-export` writes a window of it as a log the
 scenario library can replay. Names are hashed pseudonyms, and log and event
-text is dropped, so the file is safe to share.
+text is kept only as scrubbed text (log error lines, event and condition
+messages, with names, hosts, emails, images and credentials hidden), so the
+file is safe to share. With Helm, `persistence.flightRecorderText: false`
+drops all free text.
 
 ```shell
 kubectl exec -n kwatch deploy/kwatch -- \
@@ -98,9 +101,9 @@ with `replay-export is a kwatch Pro feature`.
 
 ## Internal commands (used by the installer)
 
-The binary also has `kwatch license` subcommands. The
-[kwatch.sh installer](/kwatch-sh) calls them for you from its
-**License / Pro** menu, so you do not need to run them. To manage a license, run
+The binary also has internal license subcommands that the
+[kwatch.sh installer](/kwatch-sh) calls from its
+**License / Pro** menu. To manage a license, run
 the installer (`bash <(curl -fsSL https://kwatch.dev/kwatch.sh)`) and
 see [License](/license).
 
@@ -111,6 +114,7 @@ see [License](/license).
 | `CONFIG_FILE` | `/config/config.yaml` | Path to the YAML config file |
 | `POD_NAMESPACE` | detected from the pod | Namespace kwatch runs in |
 | `KWATCH_LICENSE_KEY` | empty | Pro license key; wins over `license.key` |
+| `KWATCH_LOG_FORMAT` | `text` | `json` writes one JSON object per log line; wins over `app.logFormatter` |
 | `KWATCH_DATA_DIR` | `/var/lib/kwatch` | Directory of the state file |
 | `GOMEMLIMIT` | based on the resource limit | Soft Go memory limit |
 

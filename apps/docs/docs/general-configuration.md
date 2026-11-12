@@ -177,11 +177,15 @@ talks to the outside world.
 | `app.proxyURL` | 🔗 Proxy for outgoing HTTP requests. An invalid URL fails startup. A URL with credentials (`http://user:pass@host`) must be an absolute `${file:/path}` reference |
 | `app.clusterName` | 🏷️ Name shown in alerts so you know which cluster |
 | `app.disableStartupMessage` | Silence the "kwatch is alive" welcome message |
-| `app.logFormatter` | Log format: `text` (default) or `json`. `json` writes one JSON object per log line to stderr. Any other value fails startup |
+| `app.logFormatter` | Log format: `text` (default) or `json`. `json` writes one JSON object per log line (`ts`, `level`, `msg`, `caller`); `KWATCH_LOG_FORMAT=json` wins. In `text` format, info and warnings go to stdout and only errors to stderr. Any other value fails startup |
 | `app.insecureSkipTLSVerify` | 🔓 Skip TLS verification on outbound HTTP (default: false) |
 | `app.caBundlePath` | 📜 Path to a PEM CA bundle for outbound HTTP. A missing or invalid bundle fails startup |
-| `app.hideProHints` | Remove the Pro line from Community alerts, the root-cause note and the Pro-check count in the startup message (default: false). `/status` and the installer keep their count; the setting does not hide `/status`. The counts are computed in the cluster and never sent |
-| `app.communityProvider` | The alert provider the Community edition keeps when more than one is configured (Community sends to one provider; Pro sends to all). Empty keeps the first provider by name. A name that is not a configured provider is warned about and falls back the same way. `/status`, the startup log and `kwatch lint` show which provider is kept, for example `Community sends to: slack (inactive: pagerduty)` |
+| `app.hideProHints` | Remove every Pro hint from Community messages: the one Pro line on the first alert of an issue, the root-cause note and the Pro-check count in the startup message (default: false; the "Most likely cause" sentence stays). The installer keeps its count. The counts are computed in the cluster and never sent |
+| `investigation.logs` <span className="kw-pro">Pro</span> | Read container logs as redacted, bounded evidence (default: true). `false` reads none and the dashboard shows the log section as turned off |
+| `investigation.sampleLogs` <span className="kw-pro">Pro</span> | Sample a bounded slice of the logs of Running and Ready pods for a burst of errors, redacted (default: true) |
+| `app.environment` | What the cluster is for: `production` (default) or `non-production`. A non-production cluster caps every incident at Needs attention, so nothing in it pages |
+| `oldProblemDays` | Days after which a problem kwatch found already there at start is old: a low one opens no issue and is only counted, one that needs attention is lowered to Low (default: 30; `0` turns it off) |
+| `app.communityProvider` | The alert provider the Community edition keeps when more than one is configured (Community sends to one provider; Pro sends to all). Empty keeps a pager provider first, then chat and the rest, then email, with the name breaking a tie. A name that is not a configured provider is warned about and falls back the same way. The startup log and `kwatch lint` show which provider is kept, for example `Community sends to: slack (inactive: pagerduty)` |
 
 The startup message and the upgrade notice are each a single plain sentence
 with one status emoji and no links, for example `🟡 kwatch v1.2.0 started.` and
@@ -240,7 +244,7 @@ Endpoints kwatch serves so you can see it's alive and grab Prometheus metrics (P
   states, and bounded degradation reasons.
 - `GET /status` — only with `healthCheck.statusEndpoint: true` (404 otherwise). 🔎 What is wrong right now, read-only: open incidents,
   control plane, upgrade readiness, zone health and what
-  kwatch cannot see. Short plain text in Community, with a `Pro checks:` line, full in Pro; add `?format=json` for JSON <span className="kw-pro">Pro</span> (the JSON format answers `402` with `{"error":"pro_required"}` in Community). It uses no new
+  kwatch cannot see. <span className="kw-pro">Pro</span> Add `?format=json` for JSON. In Community both formats answer `402` (text says the page is part of Pro; JSON is `{"error":"pro_required"}`). It uses no new
   RBAC and writes nothing. It shows object names (workloads, nodes, PDBs,
   webhooks) to anyone who can reach the health port, so keep that port
   inside the cluster and read it through
@@ -887,6 +891,25 @@ message substrings, and an unset variable stops startup. To keep a literal
 
 If a token has ever been committed to a ConfigMap, rotate it — it should be treated as
 disclosed, not merely moved.
+
+### Chart values for storage, license and shutdown
+
+These Helm values complete the chart overview; the installer sets sensible defaults.
+
+| Value | Default | What it does |
+|:---|:---|:---|
+| `persistence.existingClaim` | empty | Reuse your own PVC |
+| `persistence.pinToStorageDriverNodes` | `true` | Keep kwatch on nodes where the StorageClass's driver is registered (looked up at install and upgrade; offline renders cannot look it up) |
+| `persistence.storageDriverTopologyKey` | empty | The driver's topology label, for offline renders |
+| `persistence.flightRecorderText` | `true` | Keep scrubbed text in the flight recording that `kwatch replay-export` writes; `false` drops all free text |
+| `license.existingSecret` | empty | Existing Secret with the key `license-key` (preferred over `license.key`) |
+| `license.instanceSecret` | `false` | Render the license instance Secret and Role when the key reaches kwatch another way |
+| `terminationGracePeriodSeconds` | `60` | Time allowed for workers to stop cleanly |
+| `config.oldProblemDays`, `config.app.environment` | `30`, empty | The same settings as above, under `config:` |
+
+The dashboard chart values are on [Dashboard setup](/dashboard-setup). When the
+chart serves the dashboard over TLS, use `dashboard.tls.secretName`; do not set
+`dashboard.tlsCertFile`.
 
 ### 🛡️ Kubernetes operational hardening
 

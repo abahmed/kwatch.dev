@@ -156,7 +156,7 @@ generated: true
 | --- | --- | --- | --- | --- | --- |
 | `url` | string | true | false | `` | GoAlert server URL |
 | `token` | string | true | true | `` | API token |
-| `serviceId` | string | true | false | `` | Service ID |
+| `serviceId` | string | false | false | `` | Service ID (optional, unused) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -214,7 +214,7 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `integrationKey` | string | true | true | `` | Integration key |
-| `priority` | string | false | false | `HIGH` | Priority (LOW/HIGH/CRITICAL, default: HIGH) |
+| `priority` | string | false | false | `HIGH` | Priority (HIGH or LOW, default: HIGH; CRITICAL is accepted and sent as HIGH) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
@@ -448,10 +448,11 @@ generated: true
 
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
-| `accessKeyId` | string | true | true | `` | AWS access key ID |
-| `secretAccessKey` | string | true | true | `` | AWS secret access key |
-| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials |
+| `accessKeyId` | string | false | true | `` | AWS access key ID (omit to use the pod IAM role: IRSA or EKS Pod Identity) |
+| `secretAccessKey` | string | false | true | `` | AWS secret access key (set with accessKeyId) |
+| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials (expires; kwatch cannot refresh it) |
 | `region` | string | false | false | `us-east-1` | AWS region (default: us-east-1) |
+| `endpoint` | string | false | false | `` | Optional endpoint URL override (default: the region endpoint) |
 | `from` | string | true | false | `` | Verified sender address |
 | `to` | string | true | false | `` | Recipients (comma-separated) |
 | `subject` | string | false | false | `` | Email subject (plain messages only) |
@@ -502,10 +503,11 @@ generated: true
 
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
-| `accessKeyId` | string | true | true | `` | AWS access key ID |
-| `secretAccessKey` | string | true | true | `` | AWS secret access key |
-| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials |
+| `accessKeyId` | string | false | true | `` | AWS access key ID (omit to use the pod IAM role: IRSA or EKS Pod Identity) |
+| `secretAccessKey` | string | false | true | `` | AWS secret access key (set with accessKeyId) |
+| `sessionToken` | string | false | true | `` | Session token for temporary AWS credentials (expires; kwatch cannot refresh it) |
 | `region` | string | false | false | `us-east-1` | AWS region (default: us-east-1) |
+| `endpoint` | string | false | false | `` | Optional endpoint URL override (default: the region endpoint) |
 | `topicArn` | string | false | false | `` | SNS topic ARN (or targetArn) |
 | `targetArn` | string | false | false | `` | SNS target ARN (alternative to topicArn) |
 | `subject` | string | false | false | `` | Optional subject (email subscriptions) |
@@ -626,8 +628,8 @@ generated: true
 | Field | Type | Required | Secret | Default | Description |
 | --- | --- | --- | --- | --- | --- |
 | `accessToken` | string | true | true | `` | Bot access token |
-| `roomId` | string | false | false | `` | Room ID (at least one destination required) |
-| `toPersonEmail` | string | false | false | `` | Person email (at least one destination required) |
+| `roomId` | string | false | false | `` | Room ID (set exactly one of roomId or toPersonEmail) |
+| `toPersonEmail` | string | false | false | `` | Person email (set exactly one of roomId or toPersonEmail) |
 | `routes` | json | false | false | `` | Optional JSON route filters. |
 | `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |

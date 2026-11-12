@@ -28,11 +28,16 @@ for every field marked **Secret**.
 | `url` | `string` | yes | no | url | — | Gotify server URL |
 | `token` | `string` | yes | yes | — | — | App token |
 | `priority` | `integer` | no | no | integer | — | Priority (optional) |
+| `resolvedPriority` | `integer` | no | no | integer | — | Priority 0-10 of a resolve (optional, default: the priority, capped at 5) |
 | `title` | `string` | no | no | — | — | Custom title |
 | `routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
 | `fallback` | `string` | no | no | — | — | Optional fallback provider name. |
+
+## Resolve priority
+
+A resolve is never louder than the incident: with no `resolvedPriority`, it is sent at `priority` capped at 5. With neither setting, the server default applies. Set `resolvedPriority` for a specific level (an explicit `0` is sent); a value outside 0-10 is ignored.
 
 ## Minimal example
 

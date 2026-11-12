@@ -29,10 +29,15 @@ for every field marked **Secret**.
 | `token` | `string` | no | yes | — | — | Optional auth token |
 | `title` | `string` | no | no | — | — | Custom title |
 | `priority` | `integer` | no | no | integer | 4 | Priority 1-5 (default: 4) |
+| `resolvedPriority` | `integer` | no | no | integer | — | Priority 1-5 of a resolve (optional, default: the priority, capped at 3) |
 | `routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
 | `fallback` | `string` | no | no | — | — | Optional fallback provider name. |
+
+## Resolve priority
+
+A resolve is never louder than the incident: with no `resolvedPriority`, it is sent at `priority` capped at 3. Set `resolvedPriority` for a specific level; a value outside 1-5 is ignored.
 
 ## Minimal example
 

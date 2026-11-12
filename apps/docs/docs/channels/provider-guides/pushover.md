@@ -28,11 +28,16 @@ for every field marked **Secret**.
 | `token` | `string` | yes | yes | — | — | Application token |
 | `user` | `string` | yes | yes | — | — | User or group key |
 | `priority` | `integer` | no | no | integer | — | Priority (optional) |
+| `resolvedPriority` | `integer` | no | no | integer | — | Priority from -2 to 1 of a resolve (optional, default: the priority, capped at 0) |
 | `title` | `string` | no | no | — | — | Custom title |
 | `routes` | `json` | no | no | json | — | Optional JSON route filters. |
 | `retry.maxAttempts` | `integer` | no | no | integer | — | Optional maximum retry attempts. |
 | `retry.delay` | `string` | no | no | — | — | Optional retry delay, for example 5s. |
 | `fallback` | `string` | no | no | — | — | Optional fallback provider name. |
+
+## Resolve priority
+
+A resolve is never louder than the incident: with no `resolvedPriority`, the "resolved" push is sent at `priority` capped at 0 (normal). It never reaches emergency (`2`), so a resolve starts no alarm and cancels the one the incident started. A `resolvedPriority` outside -2 to 1 is rejected and the provider does not start.
 
 ## Minimal example
 

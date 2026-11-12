@@ -296,7 +296,10 @@ assert_contains "$out" "Edition: pro" "fallback printed"
 EXEC_TEXT=""
 kwatch_status_text >/dev/null && fail "no source should fail"
 out=$(license_status_section 2>&1)
-assert_contains "$out" "license state unavailable (enable healthCheck.statusEndpoint for full status)" "unavailable message"
+assert_contains "$out" "license state unavailable" "unavailable message"
+case "$out" in *statusEndpoint*) fail "Community must not get the statusEndpoint hint" ;; esac
+out=$(license_edition() { printf 'other'; }; license_status_section 2>&1)
+assert_contains "$out" "license state unavailable (enable healthCheck.statusEndpoint for full status)" "Pro unavailable hint"
 
 # --- Community provider cap -------------------------------------------------
 expected='Community sends to 1 provider — extra providers stay inactive until you add a Pro license (free during early access: https://kwatch.dev/signup?src=installer)'

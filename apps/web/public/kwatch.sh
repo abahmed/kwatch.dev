@@ -12631,10 +12631,14 @@ warn_community_provider_cap() {
 # Pro-only settings, matched on the path itself or anything beneath it.
 config_path_is_pro() {
   local top="${1%%.*}"
+  # Paths inside a Community section that kwatch gates on their own.
+  case "$1" in
+    healthCheck.statusEndpoint) return 0 ;;
+  esac
   case "$top" in
     routes|routing|templates|severityByReason|severityByOwnerKind|maintenance|\
     runbooks|auditLog|heartbeatMonitor|activeProbeMonitor|namespaceSelector|\
-    reasons) return 0 ;;
+    reasons|dashboard|investigation) return 0 ;;
   esac
   return 1
 }

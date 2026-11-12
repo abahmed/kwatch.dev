@@ -1,7 +1,7 @@
 ---
 // Junction-style line icons: strokes that meet at a point.
 // Line icons for the six benefits: 24px grid, 2px stroke, square caps, no fill.
-interface Props { name: 'root' | 'quiet' | 'who' | 'next' | 'channels' | 'data' }
+interface Props { name: 'root' | 'quiet' | 'who' | 'next' | 'channels' | 'data' | 'dashboard' }
 const { name } = Astro.props;
 const paths: Record<Props['name'], string> = {
   root: 'M3 5l9 7M3 19l9-7M3 12h9M12 12h9',
@@ -10,6 +10,7 @@ const paths: Record<Props['name'], string> = {
   next: 'M4 7l7 5-7 5M13 18h7',
   channels: 'M3 12h7M10 12l7-6h4M10 12h11M10 12l7 6h4',
   data: 'M4 4h16v16H4zM9 9h6v6H9z',
+  dashboard: 'M4 5h16v14H4zM4 10h16M10 10v9',
 };
 ---
 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="butt" stroke-linejoin="miter" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>

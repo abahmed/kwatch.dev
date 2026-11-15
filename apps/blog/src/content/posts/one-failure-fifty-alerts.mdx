@@ -1,0 +1,160 @@
+---
+title: 'Why one broken pod sends you fifty alerts'
+description: 'One config edit can fire a dozen alerts, because each object reports alone. Alert on impact, group by workload, inhibit symptoms.'
+date: 2026-11-15
+author: abdelrahman
+tags: ['Root cause', 'Alert noise']
+output: |
+  ConfigMap checkout-config
+    Deployment checkout-api
+      Pod checkout-api-7f9c
+      Service checkout-api
+      HPA checkout-api
+  1 cause, 4 symptoms
+featured: true
+draft: false
+---
+import Output from '../../components/Output.astro';
+import Callout from '../../components/Callout.astro';
+
+At 03:03 someone edits a ConfigMap. By 03:12 you have a dozen alerts, and none of them mentions the edit. This post shows why Kubernetes alerts pile up and how to cut them down with Prometheus and Alertmanager.
+
+## One change, many symptoms
+
+A teammate edits a ConfigMap at 03:03 and removes a key the app needs. Running pods keep the old values, so nothing breaks yet. At 03:04 a rollout of `checkout-api` starts new pods, and they read the new file and cannot boot. The cluster reports this over the next three minutes.
+
+```text
+03:03  ConfigMap checkout-config      edited
+03:04  Deployment checkout-api        rollout started
+03:04  Pod checkout-api-7f9c          CrashLoopBackOff
+03:04  Pod checkout-api-7f9c          readiness probe failed
+03:05  Deployment checkout-api        0 of 3 replicas available
+03:05  Service checkout-api           no ready endpoints
+03:06  HPA checkout-api               unable to scale
+03:06  Event                          Back-off restarting failed container (x14)
+```
+
+Each line can fire its own alert. A [CrashLoopBackOff](https://docs.kwatch.dev/glossary#crashloopbackoff) restart loop adds a new one every few minutes, and the HorizontalPodAutoscaler (HPA) adds its own. One cause, one broken workload, and a dozen pages.
+
+The same facts as a tree:
+
+<Output text={frontmatter.output} cause={[0]} />
+
+One thing sits at the top. Everything below it is a symptom.
+
+## Why it happens
+
+Four things add up.
+
+- **Kubernetes reports each object on its own.** A pod, a Deployment, a Service and an HPA each carry their own status. None of them says "I am failing because that other object changed."
+- **Alert rules are written per symptom.** Someone adds a rule for crash loops, another for unavailable Deployments, another for empty Services. Each rule is reasonable on its own. Together they all fire for the same fault.
+- **Every restart can fire again.** A pod that restarts every minute gives a rule new chances to notify.
+- **Nothing says which came first.** The alerts arrive in whatever order the rules evaluate. The earliest signal is often not the first alert you read.
+
+## What the noise costs on call
+
+- **Time sorting symptoms.** You open several alerts to learn they are one problem, before you start fixing it.
+- **Real causes buried.** The ConfigMap edit never fired an alert. It sits under a dozen that did.
+- **Muted channels.** After enough nights like this, people mute the channel. The next real page then lands where nobody reads.
+
+## How to cut it down yourself
+
+None of this needs a new tool. Start with the steps that take the least work.
+
+### Alert on causes and impact, not every symptom
+
+Keep a few alerts that mean users are hurt, such as a workload with no available replicas. Keep alerts for causes you can act on. Drop pages for steps along the way, such as a single failed probe. Send those to a ticket queue or a dashboard.
+
+### Wait a short settling window
+
+The `for` clause holds an alert until the condition has lasted a while, so brief blips never page. Grouping, below, is what joins the late symptoms. This rule needs kube-state-metrics.
+
+```yaml
+groups:
+  - name: workloads
+    rules:
+      - alert: WorkloadUnavailable
+        expr: kube_deployment_status_replicas_available == 0 and kube_deployment_spec_replicas > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.namespace }}/{{ $labels.deployment }} has no available replicas"
+```
+
+### Group by owner, not by pod
+
+Page for the workload, not for each of its pods. In Alertmanager, `group_by` merges alerts that share labels into one notification, and `group_wait` gives the group time to fill before it sends. This assumes your alerts carry a label that names the app, here `app`.
+
+```yaml
+route:
+  receiver: oncall
+  group_by: ['namespace', 'app']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+```
+
+### Suppress symptoms while the cause is firing
+
+An inhibit rule mutes a symptom while a cause alert is active for the same workload.
+
+```yaml
+inhibit_rules:
+  - source_matchers:
+      - alertname = "WorkloadUnavailable"
+    target_matchers:
+      - alertname = "PodNotReady"
+    equal: ['namespace', 'app']
+```
+
+### Notify again only when something new is true
+
+A re-send every few minutes adds nothing. Raise `repeat_interval` for pages. Alertmanager already re-sends when a group gains a new alert.
+
+### Hold off "resolved" until it stays healthy
+
+A pod that is healthy for ten seconds between two crashes is not fixed. If a resolve fires at every brief recovery, you get a resolve and a re-open every few minutes. Resolve only after the workload has stayed healthy for a few minutes.
+
+### Read what changed first
+
+Most incidents start with a change, so look at what happened just before the first failure. List events in time order, check the rollout history, and look at the object you suspect.
+
+```bash
+kubectl get events -n <ns> --sort-by=.lastTimestamp
+kubectl rollout history deployment/<name> -n <ns>
+kubectl get configmap <name> -n <ns> -o yaml --show-managed-fields
+```
+
+<Callout label="CONFIGMAP EDITS">
+A ConfigMap edit does not create a new rollout revision, so rollout history will not show it. The managed fields on the object carry the time of the change.
+</Callout>
+
+Then check whether the Service has anything behind it.
+
+```bash
+kubectl get endpointslices -n <ns> -l kubernetes.io/service-name=<service>
+```
+
+If a config change is the cause, restore the key first. Edit the ConfigMap, or apply the previous version from source control. Then restart the workload so new pods read it, and watch them settle.
+
+```bash
+kubectl edit configmap <name> -n <ns>
+kubectl rollout restart deployment/<name> -n <ns>
+kubectl rollout status deployment/<name> -n <ns>
+```
+
+If a bad image or spec change is the cause instead, `kubectl rollout undo deployment/<name> -n <ns>` restores the previous revision.
+
+## How kwatch applies this
+
+kwatch applies these steps for you.
+
+- Late failures join the same incident instead of opening a new one.
+- Symptoms merge under one root cause, so the pod, the Deployment and the Service are one incident.
+- You get one message per cause, and an update only when something new is true.
+- The incident resolves once, after its pods have stayed healthy for three minutes, so a flapping pod does not produce resolve and re-open noise.
+
+Community is free forever and names the type of cause of pod and node failures. Pro, free during early access, adds the evidence behind the cause and what changed.
+
+kwatch is source available under ELv2 and runs inside your cluster.

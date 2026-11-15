@@ -1,9 +1,9 @@
 ---
 title: 'Why one broken pod sends you fifty alerts'
-description: 'One bad change breaks one thing and fires a dozen alerts. See why Kubernetes alerts pile up, what it costs on call, and how to cut the noise with any tooling.'
+description: 'One config edit can fire a dozen alerts, because each object reports alone. Alert on impact, group by workload, inhibit symptoms.'
 date: 2026-11-15
 author: abdelrahman
-tags: ['Alert noise', 'Root cause']
+tags: ['Root cause', 'Alert noise']
 output: |
   ConfigMap checkout-config
     Deployment checkout-api
@@ -17,11 +17,11 @@ draft: false
 import Output from '../../components/Output.astro';
 import Callout from '../../components/Callout.astro';
 
-It is 03:05. Your phone buzzes, then buzzes again. By 03:12 you have a screen full of alerts, and they all trace back to one edit. This post shows why that happens and how to make it stop, with or without kwatch.
+At 03:03 someone edits a ConfigMap. By 03:12 you have a dozen alerts, and none of them mentions the edit. This post shows why Kubernetes alerts pile up and how to cut them down with Prometheus and Alertmanager.
 
 ## One change, many symptoms
 
-A teammate edits a ConfigMap at 03:03 and removes a key the app needs. Running pods keep the old values, so nothing breaks yet. At 03:04 a rollout of `checkout-api` starts new pods, and they read the new file and cannot boot. Here is what the cluster reports over the next few minutes.
+A teammate edits a ConfigMap at 03:03 and removes a key the app needs. Running pods keep the old values, so nothing breaks yet. At 03:04 a rollout of `checkout-api` starts new pods, and they read the new file and cannot boot. The cluster reports this over the next three minutes.
 
 ```text
 03:03  ConfigMap checkout-config      edited
@@ -34,9 +34,9 @@ A teammate edits a ConfigMap at 03:03 and removes a key the app needs. Running p
 03:06  Event                          Back-off restarting failed container (x14)
 ```
 
-Each line can fire its own alert. A restart loop adds a new one every few minutes. One cause, one broken workload, and a dozen pages.
+Each line can fire its own alert. A [CrashLoopBackOff](https://docs.kwatch.dev/glossary#crashloopbackoff) restart loop adds a new one every few minutes, and the HorizontalPodAutoscaler (HPA) adds its own. One cause, one broken workload, and a dozen pages.
 
-Draw the same facts as a tree and the picture is simple.
+The same facts as a tree:
 
 <Output text={frontmatter.output} cause={[0]} />
 
@@ -47,15 +47,13 @@ One thing sits at the top. Everything below it is a symptom.
 Four things add up.
 
 - **Kubernetes reports each object on its own.** A pod, a Deployment, a Service and an HPA each carry their own status. None of them says "I am failing because that other object changed."
-- **Alert rules are written per symptom.** Someone adds a rule for crash loops, another for unavailable Deployments, another for empty Services. Each rule is right. Together they all fire for the same fault.
+- **Alert rules are written per symptom.** Someone adds a rule for crash loops, another for unavailable Deployments, another for empty Services. Each rule is reasonable on its own. Together they all fire for the same fault.
 - **Every restart can fire again.** A pod that restarts every minute gives a rule new chances to notify.
-- **Nothing says which came first.** The alerts arrive in whatever order the rules evaluate. The earliest and most useful signal is often not the first one you read.
+- **Nothing says which came first.** The alerts arrive in whatever order the rules evaluate. The earliest signal is often not the first alert you read.
 
 ## What the noise costs on call
 
-The cost is not the buzzing. It is what you do with it.
-
-- **Time sorting symptoms.** You open five alerts to learn they are one problem, before you start fixing it.
+- **Time sorting symptoms.** You open several alerts to learn they are one problem, before you start fixing it.
 - **Real causes buried.** The ConfigMap edit never fired an alert. It sits under a dozen that did.
 - **Muted channels.** After enough nights like this, people mute the channel. The next real page then lands where nobody reads.
 
@@ -69,7 +67,7 @@ Keep a few alerts that mean users are hurt, such as a workload with no available
 
 ### Wait a short settling window
 
-Late symptoms should join the first alert, not trigger their own. In Prometheus, the `for` clause holds an alert until the condition has been true for a while. This rule needs kube-state-metrics.
+The `for` clause holds an alert until the condition has lasted a while, so brief blips never page. Grouping, below, is what joins the late symptoms. This rule needs kube-state-metrics.
 
 ```yaml
 groups:
@@ -112,7 +110,7 @@ inhibit_rules:
 
 ### Notify again only when something new is true
 
-A re-send every few minutes adds nothing. Raise `repeat_interval` for pages, and re-notify when the state changes: a new cause, a wider impact, a recovery.
+A re-send every few minutes adds nothing. Raise `repeat_interval` for pages. Alertmanager already re-sends when a group gains a new alert.
 
 ### Hold off "resolved" until it stays healthy
 
@@ -150,13 +148,13 @@ If a bad image or spec change is the cause instead, `kubectl rollout undo deploy
 
 ## How kwatch applies this
 
-kwatch is built around the same ideas.
+kwatch applies these steps for you.
 
-- Findings settle for a short window, 15 seconds for page-level problems and 75 for the rest, so late failures join the same incident.
+- Late failures join the same incident instead of opening a new one.
 - Symptoms merge under one root cause, so the pod, the Deployment and the Service are one incident.
 - You get one message per cause, and an update only when something new is true.
 - The incident resolves once, after its pods have stayed healthy for three minutes, so a flapping pod does not produce resolve and re-open noise.
 
-Community covers pod and node failures with a root-cause headline. Detectors for Services without ready endpoints, HPA failures and sustained readiness failures are Pro, which is free during early access. Pro also adds the evidence behind the cause and what changed.
+Community is free forever and names the type of cause of pod and node failures. Pro, free during early access, adds the evidence behind the cause and what changed.
 
-kwatch is source available under ELv2. It follows what is failing now and names the cause.
+kwatch is source available under ELv2 and runs inside your cluster.

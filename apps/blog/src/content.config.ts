@@ -14,6 +14,8 @@ const posts = defineCollection({
     cover: z.string().optional(),
     // Optional kwatch output shown in the featured card and the og image.
     output: z.string().optional(),
+    // Pin one post as the home page featured card; falls back to the newest.
+    featured: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),
 });

@@ -8,7 +8,7 @@ import { causeLines, sampleTrace } from '../lib/sample';
 const posts = await getPosts();
 const authors = await getAuthors();
 const tags = tagCounts(posts);
-const featured = posts[0];
+const featured = posts.find((p) => p.data.featured) ?? posts[0];
 const out = featured?.data.output ?? sampleTrace;
 const jsonLd = [
   { '@context': 'https://schema.org', '@type': 'Blog', name: 'kwatch blog', url: SITE, description: 'Notes on finding the cause of Kubernetes failures.' },

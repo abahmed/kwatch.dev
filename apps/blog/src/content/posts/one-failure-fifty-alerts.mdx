@@ -21,10 +21,11 @@ It is 03:05. Your phone buzzes, then buzzes again. By 03:12 you have a screen fu
 
 ## One change, many symptoms
 
-A teammate edits a ConfigMap at 03:03 and removes a key the app needs. The next pods to start read the new file and cannot boot. Here is what the cluster reports over the next few minutes.
+A teammate edits a ConfigMap at 03:03 and removes a key the app needs. Running pods keep the old values, so nothing breaks yet. At 03:04 a rollout of `checkout-api` starts new pods, and they read the new file and cannot boot. Here is what the cluster reports over the next few minutes.
 
 ```text
 03:03  ConfigMap checkout-config      edited
+03:04  Deployment checkout-api        rollout started
 03:04  Pod checkout-api-7f9c          CrashLoopBackOff
 03:04  Pod checkout-api-7f9c          readiness probe failed
 03:05  Deployment checkout-api        0 of 3 replicas available
@@ -137,12 +138,15 @@ Then check whether the Service has anything behind it.
 kubectl get endpointslices -n <ns> -l kubernetes.io/service-name=<service>
 ```
 
-If the change is the cause, roll it back or fix it, then watch the pods settle.
+If a config change is the cause, restore the key first. Edit the ConfigMap, or apply the previous version from source control. Then restart the workload so new pods read it, and watch them settle.
 
 ```bash
-kubectl rollout undo deployment/<name> -n <ns>
+kubectl edit configmap <name> -n <ns>
+kubectl rollout restart deployment/<name> -n <ns>
 kubectl rollout status deployment/<name> -n <ns>
 ```
+
+If a bad image or spec change is the cause instead, `kubectl rollout undo deployment/<name> -n <ns>` restores the previous revision.
 
 ## How kwatch applies this
 
@@ -155,4 +159,4 @@ kwatch is built around the same ideas.
 
 Community covers pod and node failures with a root-cause headline. Detectors for Services without ready endpoints, HPA failures and sustained readiness failures are Pro, which is free during early access. Pro also adds the evidence behind the cause and what changed.
 
-kwatch is source available under ELv2. It follows what is failing now and names the cause. It does not predict what will fail.
+kwatch is source available under ELv2. It follows what is failing now and names the cause.

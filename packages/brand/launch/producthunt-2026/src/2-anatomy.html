@@ -1,0 +1,17 @@
+<!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css><style>.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:48px;margin-top:34px}.msg{padding:30px 34px;font-size:21px;line-height:1.5}.msg p{margin-bottom:12px}.msg b{color:#fff}.msg .fix{color:var(--ink-muted)}.leg{display:grid;gap:14px;align-content:start}.leg div{border-top:2px solid var(--text);padding-top:10px}.leg strong{font:800 28px 'Bricolage Grotesque'}.leg div>span{display:block;color:var(--soft);font-size:19px}.sev{color:var(--degraded)}</style><body>
+<div class=eyebrow>The alert</div>
+<h2 style="margin-top:14px;max-width:16ch">One message. Four answers.</h2>
+<div class=grid>
+<div class="ink msg mono" style="font-size:18px">
+<p><span class=sev>●</span> <b>checkout</b> in <b>shop</b> (<b>prod-eu-1</b>): rollout 14 restarted 4 times in its first 2 minutes; rollout 13 did not restart.</p>
+<p>Only change in revision 14: image checkout:5.1 → checkout:5.2.</p>
+<p>The apps that use it failed soon after it changed.</p>
+<p>Fix: change the image of container app in deployment/checkout.</p>
+<p class=fix>kubectl rollout undo deployment/checkout -n shop --to-revision=13</p></div>
+<div class=leg>
+<div><strong>What broke</strong><span>checkout restarted 4 times</span></div>
+<div><strong>Why</strong><span>the one cause, found upstream</span></div>
+<div><strong>Who changed it <span class=pro>Pro</span></strong><span>the change, its tool and its time</span></div>
+<div><strong>What to do next <span class=pro>Pro</span></strong><span>the command to run</span></div>
+</div></div>
+<div class=foot><svg viewBox="0 0 64 64" width="30" height="30"><path d="M17 5.5v53" stroke="#0E1116" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="#0E1116" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="#0E1116" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="#C8F542"/><circle cx="28.6" cy="32.2" r="8.6" fill="none" stroke="#0E1116" stroke-width="3.2"/></svg>kwatch<span>kwatch.dev</span></div>

@@ -1,0 +1,14 @@
+<!doctype html><meta charset=utf-8><link rel=stylesheet href=base.css><style>.card{width:600px;padding:30px 34px;font-size:20px;line-height:1.5;position:absolute;right:64px;top:230px}.card .t{display:flex;justify-content:space-between;color:var(--ink-muted);font-size:15px;margin-bottom:14px}.card b{color:#fff;font-weight:600}.card .k{color:var(--ink-muted);display:inline-block;width:96px}.dot{width:12px;height:12px;border-radius:50%;background:var(--signal);display:inline-block;margin-right:8px}.stack{position:absolute;left:64px;bottom:110px;font-size:20px;color:var(--muted);max-width:420px}</style><body>
+<div class=eyebrow>Kubernetes root cause</div>
+<h1 style="margin-top:22px;max-width:none;font-size:84px">Fifty alerts.<br>One cause.</h1>
+<p class=lede style="max-width:24ch">One message: what broke, why, who changed it, and what to do next.</p>
+<div class="ink card mono">
+<div class=t><span>kwatch · 1 incident</span><span>ROOT CAUSE FOUND</span></div>
+<p style="font-family:'Instrument Sans';font-size:23px;line-height:1.3;color:#fff;margin-bottom:18px"><b>checkout-api</b> is crash-looping because a ConfigMap changed 4 minutes ago.</p>
+<p><span class=k>Why</span>DB_HOST does not resolve</p>
+<p><span class=k>Who</span>deploy-bot <span class=pro>Pro</span></p>
+<p><span class=k>Impact</span>payments, cart</p>
+<p><span class=k>Next</span>Roll back checkout-config <span class=pro>Pro</span></p>
+</div>
+<div class=stack>50 pods restarting, 1 Service with no endpoints, 2 failing health checks. Grouped into one incident.</div>
+<div class=foot><svg viewBox="0 0 64 64" width="30" height="30"><path d="M17 5.5v53" stroke="#0E1116" stroke-width="8.5"/><path d="M47.5 6.5 32.2 27.6" stroke="#0E1116" stroke-width="7.5"/><path d="M33.4 36.8 48.5 57.5" stroke="#0E1116" stroke-width="8"/><circle cx="28.6" cy="32.2" r="8.6" fill="#C8F542"/><circle cx="28.6" cy="32.2" r="8.6" fill="none" stroke="#0E1116" stroke-width="3.2"/></svg>kwatch<span>kwatch.dev</span></div>

@@ -1,0 +1,20 @@
+@font-face{font-family:'Bricolage Grotesque';font-weight:200 800;src:url('file:///Users/macos/kwatch-dev/kwatch.dev/node_modules/@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-opsz-normal.woff2')}
+@font-face{font-family:'Instrument Sans';font-weight:400 700;src:url('file:///Users/macos/kwatch-dev/kwatch.dev/node_modules/@fontsource-variable/instrument-sans/files/instrument-sans-latin-wght-normal.woff2')}
+@font-face{font-family:'Geist Mono';font-weight:100 900;src:url('file:///Users/macos/kwatch-dev/kwatch.dev/node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2')}
+:root{--bg:#fff;--surface:#F2F3F0;--line:#DADDE2;--text:#0E1116;--muted:#5B6270;--soft:#3A404B;--ink:#0E1116;--ink-text:#ECEDEA;--ink-muted:#9AA0AA;--ink-line:#2A2E35;--signal:#C8F542;--failing:#E5484D;--degraded:#F5A524;--resolved:#2F80ED}
+*{box-sizing:border-box;margin:0}
+html,body{width:1270px;height:760px;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:400 22px/1.4 'Instrument Sans',sans-serif;padding:56px 64px;position:relative}
+.eyebrow{font:600 16px 'Geist Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 76px/.98 'Bricolage Grotesque',sans-serif;letter-spacing:-.035em}
+h2{font:800 54px/1 'Bricolage Grotesque',sans-serif;letter-spacing:-.03em}
+.mono{font-family:'Geist Mono',monospace}
+.ink{background:var(--ink);color:var(--ink-text);border-radius:14px}
+.foot{position:absolute;left:64px;bottom:40px;display:flex;align-items:center;gap:12px;font:600 20px 'Bricolage Grotesque',sans-serif}
+.foot span{font:500 16px 'Geist Mono',monospace;color:var(--muted);margin-left:8px}
+.lede{color:var(--soft);font-size:24px;max-width:30ch;margin-top:20px}
+.row{display:flex;gap:56px}
+.pill{display:inline-block;font:600 14px 'Geist Mono',monospace;padding:4px 10px;border-radius:4px}
+.pro{display:inline-block;font:600 12px/1 'Geist Mono',monospace;letter-spacing:.06em;text-transform:uppercase;border:1.5px solid currentColor;border-radius:4px;padding:3px 6px;margin-left:10px;vertical-align:middle;color:var(--ink-muted);font-weight:600}
+.leg .pro{color:var(--muted);font-size:13px}
+.leg strong .pro{display:inline-block;font-size:13px;color:var(--muted)}

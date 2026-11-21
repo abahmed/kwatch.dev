@@ -444,6 +444,32 @@ generated: true
 | `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
 | `fallback` | string | false | false | `` | Optional fallback provider name. |
 
+## servicenow
+
+| Field | Type | Required | Secret | Default | Description |
+| --- | --- | --- | --- | --- | --- |
+| `instanceURL` | string | true | false | `` | Instance address, for example https://example.service-now.com (https, no path) |
+| `user` | string | false | false | `` | Integration user name (basic authentication) |
+| `password` | string | false | true | `` | Integration user password (basic authentication) |
+| `clientID` | string | false | false | `` | OAuth client ID (client credentials) |
+| `clientSecret` | string | false | true | `` | OAuth client secret (client credentials) |
+| `table` | string | false | false | `incident` | Table the incidents are filed in (default: incident) |
+| `assignmentGroup` | string | false | false | `` | Assignment group (sys_id or name) |
+| `caller` | string | false | false | `` | Caller (sys_id or user name) |
+| `category` | string | false | false | `` | Incident category |
+| `urgency` | json | false | false | `` | Urgency per tier, for example &#123;"page": "1", "notify": "2", "low": "3"&#125; (the default) |
+| `impact` | json | false | false | `` | Impact per tier, for example &#123;"page": "1", "notify": "2", "low": "3"&#125; (the default) |
+| `fields` | json | false | false | `` | Extra columns set on a new incident, for example &#123;"u_cluster": "prod"&#125; |
+| `noteField` | string | false | false | `work_notes` | Journal column updates are written to (default: work_notes) |
+| `resolveState` | string | false | false | `6` | State a resolve sets (default: 6, Resolved) |
+| `closeCode` | string | false | false | `Solution provided` | Resolution code a resolve sets (default: Solution provided) |
+| `closeNotes` | string | false | false | `` | Resolution notes a resolve sets |
+| `reopenState` | string | false | false | `2` | State that reopens a resolved incident when it fails again (default: 2, In Progress; empty files a new incident) |
+| `routes` | json | false | false | `` | Optional JSON route filters. |
+| `retry.maxAttempts` | integer | false | false | `` | Optional maximum retry attempts. |
+| `retry.delay` | string | false | false | `` | Optional retry delay, for example 5s. |
+| `fallback` | string | false | false | `` | Optional fallback provider name. |
+
 ## ses
 
 | Field | Type | Required | Secret | Default | Description |

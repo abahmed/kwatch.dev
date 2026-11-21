@@ -78,6 +78,8 @@ generated: true
 | `dashboard.enabled` | boolean | `false` | active | Serve the read-only incident dashboard API on a separate listener; Pro only, off by default. |
 | `dashboard.port` | integer | `8061` | active | Port for the dashboard API listener; must not equal healthCheck.port. |
 | `app.environment` | string | `empty` | active | What the cluster is for: production (default) or non-production; non-production caps every incident at Needs attention, so nothing in the cluster pages. |
+| `app.disableSelfAlerts` | boolean | `false` | active | Stop kwatch from sending a message when one of its own parts is degraded. |
+| `app.gitOpsLinks` | json | `&#123;&#125;` | active | Pro. JSON map of GitOps tool (argocd, flux or helm) to the web address of one application, with &#123;app&#125; where its name goes; messages and the dashboard then link a change to the application that deployed it. |
 
 ## Security
 

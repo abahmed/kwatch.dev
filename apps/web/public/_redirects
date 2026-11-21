@@ -29,3 +29,6 @@
 /docs https://docs.kwatch.dev/ 301
 /docs/intro https://docs.kwatch.dev/ 301
 /docs/* https://docs.kwatch.dev/:splat 301
+
+# RFC 9116 shortcut.
+/security.txt /.well-known/security.txt 301

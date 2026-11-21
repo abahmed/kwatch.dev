@@ -61,7 +61,7 @@
   {
     "id": "core.workloads.rollouts",
     "lifecycle": "runtime",
-    "description": "Detect stuck workload rollouts",
+    "description": "Detect stuck workload rollouts and failed or stuck Helm releases",
     "deps": [
       "core.detection.workloads"
     ],

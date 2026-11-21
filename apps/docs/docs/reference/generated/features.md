@@ -19,7 +19,7 @@ generated: true
 | `core.pods.advanced` | runtime | Detect preemption, admission rejection, grace-period kills and scheduling gates | `core.detection.pods` |
 | `core.pods.restarts` | runtime | Detect crash loops and excessive restarts | `core.detection.pods` |
 | `core.detection.workloads` | runtime | Detect workload rollout and execution failures | `none` |
-| `core.workloads.rollouts` | runtime | Detect stuck workload rollouts | `core.detection.workloads` |
+| `core.workloads.rollouts` | runtime | Detect stuck workload rollouts and failed or stuck Helm releases | `core.detection.workloads` |
 | `core.workloads.jobs` | runtime | Detect failed Jobs and failed or missed CronJobs | `core.detection.workloads` |
 | `core.workloads.pdb` | runtime | Detect PodDisruptionBudgets that block disruption | `core.detection.workloads` |
 | `core.workloads.hpa` | runtime | Diagnose HorizontalPodAutoscaler failures | `core.detection.workloads` |

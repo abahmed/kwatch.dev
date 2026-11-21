@@ -33,7 +33,7 @@ less kwatch.sh
 bash kwatch.sh
 ```
 
-The script is plain Bash and is published in
+To check the script and what it verifies, see [Verify the installer](verify-installer.md). It is published in
 [kwatch.sh](https://kwatch.dev/kwatch.sh).
 
 The manager checks the cluster, lets you configure zero, one, or several alert

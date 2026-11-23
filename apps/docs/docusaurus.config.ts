@@ -53,6 +53,8 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Docs only: /installation, not /docs/installation.
           routeBasePath: '/',
+          // Required for sitemap lastmod (git last-update time).
+          showLastUpdateTime: true,
         },
         blog: false,
         theme: {

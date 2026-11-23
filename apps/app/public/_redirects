@@ -1,1 +1,8 @@
-/*  /index.html  200
+# Known app routes serve the SPA shell. Anything else (for example
+# /sitemap.xml) gets dist/404.html, which Pages serves with a 404 status.
+/signin    /index.html  200
+/signup    /index.html  200
+/licenses  /index.html  200
+/clusters  /index.html  200
+/help      /index.html  200
+/account   /index.html  200

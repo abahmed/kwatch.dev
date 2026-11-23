@@ -26,7 +26,10 @@ export default defineConfig({
   integrations: [
     sitemap({
       filter: (page) => !page.endsWith('/404'),
-      customSitemaps: ['https://docs.kwatch.dev/sitemap.xml'],
+      customSitemaps: [
+        'https://docs.kwatch.dev/sitemap.xml',
+        'https://blog.kwatch.dev/sitemap-index.xml',
+      ],
       serialize(item) {
         const path = new URL(item.url).pathname.replace(/\/$/, '') || '/';
         const date = sources[path] && lastmod(path);

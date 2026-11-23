@@ -26,3 +26,8 @@
 /kwatch.sh
   Content-Type: text/plain; charset=utf-8
   Cache-Control: public, max-age=300
+
+https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://:version.:project.pages.dev/*
+  X-Robots-Tag: noindex
